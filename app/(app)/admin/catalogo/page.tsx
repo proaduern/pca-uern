@@ -5,14 +5,16 @@ import { brl } from "@/lib/formato";
 import FormularioSimples from "../FormularioSimples";
 import ImportarPlanilhaForm from "../ImportarPlanilhaForm";
 import BotaoExcluir from "../BotaoExcluir";
+import RestricaoItemForm from "./RestricaoItemForm";
 
 export default async function CatalogoPage() {
-  const [itens, categorias] = await Promise.all([
+  const [itens, categorias, unidades] = await Promise.all([
     prisma.itemCatalogo.findMany({
-      include: { categoria: true },
+      include: { categoria: true, unidadesRestritas: { select: { id: true } } },
       orderBy: [{ categoria: { nome: "asc" } }, { item: "asc" }],
     }),
     prisma.categoria.findMany({ where: { semItem: false }, orderBy: { nome: "asc" } }),
+    prisma.unidade.findMany({ where: { ativa: true }, orderBy: { nome: "asc" } }),
   ]);
 
   return (
@@ -57,6 +59,7 @@ export default async function CatalogoPage() {
               <th className="px-4 py-2 font-medium">Item</th>
               <th className="px-4 py-2 font-medium">Valor</th>
               <th className="px-4 py-2 font-medium">Tipo</th>
+              <th className="px-4 py-2 font-medium">Visibilidade</th>
               <th className="px-4 py-2 font-medium">Ações</th>
             </tr>
           </thead>
@@ -68,6 +71,14 @@ export default async function CatalogoPage() {
                 <td className="px-4 py-2 text-slate-600">{brl(it.valor)}</td>
                 <td className="px-4 py-2 text-slate-600">
                   {it.tipoBem === "CONSUMO" ? "Consumo" : "Permanente"}
+                </td>
+                <td className="px-4 py-2">
+                  <RestricaoItemForm
+                    itemId={it.id}
+                    modoAtual={it.restricaoModo ?? "HERDA"}
+                    unidadesRestritasIds={it.unidadesRestritas.map((u) => u.id)}
+                    unidades={unidades}
+                  />
                 </td>
                 <td className="px-4 py-2">
                   <BotaoExcluir action={excluirItemCatalogoAction} id={it.id} />

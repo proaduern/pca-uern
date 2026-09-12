@@ -318,6 +318,35 @@ export async function criarCategoriaAction(formData: FormData) {
   revalidatePath("/admin/categorias");
 }
 
+export async function definirRestricaoCategoriaAction(categoriaId: string, formData: FormData) {
+  await exigirAdmin();
+  const modo = (String(formData.get("modo") ?? "") || "TODAS") as "TODAS" | "SOMENTE" | "EXCETO";
+  const unidadeIds = formData.getAll("unidadeId").map(String);
+  await prisma.categoria.update({
+    where: { id: categoriaId },
+    data: {
+      restricaoModo: modo,
+      unidadesRestritas: { set: modo === "TODAS" ? [] : unidadeIds.map((id) => ({ id })) },
+    },
+  });
+  revalidatePath("/admin/categorias");
+}
+
+export async function definirRestricaoItemCatalogoAction(itemId: string, formData: FormData) {
+  await exigirAdmin();
+  const modoRaw = String(formData.get("modo") ?? "HERDA");
+  const modo = modoRaw === "HERDA" ? null : (modoRaw as "TODAS" | "SOMENTE" | "EXCETO");
+  const unidadeIds = formData.getAll("unidadeId").map(String);
+  await prisma.itemCatalogo.update({
+    where: { id: itemId },
+    data: {
+      restricaoModo: modo,
+      unidadesRestritas: { set: modo === "SOMENTE" || modo === "EXCETO" ? unidadeIds.map((id) => ({ id })) : [] },
+    },
+  });
+  revalidatePath("/admin/catalogo");
+}
+
 export async function excluirCategoriaAction(categoriaId: string) {
   await exigirAdmin();
   const emUso = await prisma.itemDfd.count({ where: { categoriaId } });

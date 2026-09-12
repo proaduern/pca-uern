@@ -39,6 +39,9 @@ model Unidade {
   dfds                 Dfd[]
   setoresVinculados    SetorTecnico[]
   licitacoesVinculadas Licitacoes[]
+
+  categoriasRestritas    Categoria[]    @relation("CategoriaRestricaoUnidades")
+  itensCatalogoRestritos ItemCatalogo[] @relation("ItemCatalogoRestricaoUnidades")
 }
 
 enum CotaTipo {
@@ -151,6 +154,15 @@ enum ModoServico {
   ITENS
 }
 
+// Visibilidade de catálogo/categoria por unidade, extraída do sistema
+// original: TODAS (padrão, sem restrição), SOMENTE (visível só para as
+// unidades listadas) ou EXCETO (visível para todas, menos as listadas).
+enum ModoRestricao {
+  TODAS
+  SOMENTE
+  EXCETO
+}
+
 model Categoria {
   id               String        @id @default(cuid())
   nome             String        @unique
@@ -167,6 +179,9 @@ model Categoria {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
+  restricaoModo     ModoRestricao @default(TODAS)
+  unidadesRestritas Unidade[]     @relation("CategoriaRestricaoUnidades")
+
   itensCatalogo ItemCatalogo[]
   itensDfd      ItemDfd[]
   itensTecnicos ItemTecnico[]
@@ -181,6 +196,11 @@ model ItemCatalogo {
   valor       Decimal   @db.Decimal(14, 2)
   tipoBem     TipoBem   @default(PERMANENTE)
   ativo       Boolean   @default(true)
+
+  // null = herda a regra de visibilidade da categoria; qualquer outro valor
+  // sobrescreve a regra da categoria só para este item.
+  restricaoModo     ModoRestricao?
+  unidadesRestritas Unidade[]      @relation("ItemCatalogoRestricaoUnidades")
 
   @@unique([categoriaId, item])
 }

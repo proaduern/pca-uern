@@ -6,11 +6,16 @@ import FormularioSimples from "../FormularioSimples";
 import ImportarPlanilhaForm from "../ImportarPlanilhaForm";
 import BotaoExcluir from "../BotaoExcluir";
 import AtribuirSetorForm from "./AtribuirSetorForm";
+import RestricaoCategoriaForm from "./RestricaoCategoriaForm";
 
 export default async function CategoriasPage() {
-  const [categorias, setores] = await Promise.all([
-    prisma.categoria.findMany({ orderBy: { nome: "asc" } }),
+  const [categorias, setores, unidades] = await Promise.all([
+    prisma.categoria.findMany({
+      include: { unidadesRestritas: { select: { id: true } } },
+      orderBy: { nome: "asc" },
+    }),
     prisma.setorTecnico.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
+    prisma.unidade.findMany({ where: { ativa: true }, orderBy: { nome: "asc" } }),
   ]);
 
   return (
@@ -77,6 +82,7 @@ export default async function CategoriasPage() {
               <th className="px-4 py-2 font-medium">Teto anual</th>
               <th className="px-4 py-2 font-medium">Flags</th>
               <th className="px-4 py-2 font-medium">Setor técnico</th>
+              <th className="px-4 py-2 font-medium">Visibilidade</th>
               <th className="px-4 py-2 font-medium">Ações</th>
             </tr>
           </thead>
@@ -101,6 +107,14 @@ export default async function CategoriasPage() {
                 </td>
                 <td className="px-4 py-2">
                   <AtribuirSetorForm categoriaId={c.id} setorTecnicoId={c.setorTecnicoId} setores={setores} />
+                </td>
+                <td className="px-4 py-2">
+                  <RestricaoCategoriaForm
+                    categoriaId={c.id}
+                    modoAtual={c.restricaoModo}
+                    unidadesRestritasIds={c.unidadesRestritas.map((u) => u.id)}
+                    unidades={unidades}
+                  />
                 </td>
                 <td className="px-4 py-2">
                   <BotaoExcluir action={excluirCategoriaAction} id={c.id} />

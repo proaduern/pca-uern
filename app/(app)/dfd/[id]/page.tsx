@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/auth";
 import { brl, formatarData } from "@/lib/formato";
+import { categoriaVisivelPara, itemCatalogoVisivelPara } from "@/lib/visibilidade";
 import DadosGeraisForm from "./DadosGeraisForm";
 import ItemForm from "./ItemForm";
 import AcoesDfd from "./AcoesDfd";
@@ -27,12 +28,24 @@ export default async function DfdDetalhePage({
   const editavel = dfd.status === "RASCUNHO" || dfd.status === "REPROVADO";
   const podeEditar = editavel && sessao.tipo === "UNIDADE";
 
-  const [tipificacoes, prioridades, categorias, itensCatalogo] = await Promise.all([
+  const [tipificacoes, prioridades, todasCategorias, todosItensCatalogo] = await Promise.all([
     prisma.tipificacao.findMany({ orderBy: { nome: "asc" } }),
     prisma.prioridade.findMany({ orderBy: { frase: "asc" } }),
-    prisma.categoria.findMany({ where: { ativa: true }, orderBy: { nome: "asc" } }),
-    prisma.itemCatalogo.findMany({ where: { ativo: true }, include: { categoria: true } }),
+    prisma.categoria.findMany({
+      where: { ativa: true },
+      include: { unidadesRestritas: { select: { id: true } } },
+      orderBy: { nome: "asc" },
+    }),
+    prisma.itemCatalogo.findMany({
+      where: { ativo: true },
+      include: { categoria: { include: { unidadesRestritas: { select: { id: true } } } }, unidadesRestritas: { select: { id: true } } },
+    }),
   ]);
+
+  const categorias = todasCategorias.filter((c) => categoriaVisivelPara(c, dfd.unidadeId));
+  const itensCatalogo = todosItensCatalogo.filter(
+    (it) => categoriaVisivelPara(it.categoria, dfd.unidadeId) && itemCatalogoVisivelPara(it, it.categoria, dfd.unidadeId),
+  );
 
   const total = dfd.itens.reduce((s, it) => s + Number(it.valorTotal), 0);
 
