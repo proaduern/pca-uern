@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 
@@ -74,6 +75,15 @@ export async function exigirSessao(): Promise<SessionPayload> {
 export async function exigirAdmin(): Promise<SessionPayload> {
   const sessao = await exigirSessao();
   if (sessao.tipo !== "ADMIN") throw new Error("Acesso restrito à PROAD.");
+  return sessao;
+}
+
+/** Igual a exigirAdmin, mas para uso em Server Components de página: redireciona
+ *  em vez de lançar erro, para páginas /admin/* acessadas diretamente por
+ *  uma sessão sem esse papel. */
+export async function exigirAdminNaPagina(): Promise<SessionPayload> {
+  const sessao = await obterSessao();
+  if (!sessao || sessao.tipo !== "ADMIN") redirect("/");
   return sessao;
 }
 

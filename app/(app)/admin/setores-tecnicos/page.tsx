@@ -3,8 +3,10 @@ import { criarSetorTecnicoAction, excluirSetorTecnicoAction } from "@/lib/action
 import AcessoVinculavelForm from "../AcessoVinculavelForm";
 import BotaoExcluir from "../BotaoExcluir";
 import RedefinirSenhaSetorForm from "./RedefinirSenhaSetorForm";
+import { exigirAdminNaPagina } from "@/lib/auth";
 
 export default async function SetoresTecnicosPage() {
+  await exigirAdminNaPagina();
   const [setores, unidades] = await Promise.all([
     prisma.setorTecnico.findMany({
       orderBy: { nome: "asc" },

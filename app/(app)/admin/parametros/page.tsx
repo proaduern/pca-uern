@@ -7,8 +7,10 @@ import {
 } from "@/lib/actions/admin";
 import FormularioSimples from "../FormularioSimples";
 import BotaoExcluir from "../BotaoExcluir";
+import { exigirAdminNaPagina } from "@/lib/auth";
 
 export default async function ParametrosPage() {
+  await exigirAdminNaPagina();
   const [tipificacoes, prioridades] = await Promise.all([
     prisma.tipificacao.findMany({ orderBy: { nome: "asc" } }),
     prisma.prioridade.findMany({ orderBy: { frase: "asc" } }),

@@ -4,8 +4,10 @@ import { brl, formatarData } from "@/lib/formato";
 import FormularioSimples from "../FormularioSimples";
 import PcaAcoes from "./PcaAcoes";
 import CodigoPcaInput from "./CodigoPcaInput";
+import { exigirAdminNaPagina } from "@/lib/auth";
 
 export default async function PcaPage() {
+  await exigirAdminNaPagina();
   const [pcas, unidades, consolidacoes] = await Promise.all([
     prisma.pca.findMany({ orderBy: { ano: "desc" }, include: { excecoes: true } }),
     prisma.unidade.findMany({ orderBy: { nome: "asc" } }),

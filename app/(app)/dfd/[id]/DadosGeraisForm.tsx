@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { atualizarDadosGeraisDfdAction } from "@/lib/actions/dfd";
+import { adminAtualizarDadosGeraisDfdAction, atualizarDadosGeraisDfdAction } from "@/lib/actions/dfd";
 import type { Dfd, Prioridade, Tipificacao } from "@prisma/client";
 import { DESCRICAO_SUMARIA_MAX, JUSTIFICATIVA_MIN } from "@/lib/dfd-validacao";
 
@@ -10,11 +10,13 @@ export default function DadosGeraisForm({
   tipificacoes,
   prioridades,
   podeEditar,
+  modoAdmin = false,
 }: {
   dfd: Dfd;
   tipificacoes: Tipificacao[];
   prioridades: Prioridade[];
   podeEditar: boolean;
+  modoAdmin?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -34,7 +36,8 @@ export default function DadosGeraisForm({
         const formData = new FormData(e.currentTarget);
         startTransition(async () => {
           try {
-            await atualizarDadosGeraisDfdAction(dfd.id, formData);
+            const action = modoAdmin ? adminAtualizarDadosGeraisDfdAction : atualizarDadosGeraisDfdAction;
+            await action(dfd.id, formData);
             setSucesso(true);
           } catch (err) {
             setErro(err instanceof Error ? err.message : "Erro inesperado.");

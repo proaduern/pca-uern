@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useTransition } from "react";
-import { adicionarItemDfdAction } from "@/lib/actions/dfd";
+import { adicionarItemDfdAction, adminAdicionarItemDfdAction } from "@/lib/actions/dfd";
 import { brl } from "@/lib/formato";
 import type { Categoria, ItemCatalogo } from "@prisma/client";
 
@@ -12,11 +12,13 @@ export default function ItemForm({
   categorias,
   itensCatalogo,
   unidadeElegivelOP,
+  modoAdmin = false,
 }: {
   dfdId: string;
   categorias: Categoria[];
   itensCatalogo: ItemCatalogoComCategoria[];
   unidadeElegivelOP: boolean;
+  modoAdmin?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -53,7 +55,8 @@ export default function ItemForm({
         const formData = new FormData(e.currentTarget);
         startTransition(async () => {
           try {
-            await adicionarItemDfdAction(dfdId, formData);
+            const action = modoAdmin ? adminAdicionarItemDfdAction : adicionarItemDfdAction;
+            await action(dfdId, formData);
             formRef.current?.reset();
             setCategoriaId("");
             setItemCatalogoId("");

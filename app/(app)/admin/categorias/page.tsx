@@ -7,8 +7,11 @@ import ImportarPlanilhaForm from "../ImportarPlanilhaForm";
 import BotaoExcluir from "../BotaoExcluir";
 import AtribuirSetorForm from "./AtribuirSetorForm";
 import RestricaoCategoriaForm from "./RestricaoCategoriaForm";
+import RenomearCategoriaForm from "./RenomearCategoriaForm";
+import { exigirAdminNaPagina } from "@/lib/auth";
 
 export default async function CategoriasPage() {
+  await exigirAdminNaPagina();
   const [categorias, setores, unidades] = await Promise.all([
     prisma.categoria.findMany({
       include: { unidadesRestritas: { select: { id: true } } },
@@ -89,7 +92,12 @@ export default async function CategoriasPage() {
           <tbody className="divide-y divide-slate-100">
             {categorias.map((c) => (
               <tr key={c.id}>
-                <td className="px-4 py-2 text-slate-900">{c.nome}</td>
+                <td className="px-4 py-2 text-slate-900">
+                  {c.nome}
+                  <div className="mt-1">
+                    <RenomearCategoriaForm categoriaId={c.id} nomeAtual={c.nome} />
+                  </div>
+                </td>
                 <td className="px-4 py-2 text-slate-600">
                   {c.tipo === "MATERIAL" ? "Material" : `Serviço (${c.modoServico})`}
                 </td>

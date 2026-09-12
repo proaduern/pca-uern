@@ -10,6 +10,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const linksAdmin = [
     { href: "/", label: "Aprovação de DFDs" },
+    { href: "/admin/demandas", label: "Demandas" },
+    { href: "/admin/consolidacao", label: "Consolidação Geral" },
     { href: "/admin/unidades", label: "Unidades" },
     { href: "/admin/setores-tecnicos", label: "Setores Técnicos" },
     { href: "/admin/licitacoes", label: "Licitações" },

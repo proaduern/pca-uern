@@ -6,8 +6,10 @@ import FormularioSimples from "../FormularioSimples";
 import ImportarPlanilhaForm from "../ImportarPlanilhaForm";
 import BotaoExcluir from "../BotaoExcluir";
 import RestricaoItemForm from "./RestricaoItemForm";
+import { exigirAdminNaPagina } from "@/lib/auth";
 
 export default async function CatalogoPage() {
+  await exigirAdminNaPagina();
   const [itens, categorias, unidades] = await Promise.all([
     prisma.itemCatalogo.findMany({
       include: { categoria: true, unidadesRestritas: { select: { id: true } } },

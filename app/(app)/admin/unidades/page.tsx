@@ -6,8 +6,10 @@ import FormularioSimples from "../FormularioSimples";
 import ImportarPlanilhaForm from "../ImportarPlanilhaForm";
 import BotaoExcluir from "../BotaoExcluir";
 import RedefinirSenhaForm from "./RedefinirSenhaForm";
+import { exigirAdminNaPagina } from "@/lib/auth";
 
 export default async function UnidadesPage() {
+  await exigirAdminNaPagina();
   const unidades = await prisma.unidade.findMany({ orderBy: { nome: "asc" } });
 
   return (

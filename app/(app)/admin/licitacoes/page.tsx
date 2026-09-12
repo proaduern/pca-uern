@@ -3,8 +3,10 @@ import { criarLicitacoesAction, excluirLicitacoesAction } from "@/lib/actions/ad
 import AcessoVinculavelForm from "../AcessoVinculavelForm";
 import BotaoExcluir from "../BotaoExcluir";
 import RedefinirSenhaLicitacoesForm from "./RedefinirSenhaLicitacoesForm";
+import { exigirAdminNaPagina } from "@/lib/auth";
 
 export default async function LicitacoesPage() {
+  await exigirAdminNaPagina();
   const [acessos, unidades] = await Promise.all([
     prisma.licitacoes.findMany({ orderBy: { nome: "asc" }, include: { unidade: true } }),
     prisma.unidade.findMany({ where: { ativa: true }, orderBy: { nome: "asc" } }),

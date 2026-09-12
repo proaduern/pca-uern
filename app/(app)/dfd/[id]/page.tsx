@@ -26,7 +26,11 @@ export default async function DfdDetalhePage({
   if (sessao.tipo === "UNIDADE" && dfd.unidadeId !== sessao.id) notFound();
 
   const editavel = dfd.status === "RASCUNHO" || dfd.status === "REPROVADO";
-  const podeEditar = editavel && sessao.tipo === "UNIDADE";
+  const modoAdmin = sessao.tipo === "ADMIN";
+  const podeEditarUnidade = editavel && sessao.tipo === "UNIDADE";
+  // A PROAD pode editar o DFD em qualquer status — uma edição em um DFD já
+  // aprovado o devolve para "aguardando aprovação" (ver reverterAprovacaoSeNecessario).
+  const podeEditar = podeEditarUnidade || modoAdmin;
 
   const [tipificacoes, prioridades, todasCategorias, todosItensCatalogo] = await Promise.all([
     prisma.tipificacao.findMany({ orderBy: { nome: "asc" } }),
@@ -66,11 +70,19 @@ export default async function DfdDetalhePage({
         )}
       </div>
 
+      {modoAdmin && (
+        <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Você está editando como PROAD. Se este DFD já estiver aprovado, qualquer alteração o
+          devolve para &quot;aguardando aprovação&quot;.
+        </p>
+      )}
+
       <DadosGeraisForm
         dfd={dfd}
         tipificacoes={tipificacoes}
         prioridades={prioridades}
         podeEditar={podeEditar}
+        modoAdmin={modoAdmin}
       />
 
       <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
@@ -92,7 +104,9 @@ export default async function DfdDetalhePage({
               </div>
               <div className="text-right">
                 <p className="font-semibold text-slate-900">{brl(it.valorTotal)}</p>
-                {podeEditar && <RemoverItemBotao dfdId={dfd.id} itemId={it.id} />}
+                {podeEditar && (
+                  <RemoverItemBotao dfdId={dfd.id} itemId={it.id} modoAdmin={modoAdmin} />
+                )}
               </div>
             </div>
           </div>
@@ -108,11 +122,12 @@ export default async function DfdDetalhePage({
             categorias={categorias}
             itensCatalogo={itensCatalogo}
             unidadeElegivelOP={dfd.unidade.elegivelCotaOP}
+            modoAdmin={modoAdmin}
           />
         )}
       </section>
 
-      <AcoesDfd dfdId={dfd.id} podeEditar={podeEditar} totalItens={dfd.itens.length} />
+      <AcoesDfd dfdId={dfd.id} podeEditar={podeEditarUnidade} totalItens={dfd.itens.length} />
 
       {dfd.dataRenovacao && (
         <p className="text-xs text-slate-400">

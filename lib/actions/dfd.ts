@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { exigirUnidade } from "@/lib/auth";
+import { exigirAdmin, exigirUnidade } from "@/lib/auth";
 import { calcularGastos, janelaAberta, saldoPCA, saldoUnidadeGeral, saldoUnidadeOP } from "@/lib/cota";
 import {
   validarDescricaoSumaria,
@@ -12,6 +12,7 @@ import {
 } from "@/lib/dfd-validacao";
 import { brl } from "@/lib/formato";
 import { categoriaVisivelPara, itemCatalogoVisivelPara } from "@/lib/visibilidade";
+import type { Dfd, ItemDfd, Unidade } from "@prisma/client";
 
 type StatusComprometido = "AGUARDANDO_APROVACAO" | "APROVADO";
 const STATUS_COMPROMETEM_ORCAMENTO: StatusComprometido[] = ["AGUARDANDO_APROVACAO", "APROVADO"];
@@ -70,6 +71,21 @@ async function obterDfdDaUnidadeOuErro(dfdId: string, unidadeId: string) {
   return dfd;
 }
 
+/**
+ * A PROAD pode editar qualquer DFD, em qualquer status — igual ao sistema
+ * original. Se o DFD já estava aprovado, a edição o devolve para
+ * "aguardando aprovação": evita que fique valendo com itens diferentes dos
+ * que a PROAD revisou, forçando uma nova conferência antes de seguir.
+ */
+async function reverterAprovacaoSeNecessario(dfd: { id: string; status: string }) {
+  if (dfd.status === "APROVADO") {
+    await prisma.dfd.update({
+      where: { id: dfd.id },
+      data: { status: "AGUARDANDO_APROVACAO", aprovadoEm: null },
+    });
+  }
+}
+
 export async function criarRascunhoDfdAction() {
   const sessao = await exigirUnidade();
   const pca = await obterPcaAtivoOuErro();
@@ -96,10 +112,7 @@ export async function criarRascunhoDfdAction() {
   redirect(`/dfd/${dfd.id}`);
 }
 
-export async function atualizarDadosGeraisDfdAction(dfdId: string, formData: FormData) {
-  const sessao = await exigirUnidade();
-  await obterDfdDaUnidadeOuErro(dfdId, sessao.id);
-
+async function processarAtualizacaoDadosGerais(dfdId: string, formData: FormData) {
   const descricaoSumaria = String(formData.get("descricaoSumaria") ?? "").trim();
   const tipificacaoId = String(formData.get("tipificacaoId") ?? "") || null;
   const prioridadeId = String(formData.get("prioridadeId") ?? "");
@@ -130,15 +143,29 @@ export async function atualizarDadosGeraisDfdAction(dfdId: string, formData: For
       dataEntrega: tipoDemanda !== "RENOVACAO" ? new Date(data) : null,
     },
   });
+}
 
+export async function atualizarDadosGeraisDfdAction(dfdId: string, formData: FormData) {
+  const sessao = await exigirUnidade();
+  await obterDfdDaUnidadeOuErro(dfdId, sessao.id);
+  await processarAtualizacaoDadosGerais(dfdId, formData);
   revalidatePath(`/dfd/${dfdId}`);
 }
 
-export async function adicionarItemDfdAction(dfdId: string, formData: FormData) {
-  const sessao = await exigirUnidade();
-  const dfd = await obterDfdDaUnidadeOuErro(dfdId, sessao.id);
-  const unidade = await prisma.unidade.findUniqueOrThrow({ where: { id: sessao.id } });
+export async function adminAtualizarDadosGeraisDfdAction(dfdId: string, formData: FormData) {
+  await exigirAdmin();
+  const dfd = await prisma.dfd.findUniqueOrThrow({ where: { id: dfdId } });
+  await processarAtualizacaoDadosGerais(dfdId, formData);
+  await reverterAprovacaoSeNecessario(dfd);
+  revalidatePath(`/dfd/${dfdId}`);
+}
 
+async function processarAdicaoItem(
+  dfd: Dfd & { itens: ItemDfd[] },
+  unidade: Unidade,
+  formData: FormData,
+) {
+  const dfdId = dfd.id;
   const tipo = String(formData.get("tipo") ?? "MATERIAL") as "MATERIAL" | "SERVICO";
   const enquadramento = String(formData.get("enquadramento") ?? "GERAL") as
     | "OP"
@@ -162,7 +189,7 @@ export async function adicionarItemDfdAction(dfdId: string, formData: FormData) 
     where: { id: categoriaId },
     include: { unidadesRestritas: { select: { id: true } } },
   });
-  if (!categoria || !categoriaVisivelPara(categoria, sessao.id)) {
+  if (!categoria || !categoriaVisivelPara(categoria, unidade.id)) {
     throw new Error("Categoria não encontrada.");
   }
 
@@ -179,7 +206,7 @@ export async function adicionarItemDfdAction(dfdId: string, formData: FormData) 
     if (
       !itemCatalogo ||
       itemCatalogo.categoriaId !== categoriaId ||
-      !itemCatalogoVisivelPara(itemCatalogo, categoria, sessao.id)
+      !itemCatalogoVisivelPara(itemCatalogo, categoria, unidade.id)
     ) {
       throw new Error("Item de catálogo não encontrado.");
     }
@@ -219,7 +246,7 @@ export async function adicionarItemDfdAction(dfdId: string, formData: FormData) 
       dfd.itens.map((it) => ({ enquadramento: it.enquadramento, valorTotal: Number(it.valorTotal) })),
     );
     const [gastoUnidade, gastoPca] = await Promise.all([
-      gastosComprometidosDaUnidade(sessao.id),
+      gastosComprometidosDaUnidade(unidade.id),
       gastosComprometidosDoPca(dfd.ano),
     ]);
 
@@ -290,15 +317,42 @@ export async function adicionarItemDfdAction(dfdId: string, formData: FormData) 
       correlacao,
     },
   });
+}
 
+export async function adicionarItemDfdAction(dfdId: string, formData: FormData) {
+  const sessao = await exigirUnidade();
+  const dfd = await obterDfdDaUnidadeOuErro(dfdId, sessao.id);
+  const unidade = await prisma.unidade.findUniqueOrThrow({ where: { id: sessao.id } });
+  await processarAdicaoItem(dfd, unidade, formData);
   revalidatePath(`/dfd/${dfdId}`);
+}
+
+export async function adminAdicionarItemDfdAction(dfdId: string, formData: FormData) {
+  await exigirAdmin();
+  const dfd = await prisma.dfd.findUniqueOrThrow({ where: { id: dfdId }, include: { itens: true } });
+  const unidade = await prisma.unidade.findUniqueOrThrow({ where: { id: dfd.unidadeId } });
+  await processarAdicaoItem(dfd, unidade, formData);
+  await reverterAprovacaoSeNecessario(dfd);
+  revalidatePath(`/dfd/${dfdId}`);
+}
+
+async function processarRemocaoItem(dfdId: string, itemId: string) {
+  const { count } = await prisma.itemDfd.deleteMany({ where: { id: itemId, dfdId } });
+  if (count === 0) throw new Error("Item não encontrado neste DFD.");
 }
 
 export async function removerItemDfdAction(dfdId: string, itemId: string) {
   const sessao = await exigirUnidade();
   await obterDfdDaUnidadeOuErro(dfdId, sessao.id);
-  const { count } = await prisma.itemDfd.deleteMany({ where: { id: itemId, dfdId } });
-  if (count === 0) throw new Error("Item não encontrado neste DFD.");
+  await processarRemocaoItem(dfdId, itemId);
+  revalidatePath(`/dfd/${dfdId}`);
+}
+
+export async function adminRemoverItemDfdAction(dfdId: string, itemId: string) {
+  await exigirAdmin();
+  const dfd = await prisma.dfd.findUniqueOrThrow({ where: { id: dfdId } });
+  await processarRemocaoItem(dfdId, itemId);
+  await reverterAprovacaoSeNecessario(dfd);
   revalidatePath(`/dfd/${dfdId}`);
 }
 
@@ -337,4 +391,16 @@ export async function excluirDfdAction(dfdId: string) {
   await prisma.dfd.delete({ where: { id: dfdId } });
   revalidatePath("/");
   redirect("/");
+}
+
+/**
+ * Exclusão de DFD pela PROAD, sem restrição de status — o sistema original
+ * também não impõe nenhuma (é uma tela client-only), então a única guarda
+ * aqui é a de papel administrativo.
+ */
+export async function adminExcluirDfdAction(dfdId: string) {
+  await exigirAdmin();
+  await prisma.dfd.delete({ where: { id: dfdId } });
+  revalidatePath("/admin/demandas");
+  revalidatePath("/");
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { exigirAdmin, gerarHashSenha } from "@/lib/auth";
 
@@ -315,6 +316,48 @@ export async function criarCategoriaAction(formData: FormData) {
     },
   });
 
+  revalidatePath("/admin/categorias");
+}
+
+/**
+ * Renomeia uma categoria; se o novo nome já pertencer a outra categoria,
+ * mescla as duas (todo item de catálogo, item de DFD, item técnico e
+ * consolidação da categoria atual passa a apontar para a categoria de
+ * destino, e a categoria atual é removida) — equivalente ao
+ * renomearCategoriaEmTudo do sistema original, adaptado ao esquema
+ * relacional (aqui tudo referencia o id da categoria, não o nome, então
+ * o "recadastro em cascata" do legado não é necessário).
+ */
+export async function renomearOuMesclarCategoriaAction(categoriaId: string, formData: FormData) {
+  await exigirAdmin();
+  const novoNome = String(formData.get("novoNome") ?? "").trim();
+  if (!novoNome) throw new Error("Informe o novo nome da categoria.");
+
+  const existente = await prisma.categoria.findUnique({ where: { nome: novoNome } });
+
+  if (!existente || existente.id === categoriaId) {
+    await prisma.categoria.update({ where: { id: categoriaId }, data: { nome: novoNome } });
+    revalidatePath("/admin/categorias");
+    return;
+  }
+
+  try {
+    await prisma.$transaction([
+      prisma.itemCatalogo.updateMany({ where: { categoriaId }, data: { categoriaId: existente.id } }),
+      prisma.itemDfd.updateMany({ where: { categoriaId }, data: { categoriaId: existente.id } }),
+      prisma.itemTecnico.updateMany({ where: { categoriaId }, data: { categoriaId: existente.id } }),
+      prisma.consolidacaoTecnica.updateMany({ where: { categoriaId }, data: { categoriaId: existente.id } }),
+      prisma.categoria.delete({ where: { id: categoriaId } }),
+    ]);
+  } catch (erro) {
+    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+      throw new Error(
+        "Não é possível mesclar: há um item de catálogo com o mesmo nome nas duas categorias. " +
+          "Renomeie ou exclua o item duplicado antes de mesclar.",
+      );
+    }
+    throw erro;
+  }
   revalidatePath("/admin/categorias");
 }
 
