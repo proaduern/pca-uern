@@ -12,7 +12,7 @@ function getSecretKey() {
   return new TextEncoder().encode(secret);
 }
 
-export type TipoSessao = "ADMIN" | "UNIDADE";
+export type TipoSessao = "ADMIN" | "UNIDADE" | "SETOR_TECNICO";
 
 export interface SessionPayload {
   tipo: TipoSessao;
@@ -80,6 +80,12 @@ export async function exigirUnidade(): Promise<SessionPayload> {
   return sessao;
 }
 
+export async function exigirSetorTecnico(): Promise<SessionPayload> {
+  const sessao = await exigirSessao();
+  if (sessao.tipo !== "SETOR_TECNICO") throw new Error("Acesso restrito a setores técnicos.");
+  return sessao;
+}
+
 // Hash de um valor que nunca vai bater, só para gastar o mesmo tempo de um
 // bcrypt.compare real quando o email não existe — evita que o tempo de
 // resposta do login denuncie quais emails estão cadastrados.
@@ -108,6 +114,19 @@ export async function autenticar(
       nome: unidade.nome,
       email: unidade.email,
       senhaTemporaria: unidade.senhaTemporaria,
+    };
+  }
+
+  const setorTecnico = await prisma.setorTecnico.findUnique({ where: { email: emailNorm } });
+  if (setorTecnico) {
+    const ok = await bcrypt.compare(senha, setorTecnico.senhaHash);
+    if (!ok || !setorTecnico.ativo) return null;
+    return {
+      tipo: "SETOR_TECNICO",
+      id: setorTecnico.id,
+      nome: setorTecnico.nome,
+      email: setorTecnico.email,
+      senhaTemporaria: setorTecnico.senhaTemporaria,
     };
   }
 

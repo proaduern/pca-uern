@@ -56,8 +56,13 @@ export async function trocarSenhaAction(
 
   if (sessao.tipo === "ADMIN") {
     await prisma.usuario.update({ where: { id: sessao.id }, data: { senhaHash } });
-  } else {
+  } else if (sessao.tipo === "UNIDADE") {
     await prisma.unidade.update({
+      where: { id: sessao.id },
+      data: { senhaHash, senhaTemporaria: false },
+    });
+  } else {
+    await prisma.setorTecnico.update({
       where: { id: sessao.id },
       data: { senhaHash, senhaTemporaria: false },
     });

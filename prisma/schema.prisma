@@ -44,6 +44,20 @@ enum CotaTipo {
   ABERTA
 }
 
+model SetorTecnico {
+  id              String   @id @default(cuid())
+  nome            String
+  email           String   @unique
+  senhaHash       String
+  senhaTemporaria Boolean  @default(true)
+  ativo           Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  categorias    Categoria[]
+  consolidacoes ItemConsolidado[]
+}
+
 // ---------------------------------------------------------------------------
 // PCA (Plano de Contratações Anual)
 // ---------------------------------------------------------------------------
@@ -60,8 +74,9 @@ model Pca {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  excecoes PcaExcecao[]
-  dfds     Dfd[]
+  excecoes          PcaExcecao[]
+  dfds              Dfd[]
+  itensConsolidados ItemConsolidado[]
 }
 
 model PcaExcecao {
@@ -119,11 +134,14 @@ model Categoria {
   saldoAnualGlobal  Decimal?      @db.Decimal(16, 2)
   ignoraPCA         Boolean       @default(false)
   ativa             Boolean       @default(true)
+  setorTecnicoId    String?
+  setorTecnico      SetorTecnico? @relation(fields: [setorTecnicoId], references: [id])
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
-  itensCatalogo ItemCatalogo[]
-  itensDfd      ItemDfd[]
+  itensCatalogo    ItemCatalogo[]
+  itensDfd         ItemDfd[]
+  itensConsolidados ItemConsolidado[]
 }
 
 model ItemCatalogo {
@@ -229,7 +247,52 @@ model ItemDfd {
 
   correlacao    String
 
+  itemConsolidadoId String?
+  itemConsolidado   ItemConsolidado? @relation(fields: [itemConsolidadoId], references: [id])
+
   createdAt DateTime @default(now())
 
   @@index([dfdId])
+  @@index([itemConsolidadoId])
+}
+
+// ---------------------------------------------------------------------------
+// Consolidação (Setor Técnico)
+// ---------------------------------------------------------------------------
+
+enum StatusConsolidacao {
+  RASCUNHO
+  APROVADO
+}
+
+// Agrupa itens de DFDs aprovados (de várias unidades/enquadramentos) numa
+// única linha de compra por categoria+item, para a licitação (Fase 3).
+// Os ItemDfd de origem continuam intactos (ver relação abaixo) — a origem
+// por unidade/enquadramento nunca desaparece, só passa a apontar pra cá.
+model ItemConsolidado {
+  id               String             @id @default(cuid())
+  pcaAno           Int
+  pca              Pca                @relation(fields: [pcaAno], references: [ano])
+  categoriaId      String
+  categoria        Categoria          @relation(fields: [categoriaId], references: [id])
+
+  // Chave normalizada (categoria+nome) usada para reagrupar sem duplicar;
+  // nomeItem é o rótulo exibido, editável pelo Setor Técnico.
+  chaveAgrupamento String
+  nomeItem         String
+
+  quantidadeTotal  Decimal            @db.Decimal(12, 2)
+  valorTotal       Decimal            @db.Decimal(14, 2)
+
+  status           StatusConsolidacao @default(RASCUNHO)
+  aprovadoPorId    String?
+  aprovadoPor      SetorTecnico?      @relation(fields: [aprovadoPorId], references: [id])
+  aprovadoEm       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  origens ItemDfd[]
+
+  @@index([pcaAno, categoriaId, chaveAgrupamento])
 }

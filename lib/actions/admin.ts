@@ -69,6 +69,64 @@ export async function redefinirSenhaUnidadeAction(unidadeId: string, formData: F
 }
 
 // ---------------------------------------------------------------------------
+// Setores técnicos
+// ---------------------------------------------------------------------------
+
+export async function criarSetorTecnicoAction(formData: FormData) {
+  await exigirAdmin();
+  const nome = String(formData.get("nome") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const senhaInicial = String(formData.get("senhaInicial") ?? "");
+
+  if (!nome || !email || !senhaInicial) {
+    throw new Error("Preencha nome, email e senha inicial.");
+  }
+  if (!email.endsWith("@uern.br")) {
+    throw new Error("O email do setor técnico precisa ser do domínio @uern.br.");
+  }
+
+  const senhaHash = await gerarHashSenha(senhaInicial);
+
+  await prisma.setorTecnico.create({
+    data: { nome, email, senhaHash, senhaTemporaria: true },
+  });
+
+  revalidatePath("/admin/setores-tecnicos");
+}
+
+export async function excluirSetorTecnicoAction(setorTecnicoId: string) {
+  await exigirAdmin();
+  const emUso = await prisma.categoria.count({ where: { setorTecnicoId } });
+  if (emUso > 0) {
+    await prisma.setorTecnico.update({ where: { id: setorTecnicoId }, data: { ativo: false } });
+  } else {
+    await prisma.setorTecnico.delete({ where: { id: setorTecnicoId } });
+  }
+  revalidatePath("/admin/setores-tecnicos");
+}
+
+export async function redefinirSenhaSetorTecnicoAction(setorTecnicoId: string, formData: FormData) {
+  await exigirAdmin();
+  const novaSenha = String(formData.get("novaSenha") ?? "");
+  if (novaSenha.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+  const senhaHash = await gerarHashSenha(novaSenha);
+  await prisma.setorTecnico.update({
+    where: { id: setorTecnicoId },
+    data: { senhaHash, senhaTemporaria: true },
+  });
+  revalidatePath("/admin/setores-tecnicos");
+}
+
+export async function atribuirSetorTecnicoCategoriaAction(
+  categoriaId: string,
+  setorTecnicoId: string | null,
+) {
+  await exigirAdmin();
+  await prisma.categoria.update({ where: { id: categoriaId }, data: { setorTecnicoId } });
+  revalidatePath("/admin/categorias");
+}
+
+// ---------------------------------------------------------------------------
 // PCA
 // ---------------------------------------------------------------------------
 

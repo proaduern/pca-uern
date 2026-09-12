@@ -20,16 +20,20 @@ texto plano e uma senha de admin fixa, então este partiu do zero.
 
 ## Modelo de acesso
 
-Duas tabelas de login, sem hierarquia entre si — o email decide qual:
+Três tabelas de login, sem hierarquia entre si — o email decide qual:
 
 - `Usuario` — PROAD (admin): aprova/reprova DFDs, cadastra PCA, categorias,
-  catálogo, unidades, tipificações e prioridades.
+  catálogo, unidades, tipificações, prioridades e setores técnicos.
 - `Unidade` — unidade demandante: cria e edita seus próprios DFDs (rascunho
   ou reprovado), nunca vê ou edita dados de outra unidade.
+- `SetorTecnico` — consolida, para as categorias atribuídas a ele pela PROAD,
+  os itens dos DFDs aprovados de todas as unidades (ver "Consolidação"
+  abaixo).
 
 Toda ação de servidor (`lib/actions/*.ts`) começa checando a sessão
-(`exigirAdmin()` / `exigirUnidade()`), e toda ação que mexe num DFD confirma
-que ele pertence à unidade logada antes de ler ou escrever.
+(`exigirAdmin()` / `exigirUnidade()` / `exigirSetorTecnico()`), e toda ação
+que mexe num DFD ou numa consolidação confirma que ele pertence à
+unidade/setor logado antes de ler ou escrever.
 
 ## Rodando localmente
 
@@ -55,6 +59,7 @@ npm run lint
 npm run build && npm run start -- -p 3001 &
 node smoke-pca.mjs       # fluxo completo: login → DFD → aprovação
 node smoke-import.mjs    # importação em lote de unidades/categorias/catálogo
+node smoke-fase2.mjs     # consolidação por setor técnico (roda smoke-pca.mjs antes)
 ```
 
 ## Importação em lote
@@ -69,6 +74,33 @@ automaticamente.
 Usa `exceljs` (não o pacote `xlsx` do npm, que carrega duas vulnerabilidades
 altas — prototype pollution e ReDoS — sem correção disponível no registro
 do npm; as versões corrigidas só são publicadas no CDN da própria SheetJS).
+
+## Consolidação (Fase 2 — Setor Técnico)
+
+Depois que a PROAD aprova DFDs de várias unidades, o Setor Técnico
+responsável por cada categoria consolida os itens iguais numa única linha de
+compra (soma as quantidades independente de qual unidade pediu ou de que
+enquadramento — OP/Geral/Convênio) para alimentar a licitação (Fase 3).
+
+Regras:
+
+- Uma categoria pertence a no máximo um setor técnico (`Categoria.setorTecnicoId`,
+  atribuído pela PROAD na tela de Categorias); um setor pode ter várias
+  categorias.
+- Agrupamento é por categoria + nome do item (`lib/consolidacao.ts`,
+  `agruparPorCategoriaEItem`), não por origem — mas a origem nunca desaparece:
+  cada `ItemDfd` some agrupado, mas continua existindo com seu
+  `enquadramento` e sua unidade intactos, só ganha uma referência
+  (`itemConsolidadoId`) para a linha consolidada. A tela de consolidação
+  mostra esse detalhamento por unidade/enquadramento em cada linha — é o que
+  o setor de materiais e patrimônio vai precisar para executar a despesa
+  depois.
+- "Atualizar consolidação" só processa itens ainda não consolidados; nunca
+  altera uma linha já **aprovada** — um item aprovado depois cai numa linha
+  rascunho separada com a mesma chave, para revisão manual (evita mudar em
+  silêncio algo que o setor técnico já validou).
+- O Setor Técnico pode renomear uma linha rascunho, mesclar duas linhas
+  rascunho da mesma categoria, ou aprovar (trava a edição).
 
 ## Deploy
 
@@ -86,7 +118,7 @@ Preview): `DATABASE_URL` (connection string pooled do Neon, com
 
 ## Roadmap
 
-Este é o Fase 1: autenticação, cadastros administrativos, wizard de DFD e
-aprovação da PROAD. Fases seguintes (consolidação do Setor Técnico,
-licitação, execução, entrega de bens, ata de registro de preços) ainda não
-foram iniciadas.
+Fase 1 (autenticação, cadastros administrativos, wizard de DFD e aprovação
+da PROAD) e Fase 2 (consolidação por Setor Técnico) prontas. Fases seguintes
+(licitação — máquina de 13 status, execução, entrega de bens, ata de
+registro de preços, casos especiais) ainda não foram iniciadas.
