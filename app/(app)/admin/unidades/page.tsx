@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { criarUnidadeAction, excluirUnidadeAction } from "@/lib/actions/admin";
+import { importarUnidadesAction } from "@/lib/actions/importacao";
 import { brl } from "@/lib/formato";
 import FormularioSimples from "../FormularioSimples";
+import ImportarPlanilhaForm from "../ImportarPlanilhaForm";
 import BotaoExcluir from "../BotaoExcluir";
 import RedefinirSenhaForm from "./RedefinirSenhaForm";
 
@@ -33,6 +35,22 @@ export default async function UnidadesPage() {
           },
           { name: "verCotaGeralPCA", label: "Unidade vê a cota geral do PCA", checkbox: true },
         ]}
+      />
+
+      <ImportarPlanilhaForm
+        action={importarUnidadesAction}
+        titulo="Importar unidades em lote (planilha)"
+        colunas={[
+          "nome",
+          "email",
+          "senhaInicial",
+          "elegivelCotaOP (sim/não)",
+          "cotaOP",
+          "cotaGeral",
+          "cotaTipo (FECHADA/ABERTA)",
+          "verCotaGeralPCA (sim/não)",
+        ]}
+        modeloHref="/modelos/unidades.csv"
       />
 
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">

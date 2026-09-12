@@ -1,0 +1,89 @@
+import ExcelJS from "exceljs";
+
+export interface ResultadoImportacao {
+  sucesso: number;
+  erros: { linha: number; mensagem: string }[];
+}
+
+function detectarSeparadorCsv(texto: string): string {
+  const primeiraLinha = texto.split(/\r?\n/, 1)[0] ?? "";
+  const pontoEVirgula = (primeiraLinha.match(/;/g) ?? []).length;
+  const virgula = (primeiraLinha.match(/,/g) ?? []).length;
+  return pontoEVirgula > virgula ? ";" : ",";
+}
+
+function valorCelula(v: unknown): string {
+  if (v === undefined || v === null) return "";
+  if (v instanceof Date) return v.toISOString();
+  if (typeof v === "object") {
+    const obj = v as { text?: unknown; result?: unknown };
+    if (obj.text !== undefined) return String(obj.text).trim();
+    if (obj.result !== undefined) return String(obj.result).trim();
+    return "";
+  }
+  return String(v).trim();
+}
+
+export interface LinhaPlanilha {
+  linha: number;
+  dados: Record<string, string>;
+}
+
+export async function lerPlanilha(
+  nomeArquivo: string,
+  buffer: ArrayBuffer,
+): Promise<LinhaPlanilha[]> {
+  const workbook = new ExcelJS.Workbook();
+  let planilha: ExcelJS.Worksheet;
+
+  if (nomeArquivo.toLowerCase().endsWith(".csv")) {
+    const texto = new TextDecoder("utf-8").decode(buffer);
+    const separador = detectarSeparadorCsv(texto);
+    planilha = workbook.addWorksheet("dados");
+    for (const linhaTexto of texto.split(/\r?\n/)) {
+      if (linhaTexto.trim() === "") continue;
+      planilha.addRow(linhaTexto.split(separador).map((v) => v.trim()));
+    }
+  } else {
+    // exceljs vendoriza sua própria definição de tipo para Buffer, incompatível
+    // com a do @types/node deste projeto (versões diferentes de lib.es2024) —
+    // o cast é só para o type-checker; em runtime é um Buffer normal.
+    await workbook.xlsx.load(Buffer.from(buffer) as never);
+    const primeira = workbook.worksheets[0];
+    if (!primeira) throw new Error("A planilha não tem nenhuma aba.");
+    planilha = primeira;
+  }
+
+  const cabecalho: string[] = [];
+  const registros: LinhaPlanilha[] = [];
+
+  planilha.eachRow((row, numeroLinha) => {
+    const valores = (row.values as unknown[]).slice(1).map(valorCelula);
+    if (numeroLinha === 1) {
+      cabecalho.push(...valores);
+      return;
+    }
+    if (valores.every((v) => v === "")) return;
+    const dados: Record<string, string> = {};
+    cabecalho.forEach((chave, indice) => {
+      dados[chave] = valores[indice] ?? "";
+    });
+    registros.push({ linha: numeroLinha, dados });
+  });
+
+  return registros;
+}
+
+export function paraBooleano(valor: string | undefined): boolean {
+  const v = (valor ?? "").trim().toLowerCase();
+  return v === "sim" || v === "true" || v === "verdadeiro" || v === "1" || v === "x";
+}
+
+export function paraNumero(valor: string | undefined): number {
+  const limpo = (valor ?? "").toString().trim();
+  if (!limpo) return 0;
+  if (limpo.includes(",")) {
+    return Number(limpo.replace(/\./g, "").replace(",", ".")) || 0;
+  }
+  return Number(limpo) || 0;
+}

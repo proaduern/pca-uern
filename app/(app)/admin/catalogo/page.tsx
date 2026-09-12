@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { criarItemCatalogoAction, excluirItemCatalogoAction } from "@/lib/actions/admin";
+import { importarItensCatalogoAction } from "@/lib/actions/importacao";
 import { brl } from "@/lib/formato";
 import FormularioSimples from "../FormularioSimples";
+import ImportarPlanilhaForm from "../ImportarPlanilhaForm";
 import BotaoExcluir from "../BotaoExcluir";
 
 export default async function CatalogoPage() {
@@ -38,6 +40,13 @@ export default async function CatalogoPage() {
             ],
           },
         ]}
+      />
+
+      <ImportarPlanilhaForm
+        action={importarItensCatalogoAction}
+        titulo="Importar itens de catálogo em lote (planilha)"
+        colunas={["categoria (nome exato já cadastrado)", "item", "valor", "tipoBem (PERMANENTE/CONSUMO)"]}
+        modeloHref="/modelos/catalogo.csv"
       />
 
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">

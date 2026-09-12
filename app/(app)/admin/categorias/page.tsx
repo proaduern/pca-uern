@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { criarCategoriaAction, excluirCategoriaAction } from "@/lib/actions/admin";
+import { importarCategoriasAction } from "@/lib/actions/importacao";
 import { brl } from "@/lib/formato";
 import FormularioSimples from "../FormularioSimples";
+import ImportarPlanilhaForm from "../ImportarPlanilhaForm";
 import BotaoExcluir from "../BotaoExcluir";
 
 export default async function CategoriasPage() {
@@ -44,6 +46,22 @@ export default async function CategoriasPage() {
           { name: "dependeContrato", label: "Depende de contrato", checkbox: true },
           { name: "ignoraPCA", label: "Não consome o saldo geral do PCA", checkbox: true },
         ]}
+      />
+
+      <ImportarPlanilhaForm
+        action={importarCategoriasAction}
+        titulo="Importar categorias em lote (planilha)"
+        colunas={[
+          "nome",
+          "tipo (MATERIAL/SERVICO)",
+          "modoServico (OBJETO/VALOR/ITENS)",
+          "semItem (sim/não)",
+          "fluxoContinuo (sim/não)",
+          "dependeContrato (sim/não)",
+          "ignoraPCA (sim/não)",
+          "saldoAnualGlobal",
+        ]}
+        modeloHref="/modelos/categorias.csv"
       />
 
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
