@@ -190,7 +190,8 @@ export async function adicionarItemDfdAction(dfdId: string, formData: FormData) 
 export async function removerItemDfdAction(dfdId: string, itemId: string) {
   const sessao = await exigirUnidade();
   await obterDfdDaUnidadeOuErro(dfdId, sessao.id);
-  await prisma.itemDfd.delete({ where: { id: itemId } });
+  const { count } = await prisma.itemDfd.deleteMany({ where: { id: itemId, dfdId } });
+  if (count === 0) throw new Error("Item não encontrado neste DFD.");
   revalidatePath(`/dfd/${dfdId}`);
 }
 

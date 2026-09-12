@@ -80,6 +80,11 @@ export async function exigirUnidade(): Promise<SessionPayload> {
   return sessao;
 }
 
+// Hash de um valor que nunca vai bater, só para gastar o mesmo tempo de um
+// bcrypt.compare real quando o email não existe — evita que o tempo de
+// resposta do login denuncie quais emails estão cadastrados.
+const HASH_FANTASMA = "$2b$12$Wy4LLRXQi4YTb.p/xAWyreawLe5HR1ZI.4ssLmxJtbSDVwgqbt02e";
+
 export async function autenticar(
   email: string,
   senha: string,
@@ -94,9 +99,9 @@ export async function autenticar(
   }
 
   const unidade = await prisma.unidade.findUnique({ where: { email: emailNorm } });
-  if (unidade && unidade.ativa) {
+  if (unidade) {
     const ok = await bcrypt.compare(senha, unidade.senhaHash);
-    if (!ok) return null;
+    if (!ok || !unidade.ativa) return null;
     return {
       tipo: "UNIDADE",
       id: unidade.id,
@@ -106,6 +111,7 @@ export async function autenticar(
     };
   }
 
+  await bcrypt.compare(senha, HASH_FANTASMA);
   return null;
 }
 

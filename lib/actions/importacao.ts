@@ -5,10 +5,15 @@ import { prisma } from "@/lib/prisma";
 import { exigirAdmin, gerarHashSenha } from "@/lib/auth";
 import { lerPlanilha, paraBooleano, paraNumero, type ResultadoImportacao } from "@/lib/importacao";
 
+const TAMANHO_MAXIMO_BYTES = 5 * 1024 * 1024; // 5 MB
+
 async function obterLinhas(formData: FormData) {
   const arquivo = formData.get("arquivo");
   if (!(arquivo instanceof File) || arquivo.size === 0) {
     throw new Error("Selecione um arquivo de planilha (.xlsx, .xls ou .csv).");
+  }
+  if (arquivo.size > TAMANHO_MAXIMO_BYTES) {
+    throw new Error("O arquivo excede o limite de 5 MB.");
   }
   const buffer = await arquivo.arrayBuffer();
   const linhas = await lerPlanilha(arquivo.name, buffer);

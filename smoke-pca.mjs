@@ -84,11 +84,9 @@ await passo("login como unidade com senha temporaria forca troca", async () => {
   await page.waitForURL(`${BASE}/`);
 });
 
-let dfdUrl = "";
 await passo("criar DFD e preencher dados gerais", async () => {
   await page.click('button:has-text("+ Nova Demanda (DFD)")');
   await page.waitForURL(/\/dfd\/.+/);
-  dfdUrl = page.url();
   await page.fill('input[name="descricaoSumaria"]', "Compra de cadeiras para o laboratório");
   await page.selectOption('select[name="prioridadeId"]', { label: "Alta" });
   await page.fill(
