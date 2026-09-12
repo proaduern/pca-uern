@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PCA UERN — Sistema de Coleta de Demandas
 
-## Getting Started
+Sistema de gestão do Plano de Contratações Anual (PCA) da UERN: unidades
+demandantes cadastram Documentos de Formalização de Demanda (DFD), a PROAD
+aprova ou reprova, e o sistema controla o saldo das cotas (OP, Geral,
+Convênio) e a janela de lançamento de cada PCA.
 
-First, run the development server:
+Reconstrução completa (Fase 1) do sistema anterior de coleta de demandas,
+feita com autenticação server-side e sem API de escrita pública — o sistema
+anterior tinha acesso público de leitura/escrita a uma tabela com senhas em
+texto plano e uma senha de admin fixa, então este partiu do zero.
+
+## Stack
+
+- Next.js 16 (App Router) + TypeScript
+- Prisma 6 + PostgreSQL
+- Autenticação própria via JWT (`jose`) em cookie httpOnly, sem NextAuth
+- Tailwind CSS v4
+- Vitest (regras de negócio) + Playwright (smoke test end-to-end)
+
+## Modelo de acesso
+
+Duas tabelas de login, sem hierarquia entre si — o email decide qual:
+
+- `Usuario` — PROAD (admin): aprova/reprova DFDs, cadastra PCA, categorias,
+  catálogo, unidades, tipificações e prioridades.
+- `Unidade` — unidade demandante: cria e edita seus próprios DFDs (rascunho
+  ou reprovado), nunca vê ou edita dados de outra unidade.
+
+Toda ação de servidor (`lib/actions/*.ts`) começa checando a sessão
+(`exigirAdmin()` / `exigirUnidade()`), e toda ação que mexe num DFD confirma
+que ele pertence à unidade logada antes de ler ou escrever.
+
+## Rodando localmente
 
 ```bash
+cp .env.example .env   # edite DATABASE_URL / DIRECT_URL / AUTH_SECRET
+npm install
+npx prisma migrate deploy
+npx prisma db seed      # cria o admin PROAD e os dados padrão
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Admin seed: `adj.proad@uern.br` / `TrocarEssaSenha123!` (senha temporária,
+o sistema não força troca para ADMIN — só para unidades).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Testes
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm test                # regras de negócio (cota, validação de DFD, importação)
+npm run build            # inclui typecheck
+npm run lint
 
-## Learn More
+# smoke test end-to-end (precisa do servidor rodando em :3001)
+npm run build && npm run start -- -p 3001 &
+node smoke-pca.mjs       # fluxo completo: login → DFD → aprovação
+node smoke-import.mjs    # importação em lote de unidades/categorias/catálogo
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Importação em lote
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+As telas de Unidades, Categorias e Catálogo aceitam upload de planilha
+(`.xlsx`, `.xls` ou `.csv`) para cadastro em massa, além do formulário
+unitário. Ver `lib/importacao.ts` para o formato esperado de cada uma
+(também descrito na própria tela, com modelo para download). CSV com
+separador `;` e número no formato brasileiro (`1.234,56`) são detectados
+automaticamente.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Usa `exceljs` (não o pacote `xlsx` do npm, que carrega duas vulnerabilidades
+altas — prototype pollution e ReDoS — sem correção disponível no registro
+do npm; as versões corrigidas só são publicadas no CDN da própria SheetJS).
 
-## Deploy on Vercel
+## Deploy
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Neon (Postgres) + Vercel, conectado ao GitHub — todo push em `main` builda
+e publica automaticamente. O build (`prisma generate && prisma migrate
+deploy && next build`) já aplica as migrações pendentes sozinho; não aplica
+seed de produção automaticamente (rodar o script de seed manualmente uma
+vez, via SQL Editor do Neon, no primeiro deploy).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Variáveis de ambiente (Vercel → Environment Variables, Production +
+Preview): `DATABASE_URL` (connection string pooled do Neon, com
+`-pooler` no host), `DIRECT_URL` (connection string direta, sem
+`-pooler` — é a que o `prisma migrate deploy` usa no build), `AUTH_SECRET`
+(uma string aleatória só desta aplicação — `openssl rand -base64 32`).
+
+## Roadmap
+
+Este é o Fase 1: autenticação, cadastros administrativos, wizard de DFD e
+aprovação da PROAD. Fases seguintes (consolidação do Setor Técnico,
+licitação, execução, entrega de bens, ata de registro de preços) ainda não
+foram iniciadas.
