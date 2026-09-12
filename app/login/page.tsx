@@ -1,12 +1,61 @@
 "use client";
 
+import { useState, useTransition } from "react";
 import { useActionState } from "react";
-import { loginAction, type LoginState } from "@/lib/actions/auth";
+import { confirmarPerfilAction, loginAction, type LoginState } from "@/lib/actions/auth";
 
 const initialState: LoginState = {};
 
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
+  const [isPending, startTransition] = useTransition();
+  const [erroPerfil, setErroPerfil] = useState<string | null>(null);
+
+  if (state.escolherPerfil) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+        <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
+          <h1 className="mb-1 text-xl font-semibold text-slate-900">Escolha o perfil</h1>
+          <p className="mb-6 text-sm text-slate-500">
+            Este login tem acesso a mais de um perfil. Como deseja entrar?
+          </p>
+          <div className="space-y-2">
+            {state.escolherPerfil.map((o) => (
+              <button
+                key={`${o.tipo}-${o.id}`}
+                disabled={isPending}
+                onClick={() => {
+                  setErroPerfil(null);
+                  startTransition(async () => {
+                    try {
+                      await confirmarPerfilAction(o.tipo, o.id);
+                    } catch (e) {
+                      setErroPerfil(e instanceof Error ? e.message : "Erro inesperado.");
+                    }
+                  });
+                }}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-left text-sm hover:bg-slate-100 disabled:opacity-60"
+              >
+                <span className="font-medium text-slate-900">{o.nome}</span>
+                <span className="ml-2 text-xs text-slate-500">
+                  (
+                  {o.tipo === "UNIDADE"
+                    ? "Unidade demandante"
+                    : o.tipo === "SETOR_TECNICO"
+                      ? "Setor técnico"
+                      : "Licitações"}
+                  )
+                </span>
+              </button>
+            ))}
+          </div>
+          {erroPerfil && (
+            <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erroPerfil}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">

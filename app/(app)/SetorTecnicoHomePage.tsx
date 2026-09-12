@@ -10,26 +10,39 @@ export default async function SetorTecnicoHomePage({ setorTecnicoId }: { setorTe
     }),
   ]);
 
-  const pendentesPorCategoria = pcaAtivo
-    ? await prisma.itemDfd.groupBy({
-        by: ["categoriaId"],
-        where: {
-          categoriaId: { in: categorias.map((c) => c.id) },
-          itemConsolidadoId: null,
-          dfd: { ano: pcaAtivo.ano, status: "APROVADO" },
-        },
-        _count: { _all: true },
-      })
-    : [];
-  const pendentesPorId = new Map(pendentesPorCategoria.map((p) => [p.categoriaId, p._count._all]));
+  const categoriaIds = categorias.map((c) => c.id);
 
-  const consolidadosPorCategoria = pcaAtivo
-    ? await prisma.itemConsolidado.groupBy({
-        by: ["categoriaId", "status"],
-        where: { categoriaId: { in: categorias.map((c) => c.id) }, pcaAno: pcaAtivo.ano },
-        _count: { _all: true },
-      })
-    : [];
+  const [pendentesDfd, pendentesTecnicos, consolidacoesPorCategoria] = await Promise.all([
+    pcaAtivo
+      ? prisma.itemDfd.groupBy({
+          by: ["categoriaId"],
+          where: {
+            categoriaId: { in: categoriaIds },
+            consolidacaoTecnicaId: null,
+            dfd: { ano: pcaAtivo.ano, status: "APROVADO" },
+          },
+          _count: { _all: true },
+        })
+      : Promise.resolve([]),
+    prisma.itemTecnico.groupBy({
+      by: ["categoriaId"],
+      where: { categoriaId: { in: categoriaIds }, consolidacaoTecnicaId: null },
+      _count: { _all: true },
+    }),
+    pcaAtivo
+      ? prisma.consolidacaoTecnica.groupBy({
+          by: ["categoriaId"],
+          where: { categoriaId: { in: categoriaIds }, pcaAno: pcaAtivo.ano },
+          _count: { _all: true },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const somarPorCategoria = (lista: { categoriaId: string; _count: { _all: number } }[]) =>
+    new Map(lista.map((p) => [p.categoriaId, p._count._all]));
+  const dfdPorId = somarPorCategoria(pendentesDfd);
+  const tecnicosPorId = somarPorCategoria(pendentesTecnicos);
+  const consolidacoesPorId = somarPorCategoria(consolidacoesPorCategoria);
 
   return (
     <div className="space-y-6">
@@ -48,25 +61,18 @@ export default async function SetorTecnicoHomePage({ setorTecnicoId }: { setorTe
               <tr>
                 <th className="px-4 py-2 font-medium">Categoria</th>
                 <th className="px-4 py-2 font-medium">Itens pendentes de consolidação</th>
-                <th className="px-4 py-2 font-medium">Rascunhos</th>
-                <th className="px-4 py-2 font-medium">Aprovados</th>
+                <th className="px-4 py-2 font-medium">Processos consolidados</th>
                 <th className="px-4 py-2 font-medium">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {categorias.map((c) => {
-                const rascunhos =
-                  consolidadosPorCategoria.find((x) => x.categoriaId === c.id && x.status === "RASCUNHO")
-                    ?._count._all ?? 0;
-                const aprovados =
-                  consolidadosPorCategoria.find((x) => x.categoriaId === c.id && x.status === "APROVADO")
-                    ?._count._all ?? 0;
+                const pendentes = (dfdPorId.get(c.id) ?? 0) + (tecnicosPorId.get(c.id) ?? 0);
                 return (
                   <tr key={c.id}>
                     <td className="px-4 py-2 text-slate-900">{c.nome}</td>
-                    <td className="px-4 py-2 text-slate-600">{pendentesPorId.get(c.id) ?? 0}</td>
-                    <td className="px-4 py-2 text-slate-600">{rascunhos}</td>
-                    <td className="px-4 py-2 text-slate-600">{aprovados}</td>
+                    <td className="px-4 py-2 text-slate-600">{pendentes}</td>
+                    <td className="px-4 py-2 text-slate-600">{consolidacoesPorId.get(c.id) ?? 0}</td>
                     <td className="px-4 py-2">
                       <Link href={`/consolidacao/${c.id}`} className="text-xs text-slate-700 underline">
                         Abrir
@@ -77,7 +83,7 @@ export default async function SetorTecnicoHomePage({ setorTecnicoId }: { setorTe
               })}
               {categorias.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
+                  <td colSpan={4} className="px-4 py-6 text-center text-slate-400">
                     Nenhuma categoria atribuída ao seu setor ainda. Peça à PROAD para atribuir.
                   </td>
                 </tr>

@@ -72,23 +72,29 @@ export async function redefinirSenhaUnidadeAction(unidadeId: string, formData: F
 // Setores técnicos
 // ---------------------------------------------------------------------------
 
+async function dadosAcessoVinculavel(formData: FormData) {
+  const vinculado = formData.get("vinculado") === "on";
+  if (vinculado) {
+    const unidadeId = String(formData.get("unidadeId") ?? "");
+    if (!unidadeId) throw new Error("Selecione a unidade demandante a vincular.");
+    return { vinculado: true as const, unidadeId, email: null, senhaHash: null };
+  }
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const senhaInicial = String(formData.get("senhaInicial") ?? "");
+  if (!email || !senhaInicial) throw new Error("Preencha email e senha inicial (ou marque o vínculo com uma unidade).");
+  if (!email.endsWith("@uern.br")) throw new Error("O email precisa ser do domínio @uern.br.");
+  const senhaHash = await gerarHashSenha(senhaInicial);
+  return { vinculado: false as const, unidadeId: null, email, senhaHash };
+}
+
 export async function criarSetorTecnicoAction(formData: FormData) {
   await exigirAdmin();
   const nome = String(formData.get("nome") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const senhaInicial = String(formData.get("senhaInicial") ?? "");
-
-  if (!nome || !email || !senhaInicial) {
-    throw new Error("Preencha nome, email e senha inicial.");
-  }
-  if (!email.endsWith("@uern.br")) {
-    throw new Error("O email do setor técnico precisa ser do domínio @uern.br.");
-  }
-
-  const senhaHash = await gerarHashSenha(senhaInicial);
+  if (!nome) throw new Error("Informe o nome do setor técnico.");
+  const acesso = await dadosAcessoVinculavel(formData);
 
   await prisma.setorTecnico.create({
-    data: { nome, email, senhaHash, senhaTemporaria: true },
+    data: { nome, ...acesso, senhaTemporaria: true },
   });
 
   revalidatePath("/admin/setores-tecnicos");
@@ -96,8 +102,12 @@ export async function criarSetorTecnicoAction(formData: FormData) {
 
 export async function excluirSetorTecnicoAction(setorTecnicoId: string) {
   await exigirAdmin();
-  const emUso = await prisma.categoria.count({ where: { setorTecnicoId } });
-  if (emUso > 0) {
+  const [categorias, consolidacoes, itensTecnicos] = await Promise.all([
+    prisma.categoria.count({ where: { setorTecnicoId } }),
+    prisma.consolidacaoTecnica.count({ where: { setorTecnicoId } }),
+    prisma.itemTecnico.count({ where: { criadoPorId: setorTecnicoId } }),
+  ]);
+  if (categorias + consolidacoes + itensTecnicos > 0) {
     await prisma.setorTecnico.update({ where: { id: setorTecnicoId }, data: { ativo: false } });
   } else {
     await prisma.setorTecnico.delete({ where: { id: setorTecnicoId } });
@@ -107,6 +117,10 @@ export async function excluirSetorTecnicoAction(setorTecnicoId: string) {
 
 export async function redefinirSenhaSetorTecnicoAction(setorTecnicoId: string, formData: FormData) {
   await exigirAdmin();
+  const setor = await prisma.setorTecnico.findUniqueOrThrow({ where: { id: setorTecnicoId } });
+  if (setor.vinculado) {
+    throw new Error("Este acesso é vinculado a uma unidade — redefina a senha da unidade demandante.");
+  }
   const novaSenha = String(formData.get("novaSenha") ?? "");
   if (novaSenha.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
   const senhaHash = await gerarHashSenha(novaSenha);
@@ -124,6 +138,58 @@ export async function atribuirSetorTecnicoCategoriaAction(
   await exigirAdmin();
   await prisma.categoria.update({ where: { id: categoriaId }, data: { setorTecnicoId } });
   revalidatePath("/admin/categorias");
+}
+
+// ---------------------------------------------------------------------------
+// Unidade de Licitações e Contratos
+// ---------------------------------------------------------------------------
+
+export async function criarLicitacoesAction(formData: FormData) {
+  await exigirAdmin();
+  const nome = String(formData.get("nome") ?? "").trim();
+  if (!nome) throw new Error("Informe o nome da unidade.");
+  const acesso = await dadosAcessoVinculavel(formData);
+
+  await prisma.licitacoes.create({
+    data: { nome, ...acesso, senhaTemporaria: true },
+  });
+
+  revalidatePath("/admin/licitacoes");
+}
+
+export async function excluirLicitacoesAction(licitacoesId: string) {
+  await exigirAdmin();
+  await prisma.licitacoes.delete({ where: { id: licitacoesId } });
+  revalidatePath("/admin/licitacoes");
+}
+
+export async function redefinirSenhaLicitacoesAction(licitacoesId: string, formData: FormData) {
+  await exigirAdmin();
+  const lic = await prisma.licitacoes.findUniqueOrThrow({ where: { id: licitacoesId } });
+  if (lic.vinculado) {
+    throw new Error("Este acesso é vinculado a uma unidade — redefina a senha da unidade demandante.");
+  }
+  const novaSenha = String(formData.get("novaSenha") ?? "");
+  if (novaSenha.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+  const senhaHash = await gerarHashSenha(novaSenha);
+  await prisma.licitacoes.update({
+    where: { id: licitacoesId },
+    data: { senhaHash, senhaTemporaria: true },
+  });
+  revalidatePath("/admin/licitacoes");
+}
+
+// ---------------------------------------------------------------------------
+// Código PCA (PNCP) por consolidação
+// ---------------------------------------------------------------------------
+
+export async function salvarCodigoPcaAction(consolidacaoId: string, codigo: string) {
+  await exigirAdmin();
+  await prisma.consolidacaoTecnica.update({
+    where: { id: consolidacaoId },
+    data: { codigoPca: codigo.trim() || null },
+  });
+  revalidatePath("/admin/pca");
 }
 
 // ---------------------------------------------------------------------------
@@ -177,7 +243,22 @@ export async function toggleAberturaExtraAction(ano: number, ligado: boolean) {
 
 export async function toggleConcluidoAction(ano: number, concluido: boolean) {
   await exigirAdmin();
-  await prisma.pca.update({ where: { ano }, data: { concluido } });
+
+  if (concluido) {
+    const consolidacoes = await prisma.consolidacaoTecnica.findMany({ where: { pcaAno: ano } });
+    if (consolidacoes.length === 0) {
+      throw new Error("Nenhuma categoria consolidada neste PCA ainda — não é possível concluir.");
+    }
+    const pendentes = consolidacoes.filter((c) => !c.codigoPca);
+    if (pendentes.length > 0) {
+      throw new Error(`Faltam ${pendentes.length} código(s) PCA (PNCP) para poder concluir.`);
+    }
+  }
+
+  await prisma.pca.update({
+    where: { ano },
+    data: { concluido, concluidoEm: concluido ? new Date() : null },
+  });
   revalidatePath("/admin/pca");
 }
 

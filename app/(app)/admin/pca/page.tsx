@@ -3,11 +3,13 @@ import { criarOuAtualizarPcaAction, adicionarExcecaoPcaAction } from "@/lib/acti
 import { brl, formatarData } from "@/lib/formato";
 import FormularioSimples from "../FormularioSimples";
 import PcaAcoes from "./PcaAcoes";
+import CodigoPcaInput from "./CodigoPcaInput";
 
 export default async function PcaPage() {
-  const [pcas, unidades] = await Promise.all([
+  const [pcas, unidades, consolidacoes] = await Promise.all([
     prisma.pca.findMany({ orderBy: { ano: "desc" }, include: { excecoes: true } }),
     prisma.unidade.findMany({ orderBy: { nome: "asc" } }),
+    prisma.consolidacaoTecnica.findMany({ include: { categoria: true } }),
   ]);
 
   const nomeUnidade = (id: string) => unidades.find((u) => u.id === id)?.nome ?? id;
@@ -54,11 +56,66 @@ export default async function PcaPage() {
             </div>
             <div>
               <p className="text-xs text-slate-500">Status</p>
-              <p>{pca.concluido ? "Concluído" : "Em andamento"}</p>
+              <p>
+                {pca.concluido
+                  ? `Concluído em ${formatarData(pca.concluidoEm)}`
+                  : "Em andamento"}
+              </p>
             </div>
           </div>
 
-          <PcaAcoes pca={pca} />
+          <PcaAcoes
+            pca={{
+              ano: pca.ano,
+              ativo: pca.ativo,
+              aberturaExtraGeral: pca.aberturaExtraGeral,
+              concluido: pca.concluido,
+            }}
+          />
+
+          <div>
+            <p className="mb-1 text-xs font-medium text-slate-700">
+              Códigos PCA (PNCP) por categoria consolidada
+            </p>
+            {(() => {
+              const doAno = consolidacoes.filter((c) => c.pcaAno === pca.ano);
+              if (doAno.length === 0) {
+                return <p className="text-sm text-slate-400">Nenhuma categoria consolidada neste PCA ainda.</p>;
+              }
+              return (
+                <div className="overflow-x-auto rounded-md border border-slate-200">
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-50 text-left text-slate-500">
+                      <tr>
+                        <th className="px-3 py-1.5 font-medium">Categoria</th>
+                        <th className="px-3 py-1.5 font-medium">Processo SEI</th>
+                        <th className="px-3 py-1.5 font-medium">Código PCA</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {doAno.map((c) => (
+                        <tr key={c.id}>
+                          <td className="px-3 py-1.5 text-slate-900">{c.categoria.nome}</td>
+                          <td className="px-3 py-1.5 text-slate-600">{c.processoSEI}</td>
+                          <td className="px-3 py-1.5">
+                            <CodigoPcaInput
+                              consolidacaoId={c.id}
+                              valorInicial={c.codigoPca ?? ""}
+                              desabilitado={pca.concluido}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+            <p className="mt-1 text-xs text-slate-500">
+              Só é possível concluir o PCA quando toda categoria consolidada tiver o código PCA
+              preenchido.
+            </p>
+          </div>
 
           <div>
             <p className="mb-1 text-xs font-medium text-slate-700">

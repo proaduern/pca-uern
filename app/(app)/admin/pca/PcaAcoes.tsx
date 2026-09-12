@@ -6,9 +6,15 @@ import {
   toggleAberturaExtraAction,
   toggleConcluidoAction,
 } from "@/lib/actions/admin";
-import type { Pca } from "@prisma/client";
 
-export default function PcaAcoes({ pca }: { pca: Pca }) {
+interface PcaResumo {
+  ano: number;
+  ativo: boolean;
+  aberturaExtraGeral: boolean;
+  concluido: boolean;
+}
+
+export default function PcaAcoes({ pca }: { pca: PcaResumo }) {
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
 

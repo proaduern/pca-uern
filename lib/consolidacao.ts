@@ -1,52 +1,23 @@
-export function normalizarChave(nome: string): string {
-  return nome.trim().toLowerCase().replace(/\s+/g, " ");
-}
+export const PRAZO_MINIMO_DIAS_APOS_ETP = 60;
 
-export interface ItemParaAgrupar {
-  id: string;
-  categoriaId: string;
-  nome: string;
-  quantidade: number;
-  valorTotal: number;
-}
-
-export interface GrupoConsolidado {
-  categoriaId: string;
-  chaveAgrupamento: string;
-  nomeItem: string;
-  quantidadeTotal: number;
-  valorTotal: number;
-  itemDfdIds: string[];
+export function diasEntre(dataInicio: string | Date, dataFim: string | Date): number {
+  const inicio = typeof dataInicio === "string" ? new Date(dataInicio) : dataInicio;
+  const fim = typeof dataFim === "string" ? new Date(dataFim) : dataFim;
+  return Math.round((fim.getTime() - inicio.getTime()) / 86400000);
 }
 
 /**
- * Agrupa itens de DFD por categoria + nome normalizado (ignorando origem:
- * unidade e enquadramento não entram na chave — a consolidação é só por
- * categoria+item, mas cada item de origem continua rastreável por fora
- * desta função, via itemDfdIds).
+ * A data esperada de conclusão da demanda precisa ser no mínimo
+ * PRAZO_MINIMO_DIAS_APOS_ETP dias depois da data do ETP (prazo mínimo de
+ * licitação). Retorna a mensagem de erro, ou null se estiver ok.
  */
-export function agruparPorCategoriaEItem(itens: ItemParaAgrupar[]): GrupoConsolidado[] {
-  const grupos = new Map<string, GrupoConsolidado>();
-
-  for (const item of itens) {
-    const chaveAgrupamento = normalizarChave(item.nome);
-    const chave = `${item.categoriaId}::${chaveAgrupamento}`;
-    const existente = grupos.get(chave);
-    if (existente) {
-      existente.quantidadeTotal += item.quantidade;
-      existente.valorTotal += item.valorTotal;
-      existente.itemDfdIds.push(item.id);
-    } else {
-      grupos.set(chave, {
-        categoriaId: item.categoriaId,
-        chaveAgrupamento,
-        nomeItem: item.nome.trim(),
-        quantidadeTotal: item.quantidade,
-        valorTotal: item.valorTotal,
-        itemDfdIds: [item.id],
-      });
-    }
+export function validarDataConclusao(
+  dataETP: string | Date,
+  dataEsperadaConclusao: string | Date,
+): string | null {
+  const dias = diasEntre(dataETP, dataEsperadaConclusao);
+  if (dias < PRAZO_MINIMO_DIAS_APOS_ETP) {
+    return `A data esperada de conclusão deve ser no mínimo ${PRAZO_MINIMO_DIAS_APOS_ETP} dias após a data do ETP (atualmente ${dias} dia(s)).`;
   }
-
-  return Array.from(grupos.values());
+  return null;
 }

@@ -17,50 +17,78 @@ export default async function ConsolidacaoCategoriaPage({
 
   const pcaAtivo = await prisma.pca.findFirst({ where: { ativo: true } });
 
-  const [pendentes, consolidados] = await Promise.all([
-    pcaAtivo
-      ? prisma.itemDfd.count({
-          where: {
-            categoriaId,
-            itemConsolidadoId: null,
-            dfd: { ano: pcaAtivo.ano, status: "APROVADO" },
-          },
+  const [itensDfd, itensTecnicos, itensCatalogo, historico] = await Promise.all([
+    pcaAtivo && !categoria.fluxoContinuo
+      ? prisma.itemDfd.findMany({
+          where: { categoriaId, consolidacaoTecnicaId: null, dfd: { ano: pcaAtivo.ano, status: "APROVADO" } },
+          include: { dfd: { include: { unidade: true, prioridade: true } } },
+          orderBy: { createdAt: "asc" },
         })
-      : Promise.resolve(0),
+      : Promise.resolve([]),
+    categoria.fluxoContinuo
+      ? Promise.resolve([])
+      : prisma.itemTecnico.findMany({
+          where: { categoriaId, consolidacaoTecnicaId: null },
+          orderBy: { createdAt: "asc" },
+        }),
+    prisma.itemCatalogo.findMany({ where: { categoriaId, ativo: true }, orderBy: { item: "asc" } }),
     pcaAtivo
-      ? prisma.itemConsolidado.findMany({
+      ? prisma.consolidacaoTecnica.findMany({
           where: { categoriaId, pcaAno: pcaAtivo.ano },
-          include: {
-            aprovadoPor: true,
-            origens: { include: { dfd: { include: { unidade: true } } } },
-          },
-          orderBy: { nomeItem: "asc" },
+          include: { _count: { select: { itensDfd: true, itensTecnicos: true } } },
+          orderBy: { createdAt: "desc" },
         })
       : Promise.resolve([]),
   ]);
 
-  const itens = consolidados.map((c) => ({
-    id: c.id,
-    nomeItem: c.nomeItem,
-    quantidadeTotal: Number(c.quantidadeTotal),
-    valorTotal: Number(c.valorTotal),
-    status: c.status,
-    aprovadoPorNome: c.aprovadoPor?.nome ?? null,
-    origens: c.origens.map((o) => ({
-      unidadeNome: o.dfd.unidade.nome,
-      enquadramento: o.enquadramento,
-      quantidade: Number(o.quantidade ?? 0),
-      valorTotal: Number(o.valorTotal),
+  const pendentes = [
+    ...itensDfd.map((it) => ({
+      origem: "dfd" as const,
+      id: it.id,
+      nome: it.itemCatalogoNome ?? it.itemNomeLivre ?? "(sem nome)",
+      unidadeNome: it.dfd.unidade.nome,
+      prioridade: it.dfd.prioridade.nivel as string | null,
+      tipoBem: it.tipoBem,
+      quantidade: Number(it.quantidade ?? 1),
+      valorUnit: it.valorUnit !== null ? Number(it.valorUnit) : null,
+      valorTotal: Number(it.valorTotal),
+      substituido: it.itemSubstituidoNome !== null,
+      itemOriginalNome: it.itemSubstituidoNome,
     })),
-  }));
+    ...itensTecnicos.map((it) => ({
+      origem: "tecnico" as const,
+      id: it.id,
+      nome: it.item,
+      unidadeNome: "Incluído pelo setor técnico",
+      prioridade: null,
+      tipoBem: it.tipoBem,
+      quantidade: Number(it.quantidade),
+      valorUnit: Number(it.valorUnit),
+      valorTotal: Number(it.valorTotal),
+      substituido: it.itemSubstituidoNome !== null,
+      itemOriginalNome: it.itemSubstituidoNome,
+    })),
+  ];
 
   return (
     <PainelConsolidacao
       categoriaId={categoriaId}
       categoriaNome={categoria.nome}
+      fluxoContinuo={categoria.fluxoContinuo}
       pcaAno={pcaAtivo?.ano ?? null}
       pendentes={pendentes}
-      itens={itens}
+      itensCatalogo={itensCatalogo.map((c) => ({ id: c.id, item: c.item, valor: Number(c.valor) }))}
+      historico={historico.map((c) => ({
+        id: c.id,
+        processoSEI: c.processoSEI,
+        idDocumentoETP: c.idDocumentoETP,
+        dataETP: c.dataETP.toISOString(),
+        prioridade: c.prioridade,
+        tipoContratacao: c.tipoContratacao,
+        dataEsperadaConclusao: c.dataEsperadaConclusao.toISOString(),
+        codigoPca: c.codigoPca,
+        totalItens: c._count.itensDfd + c._count.itensTecnicos,
+      }))}
     />
   );
 }

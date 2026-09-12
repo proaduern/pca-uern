@@ -1,56 +1,78 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { brl } from "@/lib/formato";
+import { brl, formatarData } from "@/lib/formato";
 import {
-  atualizarConsolidacaoAction,
-  renomearConsolidadoAction,
-  mesclarConsolidadosAction,
-  aprovarConsolidadoAction,
-  desfazerAprovacaoConsolidadoAction,
+  adicionarItemTecnicoAction,
+  consolidarCategoriaAction,
+  substituirItemAction,
 } from "@/lib/actions/consolidacao";
 
-interface Origem {
-  unidadeNome: string;
-  enquadramento: string;
-  quantidade: number;
-  valorTotal: number;
-}
-
-interface Item {
+interface ItemPendente {
+  origem: "dfd" | "tecnico";
   id: string;
-  nomeItem: string;
-  quantidadeTotal: number;
+  nome: string;
+  unidadeNome: string;
+  prioridade: string | null;
+  tipoBem: string | null;
+  quantidade: number;
+  valorUnit: number | null;
   valorTotal: number;
-  status: "RASCUNHO" | "APROVADO";
-  aprovadoPorNome: string | null;
-  origens: Origem[];
+  substituido: boolean;
+  itemOriginalNome: string | null;
 }
 
-const ENQUADRAMENTO_LABEL: Record<string, string> = {
-  OP: "OP",
-  GERAL: "Geral",
-  CONVENIO: "Convênio",
+interface ItemCatalogoOpcao {
+  id: string;
+  item: string;
+  valor: number;
+}
+
+interface ConsolidacaoHistorico {
+  id: string;
+  processoSEI: string;
+  idDocumentoETP: string;
+  dataETP: string;
+  prioridade: string;
+  tipoContratacao: string;
+  dataEsperadaConclusao: string;
+  codigoPca: string | null;
+  totalItens: number;
+}
+
+const PRIORIDADE_LABEL: Record<string, string> = { ALTA: "Alta", MEDIA: "Média", BAIXA: "Baixa" };
+const TIPO_CONTRATACAO_LABEL: Record<string, string> = {
+  NORMAL: "Contratação Normal",
+  ATA: "Ata de Registro de Preços",
 };
+
+function chaveItem(origem: string, id: string) {
+  return `${origem}:${id}`;
+}
 
 export default function PainelConsolidacao({
   categoriaId,
   categoriaNome,
+  fluxoContinuo,
   pcaAno,
   pendentes,
-  itens,
+  itensCatalogo,
+  historico,
 }: {
   categoriaId: string;
   categoriaNome: string;
+  fluxoContinuo: boolean;
   pcaAno: number | null;
-  pendentes: number;
-  itens: Item[];
+  pendentes: ItemPendente[];
+  itensCatalogo: ItemCatalogoOpcao[];
+  historico: ConsolidacaoHistorico[];
 }) {
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
   const [mensagem, setMensagem] = useState<string | null>(null);
-  const [selecionados, setSelecionados] = useState<string[]>([]);
-  const [editando, setEditando] = useState<string | null>(null);
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  const [substituindo, setSubstituindo] = useState<ItemPendente | null>(null);
+  const [dataETP, setDataETP] = useState("");
 
   function executar(fn: () => Promise<unknown>, sucesso?: string) {
     setErro(null);
@@ -65,16 +87,40 @@ export default function PainelConsolidacao({
     });
   }
 
-  function alternarSelecao(id: string) {
-    setSelecionados((atual) =>
-      atual.includes(id) ? atual.filter((x) => x !== id) : atual.length < 2 ? [...atual, id] : atual,
+  function alternarSelecao(origem: string, id: string) {
+    setSelecionados((atual) => {
+      const novo = new Set(atual);
+      const chave = chaveItem(origem, id);
+      if (novo.has(chave)) novo.delete(chave);
+      else novo.add(chave);
+      return novo;
+    });
+  }
+
+  const dataMinimaConclusao = dataETP
+    ? (() => {
+        const d = new Date(dataETP);
+        d.setDate(d.getDate() + 60);
+        return d.toISOString().slice(0, 10);
+      })()
+    : undefined;
+
+  if (fluxoContinuo) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-lg font-semibold text-slate-900">{categoriaNome}</h1>
+        <p className="rounded-md bg-slate-100 px-4 py-3 text-sm text-slate-700">
+          Esta categoria é de fluxo contínuo — os itens são executados diretamente após a
+          aprovação da PROAD e nunca passam pela consolidação do setor técnico.
+        </p>
+      </div>
     );
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-slate-900">Consolidação — {categoriaNome}</h1>
+        <h1 className="text-lg font-semibold text-slate-900">Categoria: {categoriaNome}</h1>
         {pcaAno && <p className="text-sm text-slate-500">PCA {pcaAno}</p>}
       </div>
 
@@ -84,171 +130,364 @@ export default function PainelConsolidacao({
         </div>
       )}
 
-      {pcaAno && (
-        <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-4">
-          <p className="flex-1 text-sm text-slate-600">
-            {pendentes} item(ns) de DFD aprovado(s) ainda não incluído(s) na consolidação abaixo.
-          </p>
-          <button
-            disabled={isPending || pendentes === 0}
-            onClick={() =>
-              executar(async () => {
-                const r = await atualizarConsolidacaoAction(categoriaId, pcaAno);
-                setMensagem(`${r.criados} linha(s) nova(s), ${r.atualizados} atualizada(s).`);
-              })
-            }
-            className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-          >
-            Atualizar consolidação
-          </button>
-        </div>
-      )}
-
       {erro && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
       {mensagem && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{mensagem}</p>}
 
-      {selecionados.length === 2 && (
-        <div className="flex items-center gap-3 rounded-md bg-slate-100 px-4 py-2 text-sm">
-          <span>2 itens selecionados para mesclar.</span>
-          <button
-            disabled={isPending}
-            onClick={() =>
-              executar(async () => {
-                await mesclarConsolidadosAction(selecionados[0], selecionados[1]);
-                setSelecionados([]);
-              }, "Itens mesclados.")
-            }
-            className="rounded-md bg-slate-900 px-2 py-1 text-xs text-white disabled:opacity-60"
-          >
-            Mesclar
-          </button>
-          <button onClick={() => setSelecionados([])} className="text-xs text-slate-500">
-            Cancelar seleção
-          </button>
-        </div>
-      )}
-
-      <div className="space-y-3">
-        {itens.map((item) => (
-          <div key={item.id} className="rounded-lg border border-slate-200 bg-white p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-2">
-                {item.status === "RASCUNHO" && (
-                  <input
-                    type="checkbox"
-                    checked={selecionados.includes(item.id)}
-                    onChange={() => alternarSelecao(item.id)}
-                    className="mt-1 h-4 w-4"
-                    title="Selecionar para mesclar"
-                  />
-                )}
-                <div>
-                  {editando === item.id ? (
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        const formData = new FormData(e.currentTarget);
-                        executar(async () => {
-                          await renomearConsolidadoAction(item.id, String(formData.get("nome") ?? ""));
-                          setEditando(null);
-                        });
-                      }}
-                      className="flex items-center gap-2"
-                    >
-                      <input
-                        name="nome"
-                        defaultValue={item.nomeItem}
-                        className="rounded-md border border-slate-300 px-2 py-1 text-sm"
-                        autoFocus
-                      />
-                      <button type="submit" className="text-xs text-slate-700 underline">
-                        Salvar
-                      </button>
-                      <button type="button" onClick={() => setEditando(null)} className="text-xs text-slate-500">
-                        Cancelar
-                      </button>
-                    </form>
-                  ) : (
-                    <p className="font-medium text-slate-900">
-                      {item.nomeItem}{" "}
-                      {item.status === "RASCUNHO" && (
-                        <button
-                          onClick={() => setEditando(item.id)}
-                          className="text-xs font-normal text-slate-500 underline"
-                        >
-                          renomear
-                        </button>
-                      )}
-                    </p>
-                  )}
-                  <p className="text-sm text-slate-600">
-                    Quantidade total: {item.quantidadeTotal} · Valor total: {brl(item.valorTotal)}
-                  </p>
-                </div>
+      {pcaAno && (
+        <>
+          <div className="rounded-lg border border-slate-200 bg-white p-4">
+            <h2 className="mb-1 text-sm font-semibold text-slate-900">
+              Adicionar Item Técnico a esta Categoria
+            </h2>
+            <p className="mb-3 text-xs text-slate-500">
+              Use isto para incluir um item que o setor técnico entende necessário, mesmo que
+              nenhuma unidade tenha lançado DFD para ele.
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const form = e.currentTarget;
+                const formData = new FormData(form);
+                executar(async () => {
+                  await adicionarItemTecnicoAction(categoriaId, formData);
+                  form.reset();
+                }, "Item técnico adicionado.");
+              }}
+              className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+            >
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">Descrição do item</label>
+                <input name="item" required className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
               </div>
-
-              <div className="flex items-center gap-2">
-                <span
-                  className={`rounded-full px-2 py-1 text-xs ${
-                    item.status === "APROVADO" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"
-                  }`}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">Valor unitário estimado (R$)</label>
+                <input
+                  name="valorUnit"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  required
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">Quantidade</label>
+                <input
+                  name="quantidade"
+                  type="number"
+                  min="1"
+                  step="1"
+                  required
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">Tipo de bem</label>
+                <select name="tipoBem" required className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+                  <option value="PERMANENTE">Permanente</option>
+                  <option value="CONSUMO">Consumo</option>
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-medium text-slate-700">Justificativa técnica</label>
+                <textarea
+                  name="correlacao"
+                  required
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100 disabled:opacity-60"
                 >
-                  {item.status === "APROVADO" ? `Aprovado${item.aprovadoPorNome ? " · " + item.aprovadoPorNome : ""}` : "Rascunho"}
-                </span>
-                {item.status === "RASCUNHO" ? (
-                  <button
-                    disabled={isPending}
-                    onClick={() => executar(() => aprovarConsolidadoAction(item.id), "Item aprovado.")}
-                    className="rounded-md bg-emerald-600 px-2 py-1 text-xs text-white disabled:opacity-60"
-                  >
-                    Aprovar
-                  </button>
-                ) : (
-                  <button
-                    disabled={isPending}
-                    onClick={() => executar(() => desfazerAprovacaoConsolidadoAction(item.id), "Aprovação desfeita.")}
-                    className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100 disabled:opacity-60"
-                  >
-                    Desfazer aprovação
-                  </button>
-                )}
+                  Adicionar Item
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              executar(async () => {
+                await consolidarCategoriaAction(categoriaId, formData);
+                setSelecionados(new Set());
+              }, "Categoria consolidada com sucesso.");
+            }}
+            className="space-y-4"
+          >
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <h2 className="mb-3 text-sm font-semibold text-slate-900">
+                Itens Pendentes de Consolidação ({pendentes.length})
+              </h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-left text-slate-500">
+                    <tr>
+                      <th className="w-10 py-1"></th>
+                      <th className="py-1 pr-2 font-medium">Item</th>
+                      <th className="py-1 pr-2 font-medium">Origem</th>
+                      <th className="py-1 pr-2 font-medium">Prioridade</th>
+                      <th className="py-1 pr-2 font-medium">Tipo</th>
+                      <th className="py-1 pr-2 font-medium">Qtd</th>
+                      <th className="py-1 pr-2 font-medium">Valor</th>
+                      <th className="py-1 font-medium">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {pendentes.map((it) => (
+                      <tr key={chaveItem(it.origem, it.id)}>
+                        <td className="py-1.5">
+                          <input
+                            type="checkbox"
+                            name={it.origem === "dfd" ? "itemDfdId" : "itemTecnicoId"}
+                            value={it.id}
+                            checked={selecionados.has(chaveItem(it.origem, it.id))}
+                            onChange={() => alternarSelecao(it.origem, it.id)}
+                            className="h-4 w-4"
+                          />
+                        </td>
+                        <td className="py-1.5 pr-2 text-slate-900">
+                          {it.nome}
+                          {it.substituido && (
+                            <div className="text-xs italic text-amber-700">
+                              Substituído pelo setor técnico (era: {it.itemOriginalNome})
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-1.5 pr-2 text-xs text-slate-600">{it.unidadeNome}</td>
+                        <td className="py-1.5 pr-2 text-xs text-slate-600">{it.prioridade ?? "—"}</td>
+                        <td className="py-1.5 pr-2 text-xs text-slate-600">
+                          {it.tipoBem === "CONSUMO" ? "Consumo" : it.tipoBem === "PERMANENTE" ? "Permanente" : "—"}
+                        </td>
+                        <td className="py-1.5 pr-2 text-slate-600">{it.quantidade}</td>
+                        <td className="py-1.5 pr-2 text-slate-600">{brl(it.valorTotal)}</td>
+                        <td className="py-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setSubstituindo(it)}
+                            className="text-xs text-slate-600 underline"
+                          >
+                            Substituir
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {pendentes.length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="py-6 text-center text-slate-400">
+                          Nenhum item pendente nesta categoria.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
 
-            <details className="mt-3">
-              <summary className="cursor-pointer text-xs text-slate-500">
-                Ver origem por unidade e enquadramento ({item.origens.length})
-              </summary>
-              <table className="mt-2 w-full text-xs">
-                <thead className="text-left text-slate-500">
-                  <tr>
-                    <th className="py-1 pr-3 font-medium">Unidade</th>
-                    <th className="py-1 pr-3 font-medium">Enquadramento</th>
-                    <th className="py-1 pr-3 font-medium">Quantidade</th>
-                    <th className="py-1 font-medium">Valor</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {item.origens.map((o, i) => (
-                    <tr key={i}>
-                      <td className="py-1 pr-3 text-slate-700">{o.unidadeNome}</td>
-                      <td className="py-1 pr-3 text-slate-700">{ENQUADRAMENTO_LABEL[o.enquadramento]}</td>
-                      <td className="py-1 pr-3 text-slate-700">{o.quantidade}</td>
-                      <td className="py-1 text-slate-700">{brl(o.valorTotal)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </details>
-          </div>
-        ))}
+            {pendentes.length > 0 && (
+              <div className="rounded-lg border border-slate-200 bg-white p-4">
+                <h2 className="mb-3 text-sm font-semibold text-slate-900">Consolidar Itens Selecionados</h2>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-700">Número do processo SEI</label>
+                    <input
+                      name="processoSEI"
+                      required
+                      placeholder="Ex: 00000.000000/2026-00"
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-700">ID do documento ETP (SEI)</label>
+                    <input
+                      name="idDocumentoETP"
+                      required
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-700">Data de criação do ETP</label>
+                    <input
+                      name="dataETP"
+                      type="date"
+                      required
+                      value={dataETP}
+                      onChange={(e) => setDataETP(e.target.value)}
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-700">Nível de prioridade</label>
+                    <select name="prioridade" required className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+                      <option value="ALTA">Alta</option>
+                      <option value="MEDIA">Média</option>
+                      <option value="BAIXA">Baixa</option>
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="mb-1 block text-xs font-medium text-slate-700">Tipo de contratação</label>
+                    <select
+                      name="tipoContratacao"
+                      required
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    >
+                      <option value="NORMAL">Contratação Normal (contrato/empenho)</option>
+                      <option value="ATA">Ata de Registro de Preços</option>
+                    </select>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Define o caminho após a licitação: contratações normais vão direto para a
+                      Execução; atas passam pela Gestão de Ata e autorização da PROAD antes.
+                    </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="mb-1 block text-xs font-medium text-slate-700">
+                      Data esperada de conclusão da demanda
+                    </label>
+                    <input
+                      name="dataEsperadaConclusao"
+                      type="date"
+                      required
+                      min={dataMinimaConclusao}
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">
+                      Deve ser no mínimo 60 dias após a data do ETP (prazo mínimo de licitação).
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={isPending || selecionados.size === 0}
+                  className="mt-4 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+                >
+                  Consolidar Itens Selecionados ({selecionados.size})
+                </button>
+              </div>
+            )}
+          </form>
+        </>
+      )}
 
-        {itens.length === 0 && pcaAno && (
-          <p className="rounded-lg border border-slate-200 bg-white p-4 text-center text-slate-400">
-            Nenhuma consolidação gerada ainda.
-          </p>
-        )}
-      </div>
+      {historico.length > 0 && (
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">
+            Consolidações Já Realizadas nesta Categoria
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-slate-500">
+                <tr>
+                  <th className="py-1 pr-2 font-medium">Processo SEI</th>
+                  <th className="py-1 pr-2 font-medium">ETP</th>
+                  <th className="py-1 pr-2 font-medium">Data ETP</th>
+                  <th className="py-1 pr-2 font-medium">Prioridade</th>
+                  <th className="py-1 pr-2 font-medium">Tipo</th>
+                  <th className="py-1 pr-2 font-medium">Conclusão Esperada</th>
+                  <th className="py-1 pr-2 font-medium">Código PCA</th>
+                  <th className="py-1 font-medium">Itens</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {historico.map((c) => (
+                  <tr key={c.id}>
+                    <td className="py-1.5 pr-2 text-slate-900">{c.processoSEI}</td>
+                    <td className="py-1.5 pr-2 text-slate-600">{c.idDocumentoETP}</td>
+                    <td className="py-1.5 pr-2 text-slate-600">{formatarData(c.dataETP)}</td>
+                    <td className="py-1.5 pr-2 text-slate-600">{PRIORIDADE_LABEL[c.prioridade]}</td>
+                    <td className="py-1.5 pr-2 text-slate-600">{TIPO_CONTRATACAO_LABEL[c.tipoContratacao]}</td>
+                    <td className="py-1.5 pr-2 text-slate-600">{formatarData(c.dataEsperadaConclusao)}</td>
+                    <td className="py-1.5 pr-2 text-slate-600">{c.codigoPca ?? "—"}</td>
+                    <td className="py-1.5 text-slate-600">{c.totalItens}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {substituindo && (
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black/40 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSubstituindo(null);
+          }}
+        >
+          <div className="w-full max-w-md rounded-lg bg-white p-5">
+            <h2 className="mb-3 text-sm font-semibold text-slate-900">Substituir Item</h2>
+            <div className="mb-3 rounded-md bg-slate-50 p-3 text-sm text-slate-700">
+              <p>
+                <b>Item atual:</b> {substituindo.nome}
+              </p>
+              <p>
+                <b>Valor unitário atual:</b> {brl(substituindo.valorUnit ?? 0)} · <b>Quantidade:</b>{" "}
+                {substituindo.quantidade}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">A quantidade solicitada é mantida — só o item muda.</p>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const novoItemCatalogoId = String(formData.get("novoItemCatalogoId") ?? "");
+                const justificativa = String(formData.get("justificativa") ?? "");
+                executar(async () => {
+                  await substituirItemAction(substituindo.origem, substituindo.id, novoItemCatalogoId, justificativa);
+                  setSubstituindo(null);
+                }, "Item substituído com sucesso.");
+              }}
+              className="space-y-3"
+            >
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">Substituir por</label>
+                <select
+                  name="novoItemCatalogoId"
+                  required
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                >
+                  <option value="">Selecione o item substituto…</option>
+                  {itensCatalogo
+                    .filter((c) => c.item !== substituindo.nome)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.item} — {brl(c.valor)}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">Justificativa da substituição</label>
+                <textarea
+                  name="justificativa"
+                  required
+                  placeholder="Explique por que o item original não é adequado e por que o substituto atende à necessidade"
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+                >
+                  Confirmar Substituição
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSubstituindo(null)}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

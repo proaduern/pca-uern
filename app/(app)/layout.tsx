@@ -12,6 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/", label: "Aprovação de DFDs" },
     { href: "/admin/unidades", label: "Unidades" },
     { href: "/admin/setores-tecnicos", label: "Setores Técnicos" },
+    { href: "/admin/licitacoes", label: "Licitações" },
     { href: "/admin/pca", label: "PCA" },
     { href: "/admin/categorias", label: "Categorias" },
     { href: "/admin/catalogo", label: "Catálogo" },
@@ -20,12 +21,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const linksUnidade = [{ href: "/", label: "Minhas Demandas" }];
   const linksSetorTecnico = [{ href: "/", label: "Consolidação" }];
+  const linksLicitacoes = [{ href: "/", label: "Processos Consolidados" }];
 
-  const links =
-    sessao.tipo === "ADMIN" ? linksAdmin : sessao.tipo === "UNIDADE" ? linksUnidade : linksSetorTecnico;
+  const LINKS_POR_TIPO = {
+    ADMIN: linksAdmin,
+    UNIDADE: linksUnidade,
+    SETOR_TECNICO: linksSetorTecnico,
+    LICITACOES: linksLicitacoes,
+  } as const;
+  const links = LINKS_POR_TIPO[sessao.tipo];
 
-  const rotuloPerfil =
-    sessao.tipo === "ADMIN" ? "PROAD" : sessao.tipo === "UNIDADE" ? "Unidade demandante" : "Setor técnico";
+  const ROTULO_POR_TIPO = {
+    ADMIN: "PROAD",
+    UNIDADE: "Unidade demandante",
+    SETOR_TECNICO: "Setor técnico",
+    LICITACOES: "Licitações",
+  } as const;
+  const rotuloPerfil = ROTULO_POR_TIPO[sessao.tipo];
 
   return (
     <div className="flex min-h-screen flex-col">

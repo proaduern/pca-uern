@@ -22,21 +22,23 @@ model Usuario {
 }
 
 model Unidade {
-  id                String   @id @default(cuid())
-  nome              String
-  email             String   @unique
-  senhaHash         String
-  senhaTemporaria   Boolean  @default(true)
-  elegivelCotaOP    Boolean  @default(false)
-  cotaOP            Decimal  @default(0) @db.Decimal(14, 2)
-  cotaGeral         Decimal  @default(0) @db.Decimal(14, 2)
-  cotaTipo          CotaTipo @default(FECHADA)
-  verCotaGeralPCA   Boolean  @default(false)
-  ativa             Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id              String   @id @default(cuid())
+  nome            String
+  email           String   @unique
+  senhaHash       String
+  senhaTemporaria Boolean  @default(true)
+  elegivelCotaOP  Boolean  @default(false)
+  cotaOP          Decimal  @default(0) @db.Decimal(14, 2)
+  cotaGeral       Decimal  @default(0) @db.Decimal(14, 2)
+  cotaTipo        CotaTipo @default(FECHADA)
+  verCotaGeralPCA Boolean  @default(false)
+  ativa           Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  dfds Dfd[]
+  dfds                 Dfd[]
+  setoresVinculados    SetorTecnico[]
+  licitacoesVinculadas Licitacoes[]
 }
 
 enum CotaTipo {
@@ -44,18 +46,43 @@ enum CotaTipo {
   ABERTA
 }
 
+// Login de setor técnico: OU tem email/senha próprios, OU é "vinculado" ao
+// login de uma unidade demandante já existente (mesmo email/senha — quem
+// loga escolhe, na hora, se entra como unidade ou como setor técnico).
 model SetorTecnico {
   id              String   @id @default(cuid())
   nome            String
-  email           String   @unique
-  senhaHash       String
+  vinculado       Boolean  @default(false)
+  unidadeId       String?
+  unidade         Unidade? @relation(fields: [unidadeId], references: [id])
+  email           String?  @unique
+  senhaHash       String?
   senhaTemporaria Boolean  @default(true)
   ativo           Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   categorias    Categoria[]
-  consolidacoes ItemConsolidado[]
+  consolidacoes ConsolidacaoTecnica[]
+  itensTecnicos ItemTecnico[]
+  substituicoes ItemDfd[]             @relation("SubstituicaoPorSetor")
+}
+
+// Login da Diretoria de Licitações e Contratos: vê todas as consolidações
+// de todos os setores técnicos, independente da categoria. Mesmo esquema de
+// vínculo do SetorTecnico.
+model Licitacoes {
+  id              String   @id @default(cuid())
+  nome            String
+  vinculado       Boolean  @default(false)
+  unidadeId       String?
+  unidade         Unidade? @relation(fields: [unidadeId], references: [id])
+  email           String?  @unique
+  senhaHash       String?
+  senhaTemporaria Boolean  @default(true)
+  ativo           Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 // ---------------------------------------------------------------------------
@@ -63,26 +90,27 @@ model SetorTecnico {
 // ---------------------------------------------------------------------------
 
 model Pca {
-  ano               Int      @id
-  ativo             Boolean  @default(false)
-  cotaGeral         Decimal  @default(0) @db.Decimal(16, 2)
-  cotaOP            Decimal  @default(0) @db.Decimal(16, 2)
-  dataAbertura      DateTime @db.Date
-  dataFechamento    DateTime @db.Date
-  aberturaExtraGeral Boolean @default(false)
-  concluido         Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  ano                Int       @id
+  ativo              Boolean   @default(false)
+  cotaGeral          Decimal   @default(0) @db.Decimal(16, 2)
+  cotaOP             Decimal   @default(0) @db.Decimal(16, 2)
+  dataAbertura       DateTime  @db.Date
+  dataFechamento     DateTime  @db.Date
+  aberturaExtraGeral Boolean   @default(false)
+  concluido          Boolean   @default(false)
+  concluidoEm        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  excecoes          PcaExcecao[]
-  dfds              Dfd[]
-  itensConsolidados ItemConsolidado[]
+  excecoes      PcaExcecao[]
+  dfds          Dfd[]
+  consolidacoes ConsolidacaoTecnica[]
 }
 
 model PcaExcecao {
-  id        String  @id @default(cuid())
+  id        String @id @default(cuid())
   pcaAno    Int
-  pca       Pca     @relation(fields: [pcaAno], references: [ano])
+  pca       Pca    @relation(fields: [pcaAno], references: [ano])
   unidadeId String
 
   @@unique([pcaAno, unidadeId])
@@ -105,9 +133,9 @@ enum NivelPrioridade {
 }
 
 model Prioridade {
-  id     String          @id @default(cuid())
-  frase  String          @unique
-  nivel  NivelPrioridade
+  id    String          @id @default(cuid())
+  frase String          @unique
+  nivel NivelPrioridade
 
   dfds Dfd[]
 }
@@ -124,34 +152,35 @@ enum ModoServico {
 }
 
 model Categoria {
-  id                String        @id @default(cuid())
-  nome              String        @unique
-  tipo              TipoCategoria @default(MATERIAL)
-  semItem           Boolean       @default(false)
-  modoServico       ModoServico   @default(OBJETO)
-  fluxoContinuo     Boolean       @default(false)
-  dependeContrato   Boolean       @default(true)
-  saldoAnualGlobal  Decimal?      @db.Decimal(16, 2)
-  ignoraPCA         Boolean       @default(false)
-  ativa             Boolean       @default(true)
-  setorTecnicoId    String?
-  setorTecnico      SetorTecnico? @relation(fields: [setorTecnicoId], references: [id])
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  id               String        @id @default(cuid())
+  nome             String        @unique
+  tipo             TipoCategoria @default(MATERIAL)
+  semItem          Boolean       @default(false)
+  modoServico      ModoServico   @default(OBJETO)
+  fluxoContinuo    Boolean       @default(false)
+  dependeContrato  Boolean       @default(true)
+  saldoAnualGlobal Decimal?      @db.Decimal(16, 2)
+  ignoraPCA        Boolean       @default(false)
+  ativa            Boolean       @default(true)
+  setorTecnicoId   String?
+  setorTecnico     SetorTecnico? @relation(fields: [setorTecnicoId], references: [id])
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
-  itensCatalogo    ItemCatalogo[]
-  itensDfd         ItemDfd[]
-  itensConsolidados ItemConsolidado[]
+  itensCatalogo ItemCatalogo[]
+  itensDfd      ItemDfd[]
+  itensTecnicos ItemTecnico[]
+  consolidacoes ConsolidacaoTecnica[]
 }
 
 model ItemCatalogo {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   categoriaId String
   categoria   Categoria @relation(fields: [categoriaId], references: [id])
   item        String
-  valor       Decimal  @db.Decimal(14, 2)
-  tipoBem     TipoBem  @default(PERMANENTE)
-  ativo       Boolean  @default(true)
+  valor       Decimal   @db.Decimal(14, 2)
+  tipoBem     TipoBem   @default(PERMANENTE)
+  ativo       Boolean   @default(true)
 
   @@unique([categoriaId, item])
 }
@@ -179,30 +208,30 @@ enum TipoDemanda {
 }
 
 model Dfd {
-  id                String      @id @default(cuid())
-  unidadeId         String
-  unidade           Unidade     @relation(fields: [unidadeId], references: [id])
-  ano               Int
-  pca               Pca         @relation(fields: [ano], references: [ano])
+  id        String  @id @default(cuid())
+  unidadeId String
+  unidade   Unidade @relation(fields: [unidadeId], references: [id])
+  ano       Int
+  pca       Pca     @relation(fields: [ano], references: [ano])
 
-  descricaoSumaria  String
-  tipificacaoId     String?
-  prioridadeId      String
-  prioridade        Prioridade  @relation(fields: [prioridadeId], references: [id])
-  justificativa     String
-  tipoDemanda       TipoDemanda
-  dataRenovacao     DateTime?   @db.Date
-  dataEntrega       DateTime?   @db.Date
+  descricaoSumaria String
+  tipificacaoId    String?
+  prioridadeId     String
+  prioridade       Prioridade  @relation(fields: [prioridadeId], references: [id])
+  justificativa    String
+  tipoDemanda      TipoDemanda
+  dataRenovacao    DateTime?   @db.Date
+  dataEntrega      DateTime?   @db.Date
 
-  status            StatusDfd   @default(RASCUNHO)
+  status                 StatusDfd @default(RASCUNHO)
   enviadoParaAprovacaoEm DateTime?
-  aprovadoEm        DateTime?
-  reprovadoEm       DateTime?
-  motivoReprovacao  String?
+  aprovadoEm             DateTime?
+  reprovadoEm            DateTime?
+  motivoReprovacao       String?
 
-  criadoPorId       String
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  criadoPorId String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   itens ItemDfd[]
 
@@ -223,76 +252,128 @@ enum Enquadramento {
 }
 
 model ItemDfd {
-  id          String        @id @default(cuid())
-  dfdId       String
-  dfd         Dfd           @relation(fields: [dfdId], references: [id], onDelete: Cascade)
+  id    String @id @default(cuid())
+  dfdId String
+  dfd   Dfd    @relation(fields: [dfdId], references: [id], onDelete: Cascade)
 
-  tipo        TipoItemDfd
+  tipo          TipoItemDfd
   enquadramento Enquadramento @default(GERAL)
 
   convenioNumero    String?
   convenioAno       Int?
-  emendaParlamentar Boolean  @default(false)
+  emendaParlamentar Boolean @default(false)
   parlamentarNome   String?
 
-  categoriaId   String
-  categoria     Categoria @relation(fields: [categoriaId], references: [id])
-  itemCatalogoNome String?   // nome do item de catálogo escolhido (material ou serviço em modo "itens")
-  itemNomeLivre    String?   // nome digitado quando a categoria é "valor livre" (sem catálogo) ou serviço modo "objeto"
-  tipoBem       TipoBem?
+  categoriaId      String
+  categoria        Categoria @relation(fields: [categoriaId], references: [id])
+  itemCatalogoNome String? // nome do item de catálogo escolhido (material ou serviço em modo "itens")
+  itemNomeLivre    String? // nome digitado quando a categoria é "valor livre" (sem catálogo) ou serviço modo "objeto"
+  tipoBem          TipoBem?
 
-  quantidade    Decimal?  @db.Decimal(12, 2)
-  valorUnit     Decimal?  @db.Decimal(14, 2)
-  valorTotal    Decimal   @db.Decimal(14, 2)
+  quantidade Decimal? @db.Decimal(12, 2)
+  valorUnit  Decimal? @db.Decimal(14, 2)
+  valorTotal Decimal  @db.Decimal(14, 2)
 
-  correlacao    String
+  correlacao String
 
-  itemConsolidadoId String?
-  itemConsolidado   ItemConsolidado? @relation(fields: [itemConsolidadoId], references: [id])
+  // Consolidação: o item nunca é somado/substituído por uma linha agregada —
+  // só ganha uma referência a qual processo de consolidação o inclui, e
+  // continua existindo com sua unidade/enquadramento/quantidade originais.
+  consolidacaoTecnicaId String?
+  consolidacaoTecnica   ConsolidacaoTecnica? @relation(fields: [consolidacaoTecnicaId], references: [id])
+
+  // Substituição de item pelo setor técnico (troca por outro do catálogo,
+  // mantendo a quantidade pedida) — snapshot do item original + motivo.
+  itemSubstituidoNome       String?
+  itemSubstituidoValorUnit  Decimal?      @db.Decimal(14, 2)
+  itemSubstituidoTipoBem    TipoBem?
+  substituicaoJustificativa String?
+  substituicaoPorId         String?
+  substituicaoPor           SetorTecnico? @relation("SubstituicaoPorSetor", fields: [substituicaoPorId], references: [id])
+  substituicaoEm            DateTime?
 
   createdAt DateTime @default(now())
 
   @@index([dfdId])
-  @@index([itemConsolidadoId])
+  @@index([consolidacaoTecnicaId])
 }
 
 // ---------------------------------------------------------------------------
 // Consolidação (Setor Técnico)
 // ---------------------------------------------------------------------------
 
-enum StatusConsolidacao {
-  RASCUNHO
-  APROVADO
+// Item incluído pelo próprio setor técnico numa categoria, sem que nenhuma
+// unidade tenha lançado DFD para ele (ex.: uma necessidade técnica que só o
+// setor identifica, como uma licença de software).
+model ItemTecnico {
+  id          String    @id @default(cuid())
+  categoriaId String
+  categoria   Categoria @relation(fields: [categoriaId], references: [id])
+
+  item       String
+  valorUnit  Decimal @db.Decimal(14, 2)
+  quantidade Decimal @db.Decimal(12, 2)
+  valorTotal Decimal @db.Decimal(14, 2)
+  tipoBem    TipoBem
+  correlacao String // justificativa técnica
+
+  itemSubstituidoNome       String?
+  itemSubstituidoValorUnit  Decimal?  @db.Decimal(14, 2)
+  itemSubstituidoTipoBem    TipoBem?
+  substituicaoJustificativa String?
+  substituicaoEm            DateTime?
+
+  criadoPorId String
+  criadoPor   SetorTecnico @relation(fields: [criadoPorId], references: [id])
+  createdAt   DateTime     @default(now())
+
+  consolidacaoTecnicaId String?
+  consolidacaoTecnica   ConsolidacaoTecnica? @relation(fields: [consolidacaoTecnicaId], references: [id])
+
+  @@index([categoriaId])
+  @@index([consolidacaoTecnicaId])
 }
 
-// Agrupa itens de DFDs aprovados (de várias unidades/enquadramentos) numa
-// única linha de compra por categoria+item, para a licitação (Fase 3).
-// Os ItemDfd de origem continuam intactos (ver relação abaixo) — a origem
-// por unidade/enquadramento nunca desaparece, só passa a apontar pra cá.
-model ItemConsolidado {
-  id               String             @id @default(cuid())
-  pcaAno           Int
-  pca              Pca                @relation(fields: [pcaAno], references: [ano])
-  categoriaId      String
-  categoria        Categoria          @relation(fields: [categoriaId], references: [id])
+enum PrioridadeConsolidacao {
+  ALTA
+  MEDIA
+  BAIXA
+}
 
-  // Chave normalizada (categoria+nome) usada para reagrupar sem duplicar;
-  // nomeItem é o rótulo exibido, editável pelo Setor Técnico.
-  chaveAgrupamento String
-  nomeItem         String
+enum TipoContratacao {
+  NORMAL // contrato/empenho — segue direto para Execução
+  ATA // Ata de Registro de Preços — passa por Gestão de Ata + autorização da PROAD
+}
 
-  quantidadeTotal  Decimal            @db.Decimal(12, 2)
-  valorTotal       Decimal            @db.Decimal(14, 2)
+// Um processo de consolidação = um conjunto de itens (de DFDs aprovados e/ou
+// incluídos pelo setor técnico) que o setor técnico decidiu levar junto para
+// uma mesma licitação, sob um processo SEI/ETP. Não é uma soma automática:
+// os itens de origem continuam existindo com sua própria unidade,
+// quantidade e enquadramento — só passam a apontar para cá.
+model ConsolidacaoTecnica {
+  id             String       @id @default(cuid())
+  categoriaId    String
+  categoria      Categoria    @relation(fields: [categoriaId], references: [id])
+  setorTecnicoId String
+  setorTecnico   SetorTecnico @relation(fields: [setorTecnicoId], references: [id])
+  pcaAno         Int
+  pca            Pca          @relation(fields: [pcaAno], references: [ano])
 
-  status           StatusConsolidacao @default(RASCUNHO)
-  aprovadoPorId    String?
-  aprovadoPor      SetorTecnico?      @relation(fields: [aprovadoPorId], references: [id])
-  aprovadoEm       DateTime?
+  processoSEI           String
+  idDocumentoETP        String
+  dataETP               DateTime               @db.Date
+  prioridade            PrioridadeConsolidacao
+  tipoContratacao       TipoContratacao
+  dataEsperadaConclusao DateTime               @db.Date
+
+  // Preenchido pela PROAD depois de cadastrar o PCA no PNCP; obrigatório
+  // para todas as consolidações do ano antes de poder concluir o PCA.
+  codigoPca String?
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
-  origens ItemDfd[]
+  itensDfd      ItemDfd[]
+  itensTecnicos ItemTecnico[]
 
-  @@index([pcaAno, categoriaId, chaveAgrupamento])
+  @@index([pcaAno, categoriaId])
 }
