@@ -9,6 +9,7 @@ import ItemForm from "./ItemForm";
 import AcoesDfd from "./AcoesDfd";
 import RemoverItemBotao from "./RemoverItemBotaoClient";
 import ItemFaseDetalhe from "./ItemFaseDetalhe";
+import TrocaOPPainel from "./TrocaOPPainel";
 
 export default async function DfdDetalhePage({
   params,
@@ -21,7 +22,7 @@ export default async function DfdDetalhePage({
 
   const dfd = await prisma.dfd.findUnique({
     where: { id },
-    include: { itens: { include: { categoria: true }, orderBy: { createdAt: "asc" } }, unidade: true },
+    include: { itens: { include: { categoria: true, trocaOP: true }, orderBy: { createdAt: "asc" } }, unidade: true },
   });
   if (!dfd) notFound();
 
@@ -117,7 +118,23 @@ export default async function DfdDetalhePage({
               </div>
             </div>
             {fasesPorItem[it.id] && sessao.tipo === "UNIDADE" && (
-              <ItemFaseDetalhe itemId={it.id} fase={fasesPorItem[it.id]} />
+              <>
+                <ItemFaseDetalhe itemId={it.id} fase={fasesPorItem[it.id]} />
+                {it.enquadramento === "OP" && it.tipo === "MATERIAL" && !fasesPorItem[it.id].executado && (
+                  <TrocaOPPainel
+                    itemDfdId={it.id}
+                    itemNome={it.itemCatalogoNome ?? it.itemNomeLivre ?? "(sem nome)"}
+                    valorAtual={Number(it.valorTotal)}
+                    trocaOP={
+                      it.trocaOP
+                        ? { status: it.trocaOP.status, itemBNome: it.trocaOP.itemBNome, motivo: it.trocaOP.analiseProadInicialMotivo ?? it.trocaOP.analiseProadFinalMotivo ?? null }
+                        : null
+                    }
+                    categorias={categorias.map((c) => ({ id: c.id, nome: c.nome }))}
+                    itensCatalogo={itensCatalogo.map((c) => ({ id: c.id, item: c.item, categoriaNome: c.categoria.nome, valor: Number(c.valor) }))}
+                  />
+                )}
+              </>
             )}
           </div>
         ))}

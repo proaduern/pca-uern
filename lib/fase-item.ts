@@ -1,15 +1,21 @@
 /**
- * Resolve a fase atual de um item de DFD para o demandante, percorrendo todo
- * o pipeline institucional: consolidação técnica -> licitação -> execução ->
- * (material) entrega -> confirmação do demandante. Equivalente a
+ * Resolve a fase atual de um item de DFD, percorrendo todo o pipeline
+ * institucional: consolidação técnica -> licitação -> execução -> (material)
+ * entrega -> confirmação do demandante. Equivalente a
  * resolverFaseItemPipeline/resolverFaseViaEntrega/construirTimelineItem do
- * sistema original (a parte de Troca de Item OP e Atendimento por Estoque é
- * Fase 5, ainda não implementada, e por isso não é considerada aqui).
+ * sistema original.
+ *
+ * `resolverFaseItemDfd` é a visão do DEMANDANTE: aplica antes os atalhos de
+ * Troca de Item (OP) e Atendimento por Estoque (Fase 5) — um item trocado ou
+ * atendido por estoque não segue mais o pipeline normal para quem pediu.
+ * `resolverFaseItemPipelineDfd` é a fase REAL (ignora esses atalhos), usada
+ * só no acompanhamento da PROAD dos itens em "estoque geral", que conta como
+ * execução do PCA mesmo sem destinatário específico.
  */
 import { prisma } from "./prisma";
 import { statusLicitacaoLabel } from "./licitacao";
 import { calcularAtrasoExecucao, statusExecucaoLabel } from "./execucao";
-import { confirmacaoEfetiva, statusEntregaLabel, type StatusEntregaValor } from "./entrega";
+import { confirmacaoEfetiva, statusEntregaLabel, type StatusConfirmacaoEntrega, type StatusEntregaValor } from "./entrega";
 import { brl, formatarDataHora } from "./formato";
 
 export interface FaseItem {
@@ -19,9 +25,88 @@ export interface FaseItem {
   entregaId?: string;
   aguardaConfirmacao?: boolean;
   prazoConfirmacao?: string;
+  viaEstoque?: boolean;
+  viaTrocaOP?: boolean;
+  trocaConcluida?: boolean;
 }
 
 export async function resolverFaseItemDfd(itemId: string): Promise<FaseItem> {
+  const item = await prisma.itemDfd.findUniqueOrThrow({
+    where: { id: itemId },
+    include: {
+      categoria: true,
+      trocaOP: true,
+      atendimentoEstoque: { include: { entrega: { include: { statusEntrega: { orderBy: { createdAt: "desc" }, take: 1 }, confirmacoes: { orderBy: { createdAt: "desc" }, take: 1 } } } } },
+      entrega: { include: { statusEntrega: { orderBy: { createdAt: "desc" }, take: 1 }, confirmacoes: { orderBy: { createdAt: "desc" }, take: 1 } } },
+    },
+  });
+
+  // Item B (novo, criado por uma troca autorizada): já nasce com entrega
+  // própria (autorizada de imediato) — nunca passa pelo pipeline normal.
+  if (item.viaTrocaOP) {
+    if (item.entrega) {
+      return { ...resolverFaseViaEntrega(item.entrega), viaEstoque: true, viaTrocaOP: true };
+    }
+    return { label: "Troca de Item — Aguardando Providências", badge: "neutral", executado: false };
+  }
+
+  // Item A (original): uma vez trocado, deixa de contar para o demandante —
+  // quem passa a valer é o item B, que aparece como sua própria linha.
+  if (item.trocaOP && item.trocaOP.status === "APROVADO") {
+    return { label: "Trocado por Outro Item (Troca de Item OP)", badge: "neutral", executado: false, trocaConcluida: true };
+  }
+
+  if (item.atendimentoEstoque?.status === "APROVADO" && item.atendimentoEstoque.entrega) {
+    return { ...resolverFaseViaEntrega(item.atendimentoEstoque.entrega), viaEstoque: true };
+  }
+
+  return resolverFaseItemPipelineDfd(itemId);
+}
+
+function resolverFaseViaEntrega(entrega: {
+  id: string;
+  statusEntrega: { status: StatusEntregaValor }[];
+  confirmacoes: { status: StatusConfirmacaoEntrega; dataLimite: Date }[];
+}): FaseItem {
+  const stEnt = entrega.statusEntrega[0] ?? null;
+  if (!stEnt || stEnt.status !== "ENTREGUE") {
+    return { label: `Entrega de Bens: ${statusEntregaLabel(stEnt?.status ?? null)}`, badge: "warn", executado: false, entregaId: entrega.id };
+  }
+  const confirmacao = entrega.confirmacoes[0] ?? null;
+  if (!confirmacao) {
+    return { label: "Entregue", badge: "ok", executado: true, entregaId: entrega.id };
+  }
+  const efetiva = confirmacaoEfetiva(confirmacao.status, confirmacao.dataLimite);
+  const base = { entregaId: entrega.id };
+  if (efetiva === "PENDENTE") {
+    return {
+      ...base,
+      label: "Entregue — Aguardando sua Confirmação",
+      badge: "warn",
+      executado: false,
+      aguardaConfirmacao: true,
+      prazoConfirmacao: confirmacao.dataLimite.toISOString(),
+    };
+  }
+  if (efetiva === "CONFIRMADO") {
+    return { ...base, label: "Concluído — Entrega Confirmada por Você", badge: "ok", executado: true };
+  }
+  if (efetiva === "AUTO_CONFIRMADO") {
+    return { ...base, label: "Concluído — Aceite Automático (prazo de 10 dias expirado)", badge: "ok", executado: true };
+  }
+  if (efetiva === "CONTESTACAO_PENDENTE_ENTREGA") {
+    return { ...base, label: "Contestação em Análise pela Unidade de Entrega de Bens", badge: "warn", executado: false };
+  }
+  if (efetiva === "CONTESTACAO_PENDENTE_ADMIN") {
+    return { ...base, label: "Contestação em Análise pela Administração", badge: "warn", executado: false };
+  }
+  if (efetiva === "CONTESTACAO_REJEITADA") {
+    return { ...base, label: "Concluído — Entrega Confirmada (contestação não acolhida)", badge: "ok", executado: true };
+  }
+  return { ...base, label: "Entregue", badge: "ok", executado: true };
+}
+
+export async function resolverFaseItemPipelineDfd(itemId: string): Promise<FaseItem> {
   const item = await prisma.itemDfd.findUniqueOrThrow({
     where: { id: itemId },
     include: {
@@ -100,55 +185,7 @@ export async function resolverFaseItemDfd(itemId: string): Promise<FaseItem> {
   if (!entrega) {
     return { label: "Recebido pela Execução — Aguardando Autorização da PROAD", badge: "warn", executado: false };
   }
-
-  const stEnt = entrega.statusEntrega[0] ?? null;
-  if (!stEnt || stEnt.status !== "ENTREGUE") {
-    return {
-      label: `Entrega de Bens: ${statusEntregaLabel(stEnt?.status ?? null)}`,
-      badge: "warn",
-      executado: false,
-      entregaId: entrega.id,
-    };
-  }
-
-  const confirmacao = entrega.confirmacoes[0] ?? null;
-  if (!confirmacao) {
-    // Itens de estoque geral (sem destinatário específico) não têm demandante para confirmar.
-    return { label: "Entregue", badge: "ok", executado: true, entregaId: entrega.id };
-  }
-  const efetiva = confirmacaoEfetiva(confirmacao.status, confirmacao.dataLimite);
-  const base = { entregaId: entrega.id };
-  if (efetiva === "PENDENTE") {
-    return {
-      ...base,
-      label: "Entregue — Aguardando sua Confirmação",
-      badge: "warn",
-      executado: false,
-      aguardaConfirmacao: true,
-      prazoConfirmacao: confirmacao.dataLimite.toISOString(),
-    };
-  }
-  if (efetiva === "CONFIRMADO") {
-    return { ...base, label: "Concluído — Entrega Confirmada por Você", badge: "ok", executado: true };
-  }
-  if (efetiva === "AUTO_CONFIRMADO") {
-    return {
-      ...base,
-      label: "Concluído — Aceite Automático (prazo de 10 dias expirado)",
-      badge: "ok",
-      executado: true,
-    };
-  }
-  if (efetiva === "CONTESTACAO_PENDENTE_ENTREGA") {
-    return { ...base, label: "Contestação em Análise pela Unidade de Entrega de Bens", badge: "warn", executado: false };
-  }
-  if (efetiva === "CONTESTACAO_PENDENTE_ADMIN") {
-    return { ...base, label: "Contestação em Análise pela Administração", badge: "warn", executado: false };
-  }
-  if (efetiva === "CONTESTACAO_REJEITADA") {
-    return { ...base, label: "Concluído — Entrega Confirmada (contestação não acolhida)", badge: "ok", executado: true };
-  }
-  return { ...base, label: "Entregue", badge: "ok", executado: true };
+  return resolverFaseViaEntrega(entrega);
 }
 
 export interface EventoTimeline {
@@ -159,13 +196,15 @@ export interface EventoTimeline {
 
 /** Reconstrói a timeline cronológica completa de um item, percorrendo todas as etapas já registradas. */
 export async function construirTimelineItemDfd(itemId: string): Promise<EventoTimeline[]> {
+  const entregaInclude = { statusEntrega: { orderBy: { createdAt: "asc" as const } }, confirmacoes: { orderBy: { createdAt: "asc" as const } } };
   const item = await prisma.itemDfd.findUniqueOrThrow({
     where: { id: itemId },
     include: {
       dfd: true,
       consolidacaoTecnica: { include: { statusLicitacao: { orderBy: { createdAt: "asc" } } } },
       processoExecucao: { include: { statusExecucao: { orderBy: { createdAt: "asc" } } } },
-      entrega: { include: { statusEntrega: { orderBy: { createdAt: "asc" } }, confirmacoes: { orderBy: { createdAt: "asc" } } } },
+      entrega: { include: entregaInclude },
+      atendimentoEstoque: { include: { entrega: { include: entregaInclude } } },
     },
   });
 
@@ -173,6 +212,21 @@ export async function construirTimelineItemDfd(itemId: string): Promise<EventoTi
   eventos.push({ data: item.dfd.createdAt.toISOString(), titulo: "DFD Criado pela Unidade", desc: item.dfd.descricaoSumaria });
   if (item.dfd.aprovadoEm) {
     eventos.push({ data: item.dfd.aprovadoEm.toISOString(), titulo: "DFD Aprovado pela PROAD", desc: "" });
+  }
+
+  if (item.atendimentoEstoque) {
+    eventos.push({
+      data: item.atendimentoEstoque.solicitadoEm.toISOString(),
+      titulo: "Unidade de Patrimônio propôs atendimento imediato por estoque",
+      desc: "",
+    });
+    if (item.atendimentoEstoque.status === "APROVADO" && item.atendimentoEstoque.analisadoEm) {
+      eventos.push({
+        data: item.atendimentoEstoque.analisadoEm.toISOString(),
+        titulo: "PROAD autorizou o atendimento por estoque",
+        desc: "O item original consolidado segue seu próprio fluxo, agora como estoque geral.",
+      });
+    }
   }
 
   const cons = item.consolidacaoTecnica;
@@ -208,7 +262,7 @@ export async function construirTimelineItemDfd(itemId: string): Promise<EventoTi
     }
   }
 
-  const ent = item.entrega;
+  const ent = item.entrega ?? item.atendimentoEstoque?.entrega ?? null;
   if (ent) {
     for (const h of ent.statusEntrega) {
       eventos.push({ data: h.createdAt.toISOString(), titulo: `Entrega de Bens: ${statusEntregaLabel(h.status as StatusEntregaValor)}`, desc: "" });

@@ -25,6 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/admin/licitacoes", label: "Licitações" },
     { href: "/admin/execucao", label: "Execução" },
     { href: "/admin/entrega", label: "Entrega de Bens" },
+    { href: "/admin/gestor-ata", label: "Gestão de Ata" },
     { href: "/admin/pca", label: "PCA" },
     { href: "/admin/categorias", label: "Categorias" },
     { href: "/admin/catalogo", label: "Catálogo" },
@@ -37,6 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const linksLicitacoes = [{ href: "/", label: "Processos Consolidados" }];
   const linksExecucao = [{ href: "/", label: "Execução" }];
   const linksEntrega = [{ href: "/", label: "Entrega de Bens" }];
+  const linksGestorAta = [{ href: "/", label: "Gestão de Ata" }];
 
   const LINKS_POR_TIPO = {
     ADMIN: linksAdmin,
@@ -45,6 +47,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     LICITACOES: linksLicitacoes,
     EXECUCAO: linksExecucao,
     ENTREGA: linksEntrega,
+    GESTOR_ATA: linksGestorAta,
   } as const;
   const links = LINKS_POR_TIPO[sessao.tipo];
 
@@ -55,6 +58,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     LICITACOES: "Licitações",
     EXECUCAO: "Execução",
     ENTREGA: "Entrega de Bens",
+    GESTOR_ATA: "Gestão de Ata",
   } as const;
   const rotuloPerfil = ROTULO_POR_TIPO[sessao.tipo];
 

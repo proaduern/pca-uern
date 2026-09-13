@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { statusEntregaLabel, subperfilBensPorTipo } from "@/lib/entrega";
 import { itensAguardandoAutorizacaoEntrega } from "@/lib/actions/entrega";
 import AnaliseContestacaoForm from "./entrega/AnaliseContestacaoForm";
+import PatrimonioAtendimentoEstoque from "./entrega/PatrimonioAtendimentoEstoque";
 
 export default async function EntregaHomePage({ acessoEntregaId }: { acessoEntregaId: string }) {
   const acesso = await prisma.acessoEntrega.findUniqueOrThrow({ where: { id: acessoEntregaId } });
@@ -38,6 +39,8 @@ export default async function EntregaHomePage({ acessoEntregaId }: { acessoEntre
           <p className="text-xl font-semibold text-emerald-700">{entregues}</p>
         </div>
       </div>
+
+      {acesso.subperfil === "PATRIMONIO" && <PatrimonioAtendimentoEstoque acessoEntregaId={acesso.id} />}
 
       {contestacoesPendentes.length > 0 && (
         <div className="rounded-lg border border-slate-200 bg-white p-4">

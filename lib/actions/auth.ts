@@ -53,7 +53,7 @@ export async function logoutAction() {
 }
 
 export async function iniciarAtuarComoAction(
-  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES" | "EXECUCAO" | "ENTREGA",
+  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES" | "EXECUCAO" | "ENTREGA" | "GESTOR_ATA",
   id: string,
 ) {
   await iniciarAtuarComo(tipo, id);
@@ -116,12 +116,19 @@ export async function trocarSenhaAction(
     } else {
       await prisma.acessoExecucao.update({ where: { id: sessao.id }, data: { senhaHash, senhaTemporaria: false } });
     }
-  } else {
+  } else if (sessao.tipo === "ENTREGA") {
     const ent = await prisma.acessoEntrega.findUniqueOrThrow({ where: { id: sessao.id } });
     if (ent.vinculado) {
       await prisma.unidade.update({ where: { id: ent.unidadeId! }, data: { senhaHash, senhaTemporaria: false } });
     } else {
       await prisma.acessoEntrega.update({ where: { id: sessao.id }, data: { senhaHash, senhaTemporaria: false } });
+    }
+  } else {
+    const ata = await prisma.acessoGestorAta.findUniqueOrThrow({ where: { id: sessao.id } });
+    if (ata.vinculado) {
+      await prisma.unidade.update({ where: { id: ata.unidadeId! }, data: { senhaHash, senhaTemporaria: false } });
+    } else {
+      await prisma.acessoGestorAta.update({ where: { id: sessao.id }, data: { senhaHash, senhaTemporaria: false } });
     }
   }
 

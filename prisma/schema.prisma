@@ -268,11 +268,12 @@ model Categoria {
   restricaoModo     ModoRestricao @default(TODAS)
   unidadesRestritas Unidade[]     @relation("CategoriaRestricaoUnidades")
 
-  itensCatalogo ItemCatalogo[]
-  itensDfd      ItemDfd[]
-  itensTecnicos ItemTecnico[]
-  consolidacoes ConsolidacaoTecnica[]
-  entregas      Entrega[]
+  itensCatalogo       ItemCatalogo[]
+  itensDfd            ItemDfd[]
+  itensTecnicos       ItemTecnico[]
+  consolidacoes       ConsolidacaoTecnica[]
+  entregas            Entrega[]
+  trocasOPPretendidas TrocaOP[]
 
   solicitacoesCatalogo SolicitacaoCatalogo[]
 }
@@ -632,9 +633,12 @@ model StatusLicitacao {
   agenteNome      String? // sessao_marcada
   agenteMatricula String? // sessao_marcada
 
-  criadoPorId String
-  criadoPor   Licitacoes @relation(fields: [criadoPorId], references: [id])
-  createdAt   DateTime   @default(now())
+  // Nulo quando o status foi lançado pela PROAD (ex.: autorização de execução
+  // de ata, que encaminha automaticamente para "remetido_execucao") em vez
+  // da Unidade de Licitações.
+  criadoPorId String?
+  criadoPor   Licitacoes? @relation(fields: [criadoPorId], references: [id])
+  createdAt   DateTime    @default(now())
 
   @@index([consolidacaoId])
 }
@@ -846,11 +850,14 @@ model TrocaOP {
 
   justificativaDemandante String
 
-  // "Item B" pretendido pelo demandante — do catálogo ou personalizado.
+  // "Item B" pretendido pelo demandante — do catálogo ou personalizado (mas
+  // sempre com categoria já cadastrada: mesma regra de qualquer item de
+  // valor livre no restante do sistema — só o nome do item é texto livre).
   itemBOrigemCatalogo Boolean
-  itemBCategoria      String
+  itemBCategoriaId    String
+  itemBCategoria      Categoria @relation(fields: [itemBCategoriaId], references: [id])
   itemBNome           String
-  itemBValor          Decimal @db.Decimal(14, 2)
+  itemBValor          Decimal   @db.Decimal(14, 2)
   itemBTipoBem        TipoBem
 
   analiseProadInicialOk     Boolean?

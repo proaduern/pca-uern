@@ -18,7 +18,14 @@ function getSecretKey() {
   return new TextEncoder().encode(secret);
 }
 
-export type TipoSessao = "ADMIN" | "UNIDADE" | "SETOR_TECNICO" | "LICITACOES" | "EXECUCAO" | "ENTREGA";
+export type TipoSessao =
+  | "ADMIN"
+  | "UNIDADE"
+  | "SETOR_TECNICO"
+  | "LICITACOES"
+  | "EXECUCAO"
+  | "ENTREGA"
+  | "GESTOR_ATA";
 
 export interface SessionPayload {
   tipo: TipoSessao;
@@ -135,13 +142,19 @@ export async function exigirEntrega(): Promise<SessionPayload> {
   return sessao;
 }
 
+export async function exigirGestorAta(): Promise<SessionPayload> {
+  const sessao = await exigirSessao();
+  if (sessao.tipo !== "GESTOR_ATA") throw new Error("Acesso restrito à unidade gestora de ata.");
+  return sessao;
+}
+
 // ---------------------------------------------------------------------------
 // Login com múltiplos perfis (setor técnico / licitações "vinculados" ao
 // mesmo login de uma unidade demandante — quem loga escolhe o perfil)
 // ---------------------------------------------------------------------------
 
 export interface OpcaoPerfil {
-  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES" | "EXECUCAO" | "ENTREGA";
+  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES" | "EXECUCAO" | "ENTREGA" | "GESTOR_ATA";
   id: string;
   nome: string;
 }
@@ -235,13 +248,23 @@ export async function confirmarPerfil(tipo: string, id: string): Promise<Session
       email: unidade.email,
       senhaTemporaria: unidade.senhaTemporaria,
     };
-  } else {
+  } else if (opcao.tipo === "ENTREGA") {
     const ent = await prisma.acessoEntrega.findUniqueOrThrow({ where: { id: opcao.id } });
     const unidade = await prisma.unidade.findUniqueOrThrow({ where: { id: ent.unidadeId! } });
     sessao = {
       tipo: "ENTREGA",
       id: ent.id,
       nome: ent.nome,
+      email: unidade.email,
+      senhaTemporaria: unidade.senhaTemporaria,
+    };
+  } else {
+    const ata = await prisma.acessoGestorAta.findUniqueOrThrow({ where: { id: opcao.id } });
+    const unidade = await prisma.unidade.findUniqueOrThrow({ where: { id: ata.unidadeId! } });
+    sessao = {
+      tipo: "GESTOR_ATA",
+      id: ata.id,
+      nome: ata.nome,
       email: unidade.email,
       senhaTemporaria: unidade.senhaTemporaria,
     };
@@ -333,23 +356,41 @@ export async function autenticar(email: string, senha: string): Promise<Resultad
     };
   }
 
+  const gestorAtaProprio = await prisma.acessoGestorAta.findUnique({ where: { email: emailNorm } });
+  if (gestorAtaProprio && !gestorAtaProprio.vinculado) {
+    const ok = await bcrypt.compare(senha, gestorAtaProprio.senhaHash ?? "");
+    if (!ok || !gestorAtaProprio.ativo) return null;
+    return {
+      resultado: "sessao",
+      sessao: {
+        tipo: "GESTOR_ATA",
+        id: gestorAtaProprio.id,
+        nome: gestorAtaProprio.nome,
+        email: gestorAtaProprio.email!,
+        senhaTemporaria: gestorAtaProprio.senhaTemporaria,
+      },
+    };
+  }
+
   const unidade = await prisma.unidade.findUnique({ where: { email: emailNorm } });
   if (unidade) {
     const ok = await bcrypt.compare(senha, unidade.senhaHash);
     if (!ok || !unidade.ativa) return null;
 
-    const [setoresVinculados, licitacoesVinculadas, execucoesVinculadas, entregasVinculadas] = await Promise.all([
+    const [setoresVinculados, licitacoesVinculadas, execucoesVinculadas, entregasVinculadas, gestorAtaVinculadas] = await Promise.all([
       prisma.setorTecnico.findMany({ where: { vinculado: true, unidadeId: unidade.id, ativo: true } }),
       prisma.licitacoes.findMany({ where: { vinculado: true, unidadeId: unidade.id, ativo: true } }),
       prisma.acessoExecucao.findMany({ where: { vinculado: true, unidadeId: unidade.id, ativo: true } }),
       prisma.acessoEntrega.findMany({ where: { vinculado: true, unidadeId: unidade.id, ativo: true } }),
+      prisma.acessoGestorAta.findMany({ where: { vinculado: true, unidadeId: unidade.id, ativo: true } }),
     ]);
 
     if (
       setoresVinculados.length === 0 &&
       licitacoesVinculadas.length === 0 &&
       execucoesVinculadas.length === 0 &&
-      entregasVinculadas.length === 0
+      entregasVinculadas.length === 0 &&
+      gestorAtaVinculadas.length === 0
     ) {
       return {
         resultado: "sessao",
@@ -369,6 +410,7 @@ export async function autenticar(email: string, senha: string): Promise<Resultad
       ...licitacoesVinculadas.map((l) => ({ tipo: "LICITACOES" as const, id: l.id, nome: l.nome })),
       ...execucoesVinculadas.map((e) => ({ tipo: "EXECUCAO" as const, id: e.id, nome: e.nome })),
       ...entregasVinculadas.map((e) => ({ tipo: "ENTREGA" as const, id: e.id, nome: e.nome })),
+      ...gestorAtaVinculadas.map((a) => ({ tipo: "GESTOR_ATA" as const, id: a.id, nome: a.nome })),
     ];
     await criarPreLogin(opcoes);
     return { resultado: "escolher_perfil", opcoes };
@@ -406,7 +448,7 @@ async function salvarCookieSessao(nome: string, payload: SessionPayload) {
 }
 
 async function construirPayloadAtuarComo(
-  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES" | "EXECUCAO" | "ENTREGA",
+  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES" | "EXECUCAO" | "ENTREGA" | "GESTOR_ATA",
   id: string,
 ): Promise<SessionPayload> {
   if (tipo === "UNIDADE") {
@@ -443,12 +485,20 @@ async function construirPayloadAtuarComo(
     }
     return { tipo: "EXECUCAO", id: e.id, nome: e.nome, email: e.email ?? "", senhaTemporaria: e.senhaTemporaria };
   }
-  const e = await prisma.acessoEntrega.findUniqueOrThrow({ where: { id } });
-  if (e.vinculado && e.unidadeId) {
-    const u = await prisma.unidade.findUniqueOrThrow({ where: { id: e.unidadeId } });
-    return { tipo: "ENTREGA", id: e.id, nome: e.nome, email: u.email, senhaTemporaria: u.senhaTemporaria };
+  if (tipo === "ENTREGA") {
+    const e = await prisma.acessoEntrega.findUniqueOrThrow({ where: { id } });
+    if (e.vinculado && e.unidadeId) {
+      const u = await prisma.unidade.findUniqueOrThrow({ where: { id: e.unidadeId } });
+      return { tipo: "ENTREGA", id: e.id, nome: e.nome, email: u.email, senhaTemporaria: u.senhaTemporaria };
+    }
+    return { tipo: "ENTREGA", id: e.id, nome: e.nome, email: e.email ?? "", senhaTemporaria: e.senhaTemporaria };
   }
-  return { tipo: "ENTREGA", id: e.id, nome: e.nome, email: e.email ?? "", senhaTemporaria: e.senhaTemporaria };
+  const a = await prisma.acessoGestorAta.findUniqueOrThrow({ where: { id } });
+  if (a.vinculado && a.unidadeId) {
+    const u = await prisma.unidade.findUniqueOrThrow({ where: { id: a.unidadeId } });
+    return { tipo: "GESTOR_ATA", id: a.id, nome: a.nome, email: u.email, senhaTemporaria: u.senhaTemporaria };
+  }
+  return { tipo: "GESTOR_ATA", id: a.id, nome: a.nome, email: a.email ?? "", senhaTemporaria: a.senhaTemporaria };
 }
 
 /**
@@ -460,7 +510,7 @@ async function construirPayloadAtuarComo(
  * mutações de cookie na mesma resposta.
  */
 export async function iniciarAtuarComo(
-  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES" | "EXECUCAO" | "ENTREGA",
+  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES" | "EXECUCAO" | "ENTREGA" | "GESTOR_ATA",
   id: string,
 ) {
   const real = await obterSessaoReal();

@@ -743,3 +743,65 @@ export async function redefinirSenhaAcessoEntregaAction(id: string, formData: Fo
 // autorizarEntregaSelecionadosAction e ratificarContestacaoAction (ambas de
 // competência da PROAD, mas parte do fluxo de Entrega) ficam em
 // lib/actions/entrega.ts, junto com o resto do domínio de Entrega.
+
+// ---------------------------------------------------------------------------
+// Unidade Gestora de Ata (Fase 5)
+// ---------------------------------------------------------------------------
+
+export async function criarAcessoGestorAtaAction(formData: FormData) {
+  await exigirAdmin();
+  const nome = String(formData.get("nome") ?? "").trim();
+  if (!nome) throw new Error("Informe o nome da unidade.");
+  const acesso = await dadosAcessoVinculavel(formData);
+
+  await prisma.acessoGestorAta.create({
+    data: { nome, ...acesso, senhaTemporaria: true },
+  });
+
+  revalidatePath("/admin/gestor-ata");
+}
+
+export async function excluirAcessoGestorAtaAction(id: string) {
+  await exigirAdmin();
+  await prisma.acessoGestorAta.delete({ where: { id } });
+  revalidatePath("/admin/gestor-ata");
+}
+
+export async function redefinirSenhaAcessoGestorAtaAction(id: string, formData: FormData) {
+  await exigirAdmin();
+  const acesso = await prisma.acessoGestorAta.findUniqueOrThrow({ where: { id } });
+  if (acesso.vinculado) {
+    throw new Error("Este acesso é vinculado a uma unidade — redefina a senha da unidade demandante.");
+  }
+  const novaSenha = String(formData.get("novaSenha") ?? "");
+  if (novaSenha.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+  const senhaHash = await gerarHashSenha(novaSenha);
+  await prisma.acessoGestorAta.update({ where: { id }, data: { senhaHash, senhaTemporaria: true } });
+  revalidatePath("/admin/gestor-ata");
+}
+
+/**
+ * Autoriza a execução de uma Ata de Registro de Preços solicitada pela
+ * Unidade Gestora de Ata: encaminha automaticamente para a Execução (novo
+ * status REMETIDO_EXECUCAO na Licitação), sem exigir ação manual da Unidade
+ * de Licitações — igual ao autorizarExecucaoAta do sistema original.
+ */
+export async function autorizarExecucaoAtaAction(consolidacaoId: string) {
+  await exigirAdmin();
+  const consolidacao = await prisma.consolidacaoTecnica.findUniqueOrThrow({ where: { id: consolidacaoId } });
+  if (!consolidacao.solicitacaoExecucaoAtaEm || consolidacao.ataAutorizadaEm) {
+    throw new Error("Não há solicitação de execução de ata pendente para este processo.");
+  }
+
+  await prisma.$transaction([
+    prisma.consolidacaoTecnica.update({
+      where: { id: consolidacaoId },
+      data: { ataAutorizadaEm: new Date() },
+    }),
+    prisma.statusLicitacao.create({
+      data: { consolidacaoId, status: "REMETIDO_EXECUCAO" },
+    }),
+  ]);
+
+  revalidatePath("/admin/gestor-ata");
+}

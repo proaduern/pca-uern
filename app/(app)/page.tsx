@@ -5,6 +5,7 @@ import SetorTecnicoHomePage from "./SetorTecnicoHomePage";
 import LicitacoesHomePage from "./LicitacoesHomePage";
 import ExecucaoHomePage from "./ExecucaoHomePage";
 import EntregaHomePage from "./EntregaHomePage";
+import GestorAtaHomePage from "./GestorAtaHomePage";
 
 export default async function HomePage() {
   const sessao = await obterSessao();
@@ -24,6 +25,9 @@ export default async function HomePage() {
   }
   if (sessao.tipo === "ENTREGA") {
     return <EntregaHomePage acessoEntregaId={sessao.id} />;
+  }
+  if (sessao.tipo === "GESTOR_ATA") {
+    return <GestorAtaHomePage />;
   }
   return <UnidadeDfdListPage unidadeId={sessao.id} />;
 }

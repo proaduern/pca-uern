@@ -47,7 +47,9 @@ export default function LoginPage() {
                         ? "Licitações"
                         : o.tipo === "EXECUCAO"
                           ? "Execução"
-                          : "Entrega de bens"}
+                          : o.tipo === "ENTREGA"
+                            ? "Entrega de bens"
+                            : "Gestão de ata"}
                   )
                 </span>
               </button>
