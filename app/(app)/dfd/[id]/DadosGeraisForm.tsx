@@ -69,6 +69,7 @@ export default function DadosGeraisForm({
           </label>
           <select
             name="tipificacaoId"
+            required
             disabled={!podeEditar}
             defaultValue={dfd.tipificacaoId ?? ""}
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"

@@ -26,6 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/admin/pca", label: "PCA" },
     { href: "/admin/categorias", label: "Categorias" },
     { href: "/admin/catalogo", label: "Catálogo" },
+    { href: "/admin/solicitacoes", label: "Solicitações de Catálogo" },
     { href: "/admin/parametros", label: "Parâmetros" },
   ];
 

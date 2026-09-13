@@ -1,11 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   calcularGastos,
+  derivarCotaTipo,
   dfdComprometeOrcamento,
+  exigeCotaFixa,
   janelaAberta,
   saldoPCA,
+  saldoPCAGeralParaAlocar,
+  saldoPCAOPParaAlocar,
   saldoUnidadeGeral,
   saldoUnidadeOP,
+  totalCotaGeralFechadaAlocada,
+  totalCotaOPAlocada,
+  type UnidadeParaAlocacao,
 } from "../cota";
 
 describe("dfdComprometeOrcamento", () => {
@@ -89,5 +96,56 @@ describe("janelaAberta", () => {
   it("limites do intervalo (primeiro e último dia) são inclusivos", () => {
     expect(janelaAberta(pcaBase, false, new Date("2026-03-01"))).toBe(true);
     expect(janelaAberta(pcaBase, false, new Date("2026-03-31"))).toBe(true);
+  });
+});
+
+describe("alocação de cota às unidades (item 6/7 da auditoria)", () => {
+  const unidades: UnidadeParaAlocacao[] = [
+    { id: "u1", elegivelCotaOP: true, cotaOP: 1000, cotaGeral: 500, cotaTipo: "FECHADA" },
+    { id: "u2", elegivelCotaOP: true, cotaOP: 2000, cotaGeral: 0, cotaTipo: "ABERTA" },
+    { id: "u3", elegivelCotaOP: false, cotaOP: 0, cotaGeral: 300, cotaTipo: "FECHADA" },
+    { id: "u4", elegivelCotaOP: false, cotaOP: 0, cotaGeral: 0, cotaTipo: "ABERTA" },
+  ];
+
+  it("totalCotaOPAlocada soma só unidades elegíveis a OP", () => {
+    expect(totalCotaOPAlocada(unidades)).toBe(3000);
+  });
+
+  it("totalCotaOPAlocada exclui a unidade em edição", () => {
+    expect(totalCotaOPAlocada(unidades, "u1")).toBe(2000);
+  });
+
+  it("totalCotaGeralFechadaAlocada soma só cotaTipo FECHADA, elegível ou não a OP", () => {
+    expect(totalCotaGeralFechadaAlocada(unidades)).toBe(800);
+  });
+
+  it("saldoPCAOPParaAlocar desconta o já alocado do subsaldo OP do PCA", () => {
+    expect(saldoPCAOPParaAlocar(5000, unidades)).toBe(2000);
+    expect(saldoPCAOPParaAlocar(5000, unidades, "u2")).toBe(4000);
+  });
+
+  it("saldoPCAGeralParaAlocar usa (cotaGeral - cotaOP) do PCA menos o fechado já alocado", () => {
+    // subsaldo geral do PCA = 100000 - 5000 = 95000; já alocado (fechada) = 800
+    expect(saldoPCAGeralParaAlocar({ cotaGeral: 100000, cotaOP: 5000 }, unidades)).toBe(94200);
+  });
+
+  it("derivarCotaTipo: unidade elegível a OP nunca escolhe manualmente — deriva de cotaGeral", () => {
+    expect(derivarCotaTipo(true, 500, "ABERTA")).toBe("FECHADA");
+    expect(derivarCotaTipo(true, 0, "FECHADA")).toBe("ABERTA");
+  });
+
+  it("derivarCotaTipo: unidade não elegível a OP mantém a escolha manual", () => {
+    expect(derivarCotaTipo(false, 500, "ABERTA")).toBe("ABERTA");
+    expect(derivarCotaTipo(false, 500, "FECHADA")).toBe("FECHADA");
+  });
+
+  it("exigeCotaFixa: elegível a OP sempre disputa o subsaldo do PCA", () => {
+    expect(exigeCotaFixa(true, "ABERTA")).toBe(true);
+    expect(exigeCotaFixa(true, "FECHADA")).toBe(true);
+  });
+
+  it("exigeCotaFixa: não elegível a OP só disputa quando a cota geral é fechada", () => {
+    expect(exigeCotaFixa(false, "FECHADA")).toBe(true);
+    expect(exigeCotaFixa(false, "ABERTA")).toBe(false);
   });
 });

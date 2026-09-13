@@ -42,6 +42,8 @@ model Unidade {
 
   categoriasRestritas    Categoria[]    @relation("CategoriaRestricaoUnidades")
   itensCatalogoRestritos ItemCatalogo[] @relation("ItemCatalogoRestricaoUnidades")
+
+  solicitacoesCatalogo SolicitacaoCatalogo[]
 }
 
 enum CotaTipo {
@@ -186,6 +188,8 @@ model Categoria {
   itensDfd      ItemDfd[]
   itensTecnicos ItemTecnico[]
   consolidacoes ConsolidacaoTecnica[]
+
+  solicitacoesCatalogo SolicitacaoCatalogo[]
 }
 
 model ItemCatalogo {
@@ -197,12 +201,55 @@ model ItemCatalogo {
   tipoBem     TipoBem   @default(PERMANENTE)
   ativo       Boolean   @default(true)
 
+  // Item incluído no catálogo a partir de uma SolicitacaoCatalogo aceita
+  // pela PROAD (em vez de cadastro manual direto) — só decorativo/informativo.
+  origemSolicitacao Boolean @default(false)
+
   // null = herda a regra de visibilidade da categoria; qualquer outro valor
   // sobrescreve a regra da categoria só para este item.
   restricaoModo     ModoRestricao?
   unidadesRestritas Unidade[]      @relation("ItemCatalogoRestricaoUnidades")
 
   @@unique([categoriaId, item])
+}
+
+// Unidade pede a inclusão de um item novo no catálogo padronizado (ex.: não
+// achou o material desejado no wizard de DFD); a PROAD analisa e aceita
+// (criando o ItemCatalogo correspondente) ou rejeita.
+enum StatusSolicitacao {
+  PENDENTE
+  ACEITO
+  REJEITADO
+}
+
+model SolicitacaoCatalogo {
+  id        String  @id @default(cuid())
+  unidadeId String
+  unidade   Unidade @relation(fields: [unidadeId], references: [id])
+
+  nomeResumido    String
+  descricao       String
+  marcaModelo     String?
+  link            String?
+  aplicacao       String
+  valorEstimado   Decimal           @db.Decimal(14, 2)
+  tipoBemSugerido TipoBem
+  status          StatusSolicitacao @default(PENDENTE)
+
+  // Preenchidos pela PROAD ao aceitar (podem divergir do que a unidade sugeriu).
+  categoriaFinalId String?
+  categoriaFinal   Categoria? @relation(fields: [categoriaFinalId], references: [id])
+  itemFinal        String?
+  valorFinal       Decimal?   @db.Decimal(14, 2)
+  tipoBemFinal     TipoBem?
+
+  motivoRejeicao String?
+  analisadoEm    DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([unidadeId])
+  @@index([status])
 }
 
 enum TipoBem {

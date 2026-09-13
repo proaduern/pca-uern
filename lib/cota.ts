@@ -93,3 +93,73 @@ export function janelaAberta(
   );
   return hoje >= abertura && hoje <= fechamento;
 }
+
+/**
+ * Controle de ALOCAÇÃO de cota às unidades (independente de gasto) —
+ * evita que a PROAD cadastre/edite unidades com cota que, somada, ultrapasse
+ * o que o PCA ativo comporta.
+ */
+
+export type CotaTipo = "FECHADA" | "ABERTA";
+
+export interface UnidadeParaAlocacao {
+  id: string;
+  elegivelCotaOP: boolean;
+  cotaOP: number;
+  cotaGeral: number;
+  cotaTipo: CotaTipo;
+}
+
+export function totalCotaOPAlocada(
+  unidades: UnidadeParaAlocacao[],
+  excludeUnidadeId?: string | null,
+): number {
+  return unidades
+    .filter((u) => u.elegivelCotaOP && u.id !== excludeUnidadeId)
+    .reduce((soma, u) => soma + u.cotaOP, 0);
+}
+
+export function totalCotaGeralFechadaAlocada(
+  unidades: UnidadeParaAlocacao[],
+  excludeUnidadeId?: string | null,
+): number {
+  return unidades
+    .filter((u) => u.cotaTipo === "FECHADA" && u.id !== excludeUnidadeId)
+    .reduce((soma, u) => soma + u.cotaGeral, 0);
+}
+
+export function saldoPCAOPParaAlocar(
+  pcaCotaOP: number,
+  unidades: UnidadeParaAlocacao[],
+  excludeUnidadeId?: string | null,
+): number {
+  return pcaCotaOP - totalCotaOPAlocada(unidades, excludeUnidadeId);
+}
+
+export function saldoPCAGeralParaAlocar(
+  pca: { cotaGeral: number; cotaOP: number },
+  unidades: UnidadeParaAlocacao[],
+  excludeUnidadeId?: string | null,
+): number {
+  return pca.cotaGeral - pca.cotaOP - totalCotaGeralFechadaAlocada(unidades, excludeUnidadeId);
+}
+
+/**
+ * Unidades elegíveis a cota OP sempre têm cota Geral "fechada" (valor fixo)
+ * quando o valor informado é positivo, ou "aberta" (usa o saldo do PCA)
+ * quando é zero — não é uma escolha manual do admin, ao contrário das
+ * unidades não elegíveis a OP.
+ */
+export function derivarCotaTipo(
+  elegivelCotaOP: boolean,
+  cotaGeral: number,
+  cotaTipoManual: CotaTipo,
+): CotaTipo {
+  if (elegivelCotaOP) return cotaGeral > 0 ? "FECHADA" : "ABERTA";
+  return cotaTipoManual;
+}
+
+/** Só unidades com alguma cota "fixa" (OP elegível, ou Geral fechada) disputam o subsaldo do PCA. */
+export function exigeCotaFixa(elegivelCotaOP: boolean, cotaTipo: CotaTipo): boolean {
+  return elegivelCotaOP || cotaTipo === "FECHADA";
+}

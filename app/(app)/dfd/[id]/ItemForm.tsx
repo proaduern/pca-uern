@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { adicionarItemDfdAction, adminAdicionarItemDfdAction } from "@/lib/actions/dfd";
 import { brl } from "@/lib/formato";
+import SolicitarItemPainel from "./SolicitarItemPainel";
 import type { Categoria, ItemCatalogo } from "@prisma/client";
 
 type ItemCatalogoComCategoria = ItemCatalogo & { categoria: Categoria };
@@ -47,6 +48,7 @@ export default function ItemForm({
     : null;
 
   return (
+    <>
     <form
       ref={formRef}
       onSubmit={(e) => {
@@ -258,5 +260,7 @@ export default function ItemForm({
         {isPending ? "Adicionando..." : "Adicionar item ao DFD"}
       </button>
     </form>
+    {tipo === "MATERIAL" && !modoAdmin && <SolicitarItemPainel />}
+    </>
   );
 }

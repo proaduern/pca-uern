@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/prisma";
-import { criarCategoriaAction, excluirCategoriaAction } from "@/lib/actions/admin";
+import { excluirCategoriaAction } from "@/lib/actions/admin";
 import { importarCategoriasAction } from "@/lib/actions/importacao";
 import { brl } from "@/lib/formato";
-import FormularioSimples from "../FormularioSimples";
+import NovaCategoriaForm from "./NovaCategoriaForm";
 import ImportarPlanilhaForm from "../ImportarPlanilhaForm";
 import BotaoExcluir from "../BotaoExcluir";
 import AtribuirSetorForm from "./AtribuirSetorForm";
@@ -29,36 +29,7 @@ export default async function CategoriasPage() {
         ex.: obras). Categorias de serviço não usam catálogo, exceto no modo &quot;itens&quot;.
       </p>
 
-      <FormularioSimples
-        action={criarCategoriaAction}
-        titulo="Nova categoria"
-        campos={[
-          { name: "nome", label: "Nome", required: true },
-          {
-            name: "tipo",
-            label: "Tipo",
-            required: true,
-            options: [
-              { value: "MATERIAL", label: "Material" },
-              { value: "SERVICO", label: "Serviço" },
-            ],
-          },
-          {
-            name: "modoServico",
-            label: "Modo de serviço (se aplicável)",
-            options: [
-              { value: "OBJETO", label: "Objeto livre (nunca agrupa)" },
-              { value: "VALOR", label: "Apenas valor (agrupa por categoria)" },
-              { value: "ITENS", label: "Com catálogo de itens (agrupa por item)" },
-            ],
-          },
-          { name: "saldoAnualGlobal", label: "Teto anual global (R$, opcional)", type: "number" },
-          { name: "semItem", label: "Material sem catálogo (valor livre)", checkbox: true },
-          { name: "fluxoContinuo", label: "Fluxo contínuo (pula todo o pipeline após aprovação)", checkbox: true },
-          { name: "dependeContrato", label: "Depende de contrato", checkbox: true },
-          { name: "ignoraPCA", label: "Não consome o saldo geral do PCA", checkbox: true },
-        ]}
-      />
+      <NovaCategoriaForm />
 
       <ImportarPlanilhaForm
         action={importarCategoriasAction}

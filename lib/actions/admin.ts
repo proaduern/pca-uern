@@ -4,10 +4,73 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { exigirAdmin, gerarHashSenha } from "@/lib/auth";
+import {
+  derivarCotaTipo,
+  exigeCotaFixa,
+  saldoPCAGeralParaAlocar,
+  saldoPCAOPParaAlocar,
+  type CotaTipo,
+} from "@/lib/cota";
+import { brl } from "@/lib/formato";
 
 // ---------------------------------------------------------------------------
 // Unidades
 // ---------------------------------------------------------------------------
+
+/**
+ * Valida a alocação de cota OP/Geral-fechada de uma unidade contra o
+ * subsaldo do PCA ativo. Só revalida o que está de fato AUMENTANDO em
+ * relação ao que a unidade já tinha (reduzir, manter ou editar outros
+ * campos nunca fica bloqueado por isso) — igual ao sistema original.
+ */
+async function validarAlocacaoCotaOuErro(opts: {
+  elegivelCotaOP: boolean;
+  cotaOP: number;
+  cotaGeral: number;
+  cotaTipo: CotaTipo;
+  cotaOPAnterior: number;
+  cotaGeralAnterior: number;
+  excludeUnidadeId: string | null;
+}) {
+  const { elegivelCotaOP, cotaOP, cotaGeral, cotaTipo, cotaOPAnterior, cotaGeralAnterior, excludeUnidadeId } = opts;
+  if (!exigeCotaFixa(elegivelCotaOP, cotaTipo)) return;
+
+  const aumentandoOP = cotaOP > 0 && cotaOP > cotaOPAnterior;
+  const aumentandoGeral = cotaGeral > 0 && cotaGeral > cotaGeralAnterior;
+  if (!aumentandoOP && !aumentandoGeral) return;
+
+  const pca = await prisma.pca.findFirst({ where: { ativo: true } });
+  if (!pca) {
+    throw new Error("Cadastre um PCA ativo antes de atribuir cota OP ou cota Geral fechada a uma unidade.");
+  }
+
+  const unidades = (
+    await prisma.unidade.findMany({
+      select: { id: true, elegivelCotaOP: true, cotaOP: true, cotaGeral: true, cotaTipo: true },
+    })
+  ).map((u) => ({ ...u, cotaOP: Number(u.cotaOP), cotaGeral: Number(u.cotaGeral) }));
+
+  if (aumentandoOP) {
+    const disponivel = saldoPCAOPParaAlocar(Number(pca.cotaOP), unidades, excludeUnidadeId);
+    if (cotaOP > disponivel) {
+      throw new Error(
+        `Cota OP informada (${brl(cotaOP)}) excede o subsaldo OP disponível no PCA (${brl(disponivel)} disponível, considerando o que esta unidade já tinha).`,
+      );
+    }
+  }
+  if (aumentandoGeral) {
+    const disponivel = saldoPCAGeralParaAlocar(
+      { cotaGeral: Number(pca.cotaGeral), cotaOP: Number(pca.cotaOP) },
+      unidades,
+      excludeUnidadeId,
+    );
+    if (cotaGeral > disponivel) {
+      throw new Error(
+        `Cota Geral informada (${brl(cotaGeral)}) excede o saldo geral disponível no PCA (${brl(disponivel)} disponível, considerando o que esta unidade já tinha).`,
+      );
+    }
+  }
+}
 
 export async function criarUnidadeAction(formData: FormData) {
   await exigirAdmin();
@@ -16,7 +79,8 @@ export async function criarUnidadeAction(formData: FormData) {
   const elegivelCotaOP = formData.get("elegivelCotaOP") === "on";
   const cotaOP = Number(formData.get("cotaOP") ?? 0);
   const cotaGeral = Number(formData.get("cotaGeral") ?? 0);
-  const cotaTipo = (String(formData.get("cotaTipo") ?? "") || "FECHADA") as "FECHADA" | "ABERTA";
+  const cotaTipoManual = (String(formData.get("cotaTipo") ?? "") || "FECHADA") as CotaTipo;
+  const cotaTipo = derivarCotaTipo(elegivelCotaOP, cotaGeral, cotaTipoManual);
   const verCotaGeralPCA = formData.get("verCotaGeralPCA") === "on";
   const senhaInicial = String(formData.get("senhaInicial") ?? "");
 
@@ -26,6 +90,16 @@ export async function criarUnidadeAction(formData: FormData) {
   if (!email.endsWith("@uern.br")) {
     throw new Error("O email da unidade precisa ser do domínio @uern.br.");
   }
+
+  await validarAlocacaoCotaOuErro({
+    elegivelCotaOP,
+    cotaOP,
+    cotaGeral,
+    cotaTipo,
+    cotaOPAnterior: 0,
+    cotaGeralAnterior: 0,
+    excludeUnidadeId: null,
+  });
 
   const senhaHash = await gerarHashSenha(senhaInicial);
 
@@ -42,6 +116,61 @@ export async function criarUnidadeAction(formData: FormData) {
       verCotaGeralPCA,
     },
   });
+
+  revalidatePath("/admin/unidades");
+}
+
+export async function atualizarUnidadeAction(unidadeId: string, formData: FormData) {
+  await exigirAdmin();
+  const unidadeExistente = await prisma.unidade.findUniqueOrThrow({ where: { id: unidadeId } });
+
+  const nome = String(formData.get("nome") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const elegivelCotaOP = formData.get("elegivelCotaOP") === "on";
+  const cotaOP = Number(formData.get("cotaOP") ?? 0);
+  const cotaGeral = Number(formData.get("cotaGeral") ?? 0);
+  const cotaTipoManual = (String(formData.get("cotaTipo") ?? "") || "FECHADA") as CotaTipo;
+  const cotaTipo = derivarCotaTipo(elegivelCotaOP, cotaGeral, cotaTipoManual);
+  const verCotaGeralPCA = formData.get("verCotaGeralPCA") === "on";
+  const novaSenha = String(formData.get("novaSenha") ?? "");
+
+  if (!nome || !email) throw new Error("Preencha nome e email.");
+  if (!email.endsWith("@uern.br")) {
+    throw new Error("O email da unidade precisa ser do domínio @uern.br.");
+  }
+
+  await validarAlocacaoCotaOuErro({
+    elegivelCotaOP,
+    cotaOP,
+    cotaGeral,
+    cotaTipo,
+    cotaOPAnterior: Number(unidadeExistente.cotaOP),
+    cotaGeralAnterior: Number(unidadeExistente.cotaGeral),
+    excludeUnidadeId: unidadeId,
+  });
+
+  const dados: Prisma.UnidadeUpdateInput = {
+    nome,
+    email,
+    elegivelCotaOP,
+    cotaOP,
+    cotaGeral,
+    cotaTipo,
+    verCotaGeralPCA,
+  };
+  if (novaSenha) {
+    dados.senhaHash = await gerarHashSenha(novaSenha);
+    dados.senhaTemporaria = true;
+  }
+
+  try {
+    await prisma.unidade.update({ where: { id: unidadeId }, data: dados });
+  } catch (erro) {
+    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+      throw new Error("Já existe uma unidade cadastrada com este e-mail.");
+    }
+    throw erro;
+  }
 
   revalidatePath("/admin/unidades");
 }
@@ -295,13 +424,19 @@ export async function criarCategoriaAction(formData: FormData) {
     | "OBJETO"
     | "VALOR"
     | "ITENS";
-  const fluxoContinuo = formData.get("fluxoContinuo") === "on";
-  const dependeContrato = formData.get("dependeContrato") === "on";
-  const ignoraPCA = formData.get("ignoraPCA") === "on";
-  const saldoAnualGlobalRaw = String(formData.get("saldoAnualGlobal") ?? "").trim();
-  const saldoAnualGlobal = saldoAnualGlobalRaw ? Number(saldoAnualGlobalRaw) : null;
 
   if (!nome) throw new Error("Informe o nome da categoria.");
+
+  // fluxoContinuo/dependeContrato/saldoAnualGlobal/ignoraPCA só fazem sentido
+  // quando a categoria tem valor livre (material sem catálogo, ou serviço em
+  // modo diferente de "objeto") — igual ao sistema original, que nem exibe
+  // esses campos fora desse caso e sempre grava os valores-padrão abaixo.
+  const precisaExtras = semItem || (tipo === "SERVICO" && modoServico !== "OBJETO");
+  const fluxoContinuo = precisaExtras && formData.get("fluxoContinuo") === "on";
+  const dependeContrato = precisaExtras ? formData.get("dependeContrato") === "on" : true;
+  const ignoraPCA = precisaExtras && formData.get("ignoraPCA") === "on";
+  const saldoAnualGlobalRaw = precisaExtras ? String(formData.get("saldoAnualGlobal") ?? "").trim() : "";
+  const saldoAnualGlobal = saldoAnualGlobalRaw ? Number(saldoAnualGlobalRaw) : null;
 
   await prisma.categoria.create({
     data: {

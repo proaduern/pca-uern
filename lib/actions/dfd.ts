@@ -127,6 +127,7 @@ async function processarAtualizacaoDadosGerais(dfdId: string, formData: FormData
   if (erroDescricao) throw new Error(erroDescricao);
   const erroJustificativa = validarJustificativa(justificativa);
   if (erroJustificativa) throw new Error(erroJustificativa);
+  if (!tipificacaoId) throw new Error("Selecione a tipificação do problema.");
   if (!prioridadeId) throw new Error("Selecione a prioridade.");
   if (!tipoDemanda) throw new Error("Selecione a natureza da demanda.");
   if (!data) throw new Error("Informe a data.");

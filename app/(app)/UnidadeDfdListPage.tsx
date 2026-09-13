@@ -11,13 +11,24 @@ const STATUS_LABEL: Record<string, string> = {
   REPROVADO: "Reprovado",
 };
 
+const STATUS_SOLICITACAO_LABEL: Record<string, string> = {
+  PENDENTE: "Em análise",
+  ACEITO: "Aceita — no catálogo",
+  REJEITADO: "Rejeitada",
+};
+
 export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: string }) {
-  const [unidade, pcaAtivo, dfds] = await Promise.all([
+  const [unidade, pcaAtivo, dfds, solicitacoesCatalogo] = await Promise.all([
     prisma.unidade.findUniqueOrThrow({ where: { id: unidadeId } }),
     prisma.pca.findFirst({ where: { ativo: true } }),
     prisma.dfd.findMany({
       where: { unidadeId },
       include: { itens: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.solicitacaoCatalogo.findMany({
+      where: { unidadeId },
+      include: { categoriaFinal: true },
       orderBy: { createdAt: "desc" },
     }),
   ]);
@@ -120,6 +131,46 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
           </tbody>
         </table>
       </div>
+
+      {solicitacoesCatalogo.length > 0 && (
+        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <div className="border-b border-slate-100 p-4">
+            <h2 className="text-sm font-semibold text-slate-900">
+              Minhas Solicitações de Novo Item de Catálogo
+            </h2>
+          </div>
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-left text-slate-500">
+              <tr>
+                <th className="px-4 py-2 font-medium">Item solicitado</th>
+                <th className="px-4 py-2 font-medium">Valor estimado</th>
+                <th className="px-4 py-2 font-medium">Status</th>
+                <th className="px-4 py-2 font-medium">Observação</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {solicitacoesCatalogo.map((s) => (
+                <tr key={s.id}>
+                  <td className="px-4 py-2 text-slate-900">{s.nomeResumido}</td>
+                  <td className="px-4 py-2 text-slate-600">{brl(s.valorEstimado)}</td>
+                  <td className="px-4 py-2">
+                    <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700">
+                      {STATUS_SOLICITACAO_LABEL[s.status]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-slate-600">
+                    {s.status === "ACEITO"
+                      ? `Incluído como "${s.itemFinal}" em ${s.categoriaFinal?.nome ?? "—"}`
+                      : s.status === "REJEITADO"
+                        ? s.motivoRejeicao || "—"
+                        : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
