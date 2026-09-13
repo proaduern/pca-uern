@@ -5,6 +5,7 @@ import { adminExcluirDfdAction } from "@/lib/actions/dfd";
 import { brl } from "@/lib/formato";
 import BotaoExcluir from "../BotaoExcluir";
 import DesfazerAprovacaoBotao from "./DesfazerAprovacaoBotao";
+import ImportarDfdsForm from "./ImportarDfdsForm";
 
 const STATUS_LABEL: Record<string, string> = {
   RASCUNHO: "Rascunho",
@@ -35,6 +36,8 @@ export default async function DemandasPage() {
         A PROAD pode ver e editar qualquer DFD daqui, em qualquer status. Editar um DFD já
         aprovado o devolve para &quot;aguardando aprovação&quot;.
       </p>
+
+      <ImportarDfdsForm />
 
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
         <table className="w-full text-sm">

@@ -1,12 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { obterSessao } from "@/lib/auth";
+import { obterSessao, obterSessaoReal } from "@/lib/auth";
 import { logoutAction } from "@/lib/actions/auth";
+import VoltarParaAdminBotao from "./VoltarParaAdminBotao";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const sessao = await obterSessao();
   if (!sessao) redirect("/login");
-  if (sessao.tipo !== "ADMIN" && sessao.senhaTemporaria) redirect("/trocar-senha");
+  const sessaoReal = await obterSessaoReal();
+  // "Atuando como": a sessão real é da PROAD, mas a sessão efetiva (a que
+  // vale pra tudo) é outra — ver obterSessao()/iniciarAtuarComo em lib/auth.
+  const atuandoComo = sessaoReal?.tipo === "ADMIN" && sessao.tipo !== "ADMIN" ? sessaoReal : null;
+  // Enquanto a PROAD está "atuando como" outra sessão, não força a troca de
+  // senha temporária dessa sessão — evita alterar sem querer a senha de uma
+  // unidade/setor/licitação real só por estar navegando como ela.
+  if (sessao.tipo !== "ADMIN" && sessao.senhaTemporaria && !atuandoComo) redirect("/trocar-senha");
 
   const linksAdmin = [
     { href: "/", label: "Aprovação de DFDs" },
@@ -43,6 +51,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen flex-col">
+      {atuandoComo && (
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-amber-500 px-4 py-2 text-sm text-white">
+          <span>
+            Atuando como: <b>{sessao.nome}</b> ({rotuloPerfil}) — sessão real: {atuandoComo.nome}
+          </span>
+          <VoltarParaAdminBotao />
+        </div>
+      )}
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex flex-wrap items-center gap-4">

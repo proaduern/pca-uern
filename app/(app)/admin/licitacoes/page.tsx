@@ -3,6 +3,7 @@ import { criarLicitacoesAction, excluirLicitacoesAction } from "@/lib/actions/ad
 import AcessoVinculavelForm from "../AcessoVinculavelForm";
 import BotaoExcluir from "../BotaoExcluir";
 import RedefinirSenhaLicitacoesForm from "./RedefinirSenhaLicitacoesForm";
+import AtuarComoBotao from "../AtuarComoBotao";
 import { exigirAdminNaPagina } from "@/lib/auth";
 
 export default async function LicitacoesPage() {
@@ -51,6 +52,7 @@ export default async function LicitacoesPage() {
                 <td className="px-4 py-2 text-slate-600">{l.ativo ? "Ativo" : "Inativo"}</td>
                 <td className="px-4 py-2 space-y-1">
                   {!l.vinculado && <RedefinirSenhaLicitacoesForm licitacoesId={l.id} />}
+                  <AtuarComoBotao tipo="LICITACOES" id={l.id} />
                   <BotaoExcluir action={excluirLicitacoesAction} id={l.id} />
                 </td>
               </tr>

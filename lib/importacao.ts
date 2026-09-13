@@ -24,6 +24,32 @@ function valorCelula(v: unknown): string {
   return String(v).trim();
 }
 
+async function carregarPrimeiraPlanilha(
+  nomeArquivo: string,
+  buffer: ArrayBuffer,
+): Promise<ExcelJS.Worksheet> {
+  const workbook = new ExcelJS.Workbook();
+
+  if (nomeArquivo.toLowerCase().endsWith(".csv")) {
+    const texto = new TextDecoder("utf-8").decode(buffer);
+    const separador = detectarSeparadorCsv(texto);
+    const planilha = workbook.addWorksheet("dados");
+    for (const linhaTexto of texto.split(/\r?\n/)) {
+      if (linhaTexto.trim() === "") continue;
+      planilha.addRow(linhaTexto.split(separador).map((v) => v.trim()));
+    }
+    return planilha;
+  }
+
+  // exceljs vendoriza sua própria definição de tipo para Buffer, incompatível
+  // com a do @types/node deste projeto (versões diferentes de lib.es2024) —
+  // o cast é só para o type-checker; em runtime é um Buffer normal.
+  await workbook.xlsx.load(Buffer.from(buffer) as never);
+  const primeira = workbook.worksheets[0];
+  if (!primeira) throw new Error("A planilha não tem nenhuma aba.");
+  return primeira;
+}
+
 export interface LinhaPlanilha {
   linha: number;
   dados: Record<string, string>;
@@ -33,26 +59,7 @@ export async function lerPlanilha(
   nomeArquivo: string,
   buffer: ArrayBuffer,
 ): Promise<LinhaPlanilha[]> {
-  const workbook = new ExcelJS.Workbook();
-  let planilha: ExcelJS.Worksheet;
-
-  if (nomeArquivo.toLowerCase().endsWith(".csv")) {
-    const texto = new TextDecoder("utf-8").decode(buffer);
-    const separador = detectarSeparadorCsv(texto);
-    planilha = workbook.addWorksheet("dados");
-    for (const linhaTexto of texto.split(/\r?\n/)) {
-      if (linhaTexto.trim() === "") continue;
-      planilha.addRow(linhaTexto.split(separador).map((v) => v.trim()));
-    }
-  } else {
-    // exceljs vendoriza sua própria definição de tipo para Buffer, incompatível
-    // com a do @types/node deste projeto (versões diferentes de lib.es2024) —
-    // o cast é só para o type-checker; em runtime é um Buffer normal.
-    await workbook.xlsx.load(Buffer.from(buffer) as never);
-    const primeira = workbook.worksheets[0];
-    if (!primeira) throw new Error("A planilha não tem nenhuma aba.");
-    planilha = primeira;
-  }
+  const planilha = await carregarPrimeiraPlanilha(nomeArquivo, buffer);
 
   const cabecalho: string[] = [];
   const registros: LinhaPlanilha[] = [];
@@ -69,6 +76,34 @@ export async function lerPlanilha(
       dados[chave] = valores[indice] ?? "";
     });
     registros.push({ linha: numeroLinha, dados });
+  });
+
+  return registros;
+}
+
+export interface LinhaPosicional {
+  linha: number;
+  valores: string[];
+}
+
+/**
+ * Lê a planilha por posição de coluna (A, B, C…), ignorando o texto do
+ * cabeçalho — para formatos de planilha legados em que a coluna é
+ * identificada pela letra, não pelo nome. A linha 1 (cabeçalho) é sempre
+ * pulada; os dados começam na linha 2.
+ */
+export async function lerPlanilhaPosicional(
+  nomeArquivo: string,
+  buffer: ArrayBuffer,
+): Promise<LinhaPosicional[]> {
+  const planilha = await carregarPrimeiraPlanilha(nomeArquivo, buffer);
+
+  const registros: LinhaPosicional[] = [];
+  planilha.eachRow((row, numeroLinha) => {
+    if (numeroLinha === 1) return;
+    const valores = (row.values as unknown[]).slice(1).map(valorCelula);
+    if (valores.every((v) => v === "")) return;
+    registros.push({ linha: numeroLinha, valores });
   });
 
   return registros;

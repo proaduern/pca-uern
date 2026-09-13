@@ -492,6 +492,16 @@ export async function reprovarDfdAction(dfdId: string, formData: FormData) {
   revalidatePath("/");
 }
 
+export async function aprovarSelecionadosAction(dfdIds: string[]) {
+  await exigirAdmin();
+  if (dfdIds.length === 0) throw new Error("Selecione ao menos um DFD.");
+  await prisma.dfd.updateMany({
+    where: { id: { in: dfdIds }, status: "AGUARDANDO_APROVACAO" },
+    data: { status: "APROVADO", aprovadoEm: new Date(), reprovadoEm: null, motivoReprovacao: null },
+  });
+  revalidatePath("/");
+}
+
 export async function desfazerAprovacaoDfdAction(dfdId: string) {
   await exigirAdmin();
   const dfd = await prisma.dfd.findUniqueOrThrow({ where: { id: dfdId } });

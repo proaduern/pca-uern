@@ -10,6 +10,8 @@ const SESSION_DURATION_SECONDS = 60 * 60 * 8; // 8 horas
 const PRE_LOGIN_COOKIE_NAME = "pca_pre_login";
 const PRE_LOGIN_DURATION_SECONDS = 60 * 5; // 5 minutos, só pra escolher o perfil
 
+const ADMIN_IMPERSONACAO_COOKIE_NAME = "pca_admin_impersonacao";
+
 function getSecretKey() {
   const secret = process.env.AUTH_SECRET;
   if (!secret) throw new Error("AUTH_SECRET não configurado.");
@@ -48,9 +50,9 @@ export async function destruirSessao() {
   cookieStore.delete(COOKIE_NAME);
 }
 
-export async function obterSessao(): Promise<SessionPayload | null> {
+async function obterSessaoDoCookie(nomeCookie: string): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
+  const token = cookieStore.get(nomeCookie)?.value;
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, getSecretKey());
@@ -64,6 +66,22 @@ export async function obterSessao(): Promise<SessionPayload | null> {
   } catch {
     return null;
   }
+}
+
+/** A sessão realmente autenticada (login com email/senha) — ignora "Atuar Como". */
+export async function obterSessaoReal(): Promise<SessionPayload | null> {
+  return obterSessaoDoCookie(COOKIE_NAME);
+}
+
+/**
+ * A sessão efetiva: se a PROAD estiver "atuando como" outra sessão, é essa
+ * outra sessão que vale para toda checagem de permissão do sistema — igual
+ * ao sistema original, que troca o SESSION global inteiro ao impersonar.
+ */
+export async function obterSessao(): Promise<SessionPayload | null> {
+  const impersonada = await obterSessaoDoCookie(ADMIN_IMPERSONACAO_COOKIE_NAME);
+  if (impersonada) return impersonada;
+  return obterSessaoReal();
 }
 
 export async function exigirSessao(): Promise<SessionPayload> {
@@ -289,4 +307,79 @@ export async function autenticar(email: string, senha: string): Promise<Resultad
 
 export async function gerarHashSenha(senha: string): Promise<string> {
   return bcrypt.hash(senha, 12);
+}
+
+// ---------------------------------------------------------------------------
+// "Atuar Como" — a PROAD assume temporariamente a sessão de uma unidade,
+// setor técnico ou licitações, para ver o sistema do ponto de vista delas,
+// podendo voltar para a própria sessão de admin a qualquer momento.
+// Equivalente ao adminAtuarComo/adminVoltarParaAdmin do sistema original.
+// ---------------------------------------------------------------------------
+
+async function salvarCookieSessao(nome: string, payload: SessionPayload) {
+  const token = await new SignJWT({ ...payload })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(`${SESSION_DURATION_SECONDS}s`)
+    .sign(getSecretKey());
+  const cookieStore = await cookies();
+  cookieStore.set(nome, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: SESSION_DURATION_SECONDS,
+  });
+}
+
+async function construirPayloadAtuarComo(
+  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES",
+  id: string,
+): Promise<SessionPayload> {
+  if (tipo === "UNIDADE") {
+    const u = await prisma.unidade.findUniqueOrThrow({ where: { id } });
+    return { tipo: "UNIDADE", id: u.id, nome: u.nome, email: u.email, senhaTemporaria: u.senhaTemporaria };
+  }
+  if (tipo === "SETOR_TECNICO") {
+    const t = await prisma.setorTecnico.findUniqueOrThrow({ where: { id } });
+    if (t.vinculado && t.unidadeId) {
+      const u = await prisma.unidade.findUniqueOrThrow({ where: { id: t.unidadeId } });
+      return { tipo: "SETOR_TECNICO", id: t.id, nome: t.nome, email: u.email, senhaTemporaria: u.senhaTemporaria };
+    }
+    return {
+      tipo: "SETOR_TECNICO",
+      id: t.id,
+      nome: t.nome,
+      email: t.email ?? "",
+      senhaTemporaria: t.senhaTemporaria,
+    };
+  }
+  const l = await prisma.licitacoes.findUniqueOrThrow({ where: { id } });
+  if (l.vinculado && l.unidadeId) {
+    const u = await prisma.unidade.findUniqueOrThrow({ where: { id: l.unidadeId } });
+    return { tipo: "LICITACOES", id: l.id, nome: l.nome, email: u.email, senhaTemporaria: u.senhaTemporaria };
+  }
+  return { tipo: "LICITACOES", id: l.id, nome: l.nome, email: l.email ?? "", senhaTemporaria: l.senhaTemporaria };
+}
+
+/**
+ * A sessão principal (pca_session) nunca é tocada aqui — ela continua sendo
+ * o login real da PROAD o tempo todo. "Atuar como" é só um segundo cookie
+ * (pca_admin_impersonacao) que, quando presente, é o que obterSessao()
+ * passa a devolver; "voltar para admin" é simplesmente apagar esse cookie.
+ * Só precisar mexer num cookie por vez evita qualquer disputa entre duas
+ * mutações de cookie na mesma resposta.
+ */
+export async function iniciarAtuarComo(tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES", id: string) {
+  const real = await obterSessaoReal();
+  if (!real || real.tipo !== "ADMIN") {
+    throw new Error('Só a PROAD pode usar "Atuar Como".');
+  }
+  const payload = await construirPayloadAtuarComo(tipo, id);
+  await salvarCookieSessao(ADMIN_IMPERSONACAO_COOKIE_NAME, payload);
+}
+
+export async function encerrarAtuarComo() {
+  const cookieStore = await cookies();
+  cookieStore.delete(ADMIN_IMPERSONACAO_COOKIE_NAME);
 }

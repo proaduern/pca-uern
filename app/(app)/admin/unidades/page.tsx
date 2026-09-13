@@ -6,6 +6,7 @@ import FormularioSimples from "../FormularioSimples";
 import ImportarPlanilhaForm from "../ImportarPlanilhaForm";
 import BotaoExcluir from "../BotaoExcluir";
 import RedefinirSenhaForm from "./RedefinirSenhaForm";
+import AtuarComoBotao from "../AtuarComoBotao";
 import { exigirAdminNaPagina } from "@/lib/auth";
 
 export default async function UnidadesPage() {
@@ -79,6 +80,7 @@ export default async function UnidadesPage() {
                 <td className="px-4 py-2 text-slate-600">{u.ativa ? "Ativa" : "Inativa"}</td>
                 <td className="px-4 py-2 space-y-1">
                   <RedefinirSenhaForm unidadeId={u.id} />
+                  <AtuarComoBotao tipo="UNIDADE" id={u.id} />
                   <BotaoExcluir action={excluirUnidadeAction} id={u.id} />
                 </td>
               </tr>

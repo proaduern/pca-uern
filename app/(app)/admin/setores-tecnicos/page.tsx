@@ -3,6 +3,7 @@ import { criarSetorTecnicoAction, excluirSetorTecnicoAction } from "@/lib/action
 import AcessoVinculavelForm from "../AcessoVinculavelForm";
 import BotaoExcluir from "../BotaoExcluir";
 import RedefinirSenhaSetorForm from "./RedefinirSenhaSetorForm";
+import AtuarComoBotao from "../AtuarComoBotao";
 import { exigirAdminNaPagina } from "@/lib/auth";
 
 export default async function SetoresTecnicosPage() {
@@ -60,6 +61,7 @@ export default async function SetoresTecnicosPage() {
                 <td className="px-4 py-2 text-slate-600">{s.ativo ? "Ativo" : "Inativo"}</td>
                 <td className="px-4 py-2 space-y-1">
                   {!s.vinculado && <RedefinirSenhaSetorForm setorTecnicoId={s.id} />}
+                  <AtuarComoBotao tipo="SETOR_TECNICO" id={s.id} />
                   <BotaoExcluir action={excluirSetorTecnicoAction} id={s.id} />
                 </td>
               </tr>

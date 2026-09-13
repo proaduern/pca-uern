@@ -1,13 +1,16 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import {
   autenticar,
   confirmarPerfil,
   criarSessao,
   destruirSessao,
+  encerrarAtuarComo,
   exigirSessao,
   gerarHashSenha,
+  iniciarAtuarComo,
   type OpcaoPerfil,
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -47,6 +50,20 @@ export async function confirmarPerfilAction(tipo: string, id: string) {
 export async function logoutAction() {
   await destruirSessao();
   redirect("/login");
+}
+
+export async function iniciarAtuarComoAction(
+  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES",
+  id: string,
+) {
+  await iniciarAtuarComo(tipo, id);
+  revalidatePath("/", "layout");
+  redirect("/");
+}
+
+export async function encerrarAtuarComoAction() {
+  await encerrarAtuarComo();
+  redirect("/");
 }
 
 export interface TrocarSenhaState {
