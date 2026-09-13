@@ -23,6 +23,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/admin/unidades", label: "Unidades" },
     { href: "/admin/setores-tecnicos", label: "Setores Técnicos" },
     { href: "/admin/licitacoes", label: "Licitações" },
+    { href: "/admin/execucao", label: "Execução" },
+    { href: "/admin/entrega", label: "Entrega de Bens" },
     { href: "/admin/pca", label: "PCA" },
     { href: "/admin/categorias", label: "Categorias" },
     { href: "/admin/catalogo", label: "Catálogo" },
@@ -33,12 +35,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const linksUnidade = [{ href: "/", label: "Minhas Demandas" }];
   const linksSetorTecnico = [{ href: "/", label: "Consolidação" }];
   const linksLicitacoes = [{ href: "/", label: "Processos Consolidados" }];
+  const linksExecucao = [{ href: "/", label: "Execução" }];
+  const linksEntrega = [{ href: "/", label: "Entrega de Bens" }];
 
   const LINKS_POR_TIPO = {
     ADMIN: linksAdmin,
     UNIDADE: linksUnidade,
     SETOR_TECNICO: linksSetorTecnico,
     LICITACOES: linksLicitacoes,
+    EXECUCAO: linksExecucao,
+    ENTREGA: linksEntrega,
   } as const;
   const links = LINKS_POR_TIPO[sessao.tipo];
 
@@ -47,6 +53,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     UNIDADE: "Unidade demandante",
     SETOR_TECNICO: "Setor técnico",
     LICITACOES: "Licitações",
+    EXECUCAO: "Execução",
+    ENTREGA: "Entrega de Bens",
   } as const;
   const rotuloPerfil = ROTULO_POR_TIPO[sessao.tipo];
 

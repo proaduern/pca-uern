@@ -53,7 +53,7 @@ export async function logoutAction() {
 }
 
 export async function iniciarAtuarComoAction(
-  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES",
+  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES" | "EXECUCAO" | "ENTREGA",
   id: string,
 ) {
   await iniciarAtuarComo(tipo, id);
@@ -102,12 +102,26 @@ export async function trocarSenhaAction(
     } else {
       await prisma.setorTecnico.update({ where: { id: sessao.id }, data: { senhaHash, senhaTemporaria: false } });
     }
-  } else {
+  } else if (sessao.tipo === "LICITACOES") {
     const lic = await prisma.licitacoes.findUniqueOrThrow({ where: { id: sessao.id } });
     if (lic.vinculado) {
       await prisma.unidade.update({ where: { id: lic.unidadeId! }, data: { senhaHash, senhaTemporaria: false } });
     } else {
       await prisma.licitacoes.update({ where: { id: sessao.id }, data: { senhaHash, senhaTemporaria: false } });
+    }
+  } else if (sessao.tipo === "EXECUCAO") {
+    const exec = await prisma.acessoExecucao.findUniqueOrThrow({ where: { id: sessao.id } });
+    if (exec.vinculado) {
+      await prisma.unidade.update({ where: { id: exec.unidadeId! }, data: { senhaHash, senhaTemporaria: false } });
+    } else {
+      await prisma.acessoExecucao.update({ where: { id: sessao.id }, data: { senhaHash, senhaTemporaria: false } });
+    }
+  } else {
+    const ent = await prisma.acessoEntrega.findUniqueOrThrow({ where: { id: sessao.id } });
+    if (ent.vinculado) {
+      await prisma.unidade.update({ where: { id: ent.unidadeId! }, data: { senhaHash, senhaTemporaria: false } });
+    } else {
+      await prisma.acessoEntrega.update({ where: { id: sessao.id }, data: { senhaHash, senhaTemporaria: false } });
     }
   }
 

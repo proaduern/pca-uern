@@ -3,6 +3,8 @@ import AdminAprovacaoPage from "./AdminAprovacaoPage";
 import UnidadeDfdListPage from "./UnidadeDfdListPage";
 import SetorTecnicoHomePage from "./SetorTecnicoHomePage";
 import LicitacoesHomePage from "./LicitacoesHomePage";
+import ExecucaoHomePage from "./ExecucaoHomePage";
+import EntregaHomePage from "./EntregaHomePage";
 
 export default async function HomePage() {
   const sessao = await obterSessao();
@@ -16,6 +18,12 @@ export default async function HomePage() {
   }
   if (sessao.tipo === "LICITACOES") {
     return <LicitacoesHomePage />;
+  }
+  if (sessao.tipo === "EXECUCAO") {
+    return <ExecucaoHomePage acessoExecucaoId={sessao.id} />;
+  }
+  if (sessao.tipo === "ENTREGA") {
+    return <EntregaHomePage acessoEntregaId={sessao.id} />;
   }
   return <UnidadeDfdListPage unidadeId={sessao.id} />;
 }

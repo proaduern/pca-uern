@@ -18,7 +18,7 @@ function getSecretKey() {
   return new TextEncoder().encode(secret);
 }
 
-export type TipoSessao = "ADMIN" | "UNIDADE" | "SETOR_TECNICO" | "LICITACOES";
+export type TipoSessao = "ADMIN" | "UNIDADE" | "SETOR_TECNICO" | "LICITACOES" | "EXECUCAO" | "ENTREGA";
 
 export interface SessionPayload {
   tipo: TipoSessao;
@@ -123,13 +123,25 @@ export async function exigirLicitacoes(): Promise<SessionPayload> {
   return sessao;
 }
 
+export async function exigirExecucao(): Promise<SessionPayload> {
+  const sessao = await exigirSessao();
+  if (sessao.tipo !== "EXECUCAO") throw new Error("Acesso restrito à unidade de execução.");
+  return sessao;
+}
+
+export async function exigirEntrega(): Promise<SessionPayload> {
+  const sessao = await exigirSessao();
+  if (sessao.tipo !== "ENTREGA") throw new Error("Acesso restrito à unidade de entrega de bens.");
+  return sessao;
+}
+
 // ---------------------------------------------------------------------------
 // Login com múltiplos perfis (setor técnico / licitações "vinculados" ao
 // mesmo login de uma unidade demandante — quem loga escolhe o perfil)
 // ---------------------------------------------------------------------------
 
 export interface OpcaoPerfil {
-  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES";
+  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES" | "EXECUCAO" | "ENTREGA";
   id: string;
   nome: string;
 }
@@ -203,13 +215,33 @@ export async function confirmarPerfil(tipo: string, id: string): Promise<Session
       email: unidade.email,
       senhaTemporaria: unidade.senhaTemporaria,
     };
-  } else {
+  } else if (opcao.tipo === "LICITACOES") {
     const lic = await prisma.licitacoes.findUniqueOrThrow({ where: { id: opcao.id } });
     const unidade = await prisma.unidade.findUniqueOrThrow({ where: { id: lic.unidadeId! } });
     sessao = {
       tipo: "LICITACOES",
       id: lic.id,
       nome: lic.nome,
+      email: unidade.email,
+      senhaTemporaria: unidade.senhaTemporaria,
+    };
+  } else if (opcao.tipo === "EXECUCAO") {
+    const exec = await prisma.acessoExecucao.findUniqueOrThrow({ where: { id: opcao.id } });
+    const unidade = await prisma.unidade.findUniqueOrThrow({ where: { id: exec.unidadeId! } });
+    sessao = {
+      tipo: "EXECUCAO",
+      id: exec.id,
+      nome: exec.nome,
+      email: unidade.email,
+      senhaTemporaria: unidade.senhaTemporaria,
+    };
+  } else {
+    const ent = await prisma.acessoEntrega.findUniqueOrThrow({ where: { id: opcao.id } });
+    const unidade = await prisma.unidade.findUniqueOrThrow({ where: { id: ent.unidadeId! } });
+    sessao = {
+      tipo: "ENTREGA",
+      id: ent.id,
+      nome: ent.nome,
       email: unidade.email,
       senhaTemporaria: unidade.senhaTemporaria,
     };
@@ -269,17 +301,56 @@ export async function autenticar(email: string, senha: string): Promise<Resultad
     };
   }
 
+  const execucaoProprio = await prisma.acessoExecucao.findUnique({ where: { email: emailNorm } });
+  if (execucaoProprio && !execucaoProprio.vinculado) {
+    const ok = await bcrypt.compare(senha, execucaoProprio.senhaHash ?? "");
+    if (!ok || !execucaoProprio.ativo) return null;
+    return {
+      resultado: "sessao",
+      sessao: {
+        tipo: "EXECUCAO",
+        id: execucaoProprio.id,
+        nome: execucaoProprio.nome,
+        email: execucaoProprio.email!,
+        senhaTemporaria: execucaoProprio.senhaTemporaria,
+      },
+    };
+  }
+
+  const entregaProprio = await prisma.acessoEntrega.findUnique({ where: { email: emailNorm } });
+  if (entregaProprio && !entregaProprio.vinculado) {
+    const ok = await bcrypt.compare(senha, entregaProprio.senhaHash ?? "");
+    if (!ok || !entregaProprio.ativo) return null;
+    return {
+      resultado: "sessao",
+      sessao: {
+        tipo: "ENTREGA",
+        id: entregaProprio.id,
+        nome: entregaProprio.nome,
+        email: entregaProprio.email!,
+        senhaTemporaria: entregaProprio.senhaTemporaria,
+      },
+    };
+  }
+
   const unidade = await prisma.unidade.findUnique({ where: { email: emailNorm } });
   if (unidade) {
     const ok = await bcrypt.compare(senha, unidade.senhaHash);
     if (!ok || !unidade.ativa) return null;
 
-    const [setoresVinculados, licitacoesVinculadas] = await Promise.all([
+    const [setoresVinculados, licitacoesVinculadas, execucoesVinculadas, entregasVinculadas] = await Promise.all([
       prisma.setorTecnico.findMany({ where: { vinculado: true, unidadeId: unidade.id, ativo: true } }),
       prisma.licitacoes.findMany({ where: { vinculado: true, unidadeId: unidade.id, ativo: true } }),
+      prisma.acessoExecucao.findMany({ where: { vinculado: true, unidadeId: unidade.id, ativo: true } }),
+      prisma.acessoEntrega.findMany({ where: { vinculado: true, unidadeId: unidade.id, ativo: true } }),
     ]);
 
-    if (setoresVinculados.length === 0 && licitacoesVinculadas.length === 0) {
+    if (
+      setoresVinculados.length === 0 &&
+      licitacoesVinculadas.length === 0 &&
+      execucoesVinculadas.length === 0 &&
+      entregasVinculadas.length === 0
+    ) {
       return {
         resultado: "sessao",
         sessao: {
@@ -296,6 +367,8 @@ export async function autenticar(email: string, senha: string): Promise<Resultad
       { tipo: "UNIDADE", id: unidade.id, nome: unidade.nome },
       ...setoresVinculados.map((s) => ({ tipo: "SETOR_TECNICO" as const, id: s.id, nome: s.nome })),
       ...licitacoesVinculadas.map((l) => ({ tipo: "LICITACOES" as const, id: l.id, nome: l.nome })),
+      ...execucoesVinculadas.map((e) => ({ tipo: "EXECUCAO" as const, id: e.id, nome: e.nome })),
+      ...entregasVinculadas.map((e) => ({ tipo: "ENTREGA" as const, id: e.id, nome: e.nome })),
     ];
     await criarPreLogin(opcoes);
     return { resultado: "escolher_perfil", opcoes };
@@ -333,7 +406,7 @@ async function salvarCookieSessao(nome: string, payload: SessionPayload) {
 }
 
 async function construirPayloadAtuarComo(
-  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES",
+  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES" | "EXECUCAO" | "ENTREGA",
   id: string,
 ): Promise<SessionPayload> {
   if (tipo === "UNIDADE") {
@@ -354,12 +427,28 @@ async function construirPayloadAtuarComo(
       senhaTemporaria: t.senhaTemporaria,
     };
   }
-  const l = await prisma.licitacoes.findUniqueOrThrow({ where: { id } });
-  if (l.vinculado && l.unidadeId) {
-    const u = await prisma.unidade.findUniqueOrThrow({ where: { id: l.unidadeId } });
-    return { tipo: "LICITACOES", id: l.id, nome: l.nome, email: u.email, senhaTemporaria: u.senhaTemporaria };
+  if (tipo === "LICITACOES") {
+    const l = await prisma.licitacoes.findUniqueOrThrow({ where: { id } });
+    if (l.vinculado && l.unidadeId) {
+      const u = await prisma.unidade.findUniqueOrThrow({ where: { id: l.unidadeId } });
+      return { tipo: "LICITACOES", id: l.id, nome: l.nome, email: u.email, senhaTemporaria: u.senhaTemporaria };
+    }
+    return { tipo: "LICITACOES", id: l.id, nome: l.nome, email: l.email ?? "", senhaTemporaria: l.senhaTemporaria };
   }
-  return { tipo: "LICITACOES", id: l.id, nome: l.nome, email: l.email ?? "", senhaTemporaria: l.senhaTemporaria };
+  if (tipo === "EXECUCAO") {
+    const e = await prisma.acessoExecucao.findUniqueOrThrow({ where: { id } });
+    if (e.vinculado && e.unidadeId) {
+      const u = await prisma.unidade.findUniqueOrThrow({ where: { id: e.unidadeId } });
+      return { tipo: "EXECUCAO", id: e.id, nome: e.nome, email: u.email, senhaTemporaria: u.senhaTemporaria };
+    }
+    return { tipo: "EXECUCAO", id: e.id, nome: e.nome, email: e.email ?? "", senhaTemporaria: e.senhaTemporaria };
+  }
+  const e = await prisma.acessoEntrega.findUniqueOrThrow({ where: { id } });
+  if (e.vinculado && e.unidadeId) {
+    const u = await prisma.unidade.findUniqueOrThrow({ where: { id: e.unidadeId } });
+    return { tipo: "ENTREGA", id: e.id, nome: e.nome, email: u.email, senhaTemporaria: u.senhaTemporaria };
+  }
+  return { tipo: "ENTREGA", id: e.id, nome: e.nome, email: e.email ?? "", senhaTemporaria: e.senhaTemporaria };
 }
 
 /**
@@ -370,7 +459,10 @@ async function construirPayloadAtuarComo(
  * Só precisar mexer num cookie por vez evita qualquer disputa entre duas
  * mutações de cookie na mesma resposta.
  */
-export async function iniciarAtuarComo(tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES", id: string) {
+export async function iniciarAtuarComo(
+  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES" | "EXECUCAO" | "ENTREGA",
+  id: string,
+) {
   const real = await obterSessaoReal();
   if (!real || real.tipo !== "ADMIN") {
     throw new Error('Só a PROAD pode usar "Atuar Como".');

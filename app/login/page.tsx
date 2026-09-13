@@ -43,7 +43,11 @@ export default function LoginPage() {
                     ? "Unidade demandante"
                     : o.tipo === "SETOR_TECNICO"
                       ? "Setor técnico"
-                      : "Licitações"}
+                      : o.tipo === "LICITACOES"
+                        ? "Licitações"
+                        : o.tipo === "EXECUCAO"
+                          ? "Execução"
+                          : "Entrega de bens"}
                   )
                 </span>
               </button>

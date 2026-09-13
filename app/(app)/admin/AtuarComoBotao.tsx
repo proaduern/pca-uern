@@ -7,7 +7,7 @@ export default function AtuarComoBotao({
   tipo,
   id,
 }: {
-  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES";
+  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES" | "EXECUCAO" | "ENTREGA";
   id: string;
 }) {
   const [isPending, startTransition] = useTransition();

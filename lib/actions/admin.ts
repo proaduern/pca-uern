@@ -649,3 +649,97 @@ export async function desfazerAprovacaoDfdAction(dfdId: string) {
   });
   revalidatePath("/");
 }
+
+// ---------------------------------------------------------------------------
+// Unidade de Execução (Fase 4)
+// ---------------------------------------------------------------------------
+
+export async function criarAcessoExecucaoAction(formData: FormData) {
+  await exigirAdmin();
+  const nome = String(formData.get("nome") ?? "").trim();
+  if (!nome) throw new Error("Informe o nome da unidade.");
+  const subperfil = String(formData.get("subperfil") ?? "") as "OBRAS" | "SERVICOS" | "MATERIAIS_PATRIMONIO";
+  if (!["OBRAS", "SERVICOS", "MATERIAIS_PATRIMONIO"].includes(subperfil)) {
+    throw new Error("Selecione o subperfil.");
+  }
+  const acesso = await dadosAcessoVinculavel(formData);
+
+  await prisma.acessoExecucao.create({
+    data: { nome, subperfil, ...acesso, senhaTemporaria: true },
+  });
+
+  revalidatePath("/admin/execucao");
+}
+
+export async function excluirAcessoExecucaoAction(id: string) {
+  await exigirAdmin();
+  await prisma.acessoExecucao.delete({ where: { id } });
+  revalidatePath("/admin/execucao");
+}
+
+export async function redefinirSenhaAcessoExecucaoAction(id: string, formData: FormData) {
+  await exigirAdmin();
+  const acesso = await prisma.acessoExecucao.findUniqueOrThrow({ where: { id } });
+  if (acesso.vinculado) {
+    throw new Error("Este acesso é vinculado a uma unidade — redefina a senha da unidade demandante.");
+  }
+  const novaSenha = String(formData.get("novaSenha") ?? "");
+  if (novaSenha.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+  const senhaHash = await gerarHashSenha(novaSenha);
+  await prisma.acessoExecucao.update({ where: { id }, data: { senhaHash, senhaTemporaria: true } });
+  revalidatePath("/admin/execucao");
+}
+
+/** Exceção de roteamento por categoria: null/"" remove a exceção e volta ao padrão calculado por nome. */
+export async function definirExcecaoExecucaoAction(categoriaId: string, subperfil: string) {
+  await exigirAdmin();
+  const valor = ["OBRAS", "SERVICOS", "MATERIAIS_PATRIMONIO"].includes(subperfil)
+    ? (subperfil as "OBRAS" | "SERVICOS" | "MATERIAIS_PATRIMONIO")
+    : null;
+  await prisma.categoria.update({ where: { id: categoriaId }, data: { subperfilExecucaoOverride: valor } });
+  revalidatePath("/admin/execucao");
+}
+
+// ---------------------------------------------------------------------------
+// Unidade de Entrega de Bens (Fase 4)
+// ---------------------------------------------------------------------------
+
+export async function criarAcessoEntregaAction(formData: FormData) {
+  await exigirAdmin();
+  const nome = String(formData.get("nome") ?? "").trim();
+  if (!nome) throw new Error("Informe o nome da unidade.");
+  const subperfil = String(formData.get("subperfil") ?? "") as "PATRIMONIO" | "ALMOXARIFADO";
+  if (!["PATRIMONIO", "ALMOXARIFADO"].includes(subperfil)) {
+    throw new Error("Selecione o subperfil.");
+  }
+  const acesso = await dadosAcessoVinculavel(formData);
+
+  await prisma.acessoEntrega.create({
+    data: { nome, subperfil, ...acesso, senhaTemporaria: true },
+  });
+
+  revalidatePath("/admin/entrega");
+}
+
+export async function excluirAcessoEntregaAction(id: string) {
+  await exigirAdmin();
+  await prisma.acessoEntrega.delete({ where: { id } });
+  revalidatePath("/admin/entrega");
+}
+
+export async function redefinirSenhaAcessoEntregaAction(id: string, formData: FormData) {
+  await exigirAdmin();
+  const acesso = await prisma.acessoEntrega.findUniqueOrThrow({ where: { id } });
+  if (acesso.vinculado) {
+    throw new Error("Este acesso é vinculado a uma unidade — redefina a senha da unidade demandante.");
+  }
+  const novaSenha = String(formData.get("novaSenha") ?? "");
+  if (novaSenha.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+  const senhaHash = await gerarHashSenha(novaSenha);
+  await prisma.acessoEntrega.update({ where: { id }, data: { senhaHash, senhaTemporaria: true } });
+  revalidatePath("/admin/entrega");
+}
+
+// autorizarEntregaSelecionadosAction e ratificarContestacaoAction (ambas de
+// competência da PROAD, mas parte do fluxo de Entrega) ficam em
+// lib/actions/entrega.ts, junto com o resto do domínio de Entrega.

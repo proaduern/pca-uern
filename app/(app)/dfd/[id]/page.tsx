@@ -3,10 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/auth";
 import { brl, formatarData } from "@/lib/formato";
 import { categoriaVisivelPara, itemCatalogoVisivelPara } from "@/lib/visibilidade";
+import { resolverFaseItemDfd } from "@/lib/fase-item";
 import DadosGeraisForm from "./DadosGeraisForm";
 import ItemForm from "./ItemForm";
 import AcoesDfd from "./AcoesDfd";
 import RemoverItemBotao from "./RemoverItemBotaoClient";
+import ItemFaseDetalhe from "./ItemFaseDetalhe";
 
 export default async function DfdDetalhePage({
   params,
@@ -52,6 +54,11 @@ export default async function DfdDetalhePage({
   );
 
   const total = dfd.itens.reduce((s, it) => s + Number(it.valorTotal), 0);
+
+  const fasesPorItem =
+    dfd.status === "APROVADO"
+      ? Object.fromEntries(await Promise.all(dfd.itens.map(async (it) => [it.id, await resolverFaseItemDfd(it.id)] as const)))
+      : {};
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -109,6 +116,9 @@ export default async function DfdDetalhePage({
                 )}
               </div>
             </div>
+            {fasesPorItem[it.id] && sessao.tipo === "UNIDADE" && (
+              <ItemFaseDetalhe itemId={it.id} fase={fasesPorItem[it.id]} />
+            )}
           </div>
         ))}
 
