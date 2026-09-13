@@ -44,6 +44,11 @@ model Unidade {
   itensCatalogoRestritos ItemCatalogo[] @relation("ItemCatalogoRestricaoUnidades")
 
   solicitacoesCatalogo SolicitacaoCatalogo[]
+
+  acessosExecucaoVinculados  AcessoExecucao[]
+  acessosEntregaVinculados   AcessoEntrega[]
+  acessosGestorAtaVinculados AcessoGestorAta[]
+  entregas                   Entrega[]
 }
 
 enum CotaTipo {
@@ -88,6 +93,80 @@ model Licitacoes {
   ativo           Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  statusLicitacao        StatusLicitacao[]
+  consolidacoesRevisadas ConsolidacaoTecnica[]
+}
+
+// Login da Unidade de Execução de Compras e Contratações. Mesmo esquema de
+// vínculo do SetorTecnico/Licitacoes, mais um subperfil fixo (o roteamento de
+// qual categoria cai em qual subperfil é regra de negócio, não campo de acesso).
+enum SubperfilExecucao {
+  OBRAS
+  SERVICOS
+  MATERIAIS_PATRIMONIO
+}
+
+model AcessoExecucao {
+  id              String            @id @default(cuid())
+  nome            String
+  subperfil       SubperfilExecucao
+  vinculado       Boolean           @default(false)
+  unidadeId       String?
+  unidade         Unidade?          @relation(fields: [unidadeId], references: [id])
+  email           String?           @unique
+  senhaHash       String?
+  senhaTemporaria Boolean           @default(true)
+  ativo           Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  processos         ProcessoExecucao[]
+  statusRegistrados StatusExecucao[]
+}
+
+// Login da Unidade de Entrega de Bens (Patrimônio ou Almoxarifado).
+enum SubperfilEntrega {
+  PATRIMONIO
+  ALMOXARIFADO
+}
+
+model AcessoEntrega {
+  id              String           @id @default(cuid())
+  nome            String
+  subperfil       SubperfilEntrega
+  vinculado       Boolean          @default(false)
+  unidadeId       String?
+  unidade         Unidade?         @relation(fields: [unidadeId], references: [id])
+  email           String?          @unique
+  senhaHash       String?
+  senhaTemporaria Boolean          @default(true)
+  ativo           Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  statusEntregaRegistrados StatusEntrega[]
+  atendimentosPropostos    AtendimentoEstoque[]
+  trocasOPAnalisadas       TrocaOP[]
+  entregasAtribuidas       Entrega[]
+  contestacoesAnalisadas   ConfirmacaoEntrega[]
+}
+
+// Login da Unidade Gestora de Ata de Registro de Preços.
+model AcessoGestorAta {
+  id              String   @id @default(cuid())
+  nome            String
+  vinculado       Boolean  @default(false)
+  unidadeId       String?
+  unidade         Unidade? @relation(fields: [unidadeId], references: [id])
+  email           String?  @unique
+  senhaHash       String?
+  senhaTemporaria Boolean  @default(true)
+  ativo           Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  consolidacoesSolicitadas ConsolidacaoTecnica[]
 }
 
 // ---------------------------------------------------------------------------
@@ -181,6 +260,11 @@ model Categoria {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
+  // Roteamento padrão à Execução é calculado pelo nome/tipo da categoria
+  // (replica a lista fixa CATEGORIAS_SERVICO do legado — ver lib/execucao.ts);
+  // este campo só existe para excepcionar esse padrão caso a caso.
+  subperfilExecucaoOverride SubperfilExecucao?
+
   restricaoModo     ModoRestricao @default(TODAS)
   unidadesRestritas Unidade[]     @relation("CategoriaRestricaoUnidades")
 
@@ -188,6 +272,7 @@ model Categoria {
   itensDfd      ItemDfd[]
   itensTecnicos ItemTecnico[]
   consolidacoes ConsolidacaoTecnica[]
+  entregas      Entrega[]
 
   solicitacoesCatalogo SolicitacaoCatalogo[]
 }
@@ -359,10 +444,38 @@ model ItemDfd {
   substituicaoPor           SetorTecnico? @relation("SubstituicaoPorSetor", fields: [substituicaoPorId], references: [id])
   substituicaoEm            DateTime?
 
+  // Resultado da homologação (Licitação) — preenchido por item/grupo.
+  resultadoHomologacao ResultadoHomologacao?
+  valorAdjudicado      Decimal?              @db.Decimal(14, 2)
+
+  // Divisão por resultado/recebimento/entrega PARCIAL: a parte separada vira
+  // uma nova linha (mesmo dfd, mesma origem); o item de origem permanece com
+  // a quantidade remanescente, ainda pendente — nunca se perde nem se funde.
+  itemOrigemDivisaoId String?
+  itemOrigemDivisao   ItemDfd?  @relation("DivisaoItemDfd", fields: [itemOrigemDivisaoId], references: [id])
+  itensDivididos      ItemDfd[] @relation("DivisaoItemDfd")
+
+  processoExecucaoId String?
+  processoExecucao   ProcessoExecucao? @relation(fields: [processoExecucaoId], references: [id])
+
+  // Atendimento por Estoque / Troca de Item (OP): o item perde a destinação
+  // específica e passa a ser reposição de "estoque geral" (ver
+  // AtendimentoEstoque/TrocaOP) — seu ciclo de licitação/execução real
+  // continua, agora só para fins de métrica do PCA, não mais para a unidade.
+  estoqueGeral      Boolean   @default(false)
+  estoqueGeralDesde DateTime?
+  viaTrocaOP        Boolean   @default(false)
+
+  atendimentoEstoque AtendimentoEstoque?
+  trocaOP            TrocaOP?            @relation("ItemComTrocaOP")
+  trocaOPOrigem      TrocaOP?            @relation("ItemGeradoPorTrocaOP")
+  entrega            Entrega?
+
   createdAt DateTime @default(now())
 
   @@index([dfdId])
   @@index([consolidacaoTecnicaId])
+  @@index([processoExecucaoId])
 }
 
 // ---------------------------------------------------------------------------
@@ -390,6 +503,20 @@ model ItemTecnico {
   substituicaoJustificativa String?
   substituicaoEm            DateTime?
 
+  // Mesmo mecanismo de ItemDfd — ver comentário lá. ItemTecnico não tem
+  // demandante, então não participa de Atendimento por Estoque nem Troca OP.
+  resultadoHomologacao ResultadoHomologacao?
+  valorAdjudicado      Decimal?              @db.Decimal(14, 2)
+
+  itemOrigemDivisaoId String?
+  itemOrigemDivisao   ItemTecnico?  @relation("DivisaoItemTecnico", fields: [itemOrigemDivisaoId], references: [id])
+  itensDivididos      ItemTecnico[] @relation("DivisaoItemTecnico")
+
+  processoExecucaoId String?
+  processoExecucao   ProcessoExecucao? @relation(fields: [processoExecucaoId], references: [id])
+
+  entrega Entrega?
+
   criadoPorId String
   criadoPor   SetorTecnico @relation(fields: [criadoPorId], references: [id])
   createdAt   DateTime     @default(now())
@@ -399,6 +526,7 @@ model ItemTecnico {
 
   @@index([categoriaId])
   @@index([consolidacaoTecnicaId])
+  @@index([processoExecucaoId])
 }
 
 enum PrioridadeConsolidacao {
@@ -442,5 +570,307 @@ model ConsolidacaoTecnica {
   itensDfd      ItemDfd[]
   itensTecnicos ItemTecnico[]
 
+  // Fase 3 (Licitações): status atual = última linha por createdAt.
+  statusLicitacao StatusLicitacao[]
+
+  // Revisão de prioridade/prazo pela Licitação — a marcação original do Setor
+  // Técnico acima (prioridade/dataEsperadaConclusao) é preservada; isto fica
+  // como um registro à parte, com justificativa obrigatória.
+  revisaoPrioridade            PrioridadeConsolidacao?
+  revisaoDataEsperadaConclusao DateTime?               @db.Date
+  revisaoJustificativa         String?
+  revisaoEm                    DateTime?
+  revisaoPorId                 String?
+  revisaoPor                   Licitacoes?             @relation(fields: [revisaoPorId], references: [id])
+
+  // Ata de Registro de Preços (tipoContratacao=ATA): a Unidade Gestora de Ata
+  // solicita a execução, a PROAD autoriza — ao autorizar, o processo avança
+  // automaticamente para "remetido_execucao" (sem ação manual da Licitação).
+  solicitacaoExecucaoAtaEm    DateTime?
+  solicitacaoExecucaoAtaPorId String?
+  solicitacaoExecucaoAtaPor   AcessoGestorAta? @relation(fields: [solicitacaoExecucaoAtaPorId], references: [id])
+  ataAutorizadaEm             DateTime?
+
+  processosExecucao ProcessoExecucao[]
+
   @@index([pcaAno, categoriaId])
+}
+
+// ---------------------------------------------------------------------------
+// Licitações (Fase 3)
+// ---------------------------------------------------------------------------
+
+enum StatusLicitacaoValor {
+  PESQUISA_PRECOS
+  TERMO_REFERENCIA
+  DILIGENCIA_DEMANDANTE
+  MINUTAS
+  ANALISE_JURIDICA
+  DILIGENCIAS_PGE
+  SESSAO_MARCADA
+  ANALISE_PROPOSTAS
+  RECURSO
+  HOMOLOGADO
+  ASSINATURA_CONTRATO
+  REMETIDO_EXECUCAO
+  REMETIDO_GESTOR_ATA
+}
+
+// Um registro por avanço de status (nunca editado depois) — status atual é
+// sempre o último por createdAt. Os campos abaixo cobrem a união de tudo que
+// algum status pode pedir (cada status só usa os seus, o resto fica null).
+model StatusLicitacao {
+  id             String               @id @default(cuid())
+  consolidacaoId String
+  consolidacao   ConsolidacaoTecnica  @relation(fields: [consolidacaoId], references: [id], onDelete: Cascade)
+  status         StatusLicitacaoValor
+
+  responsavel     String? // pesquisa_precos / termo_referencia / minutas
+  dataDiligencia  DateTime? @db.Date // diligencia_demandante
+  prazoResposta   DateTime? @db.Date // diligencia_demandante
+  dataSessao      DateTime? @db.Date // sessao_marcada
+  agenteNome      String? // sessao_marcada
+  agenteMatricula String? // sessao_marcada
+
+  criadoPorId String
+  criadoPor   Licitacoes @relation(fields: [criadoPorId], references: [id])
+  createdAt   DateTime   @default(now())
+
+  @@index([consolidacaoId])
+}
+
+enum ResultadoHomologacao {
+  SUCESSO
+  FRACASSADO
+  DESERTO
+}
+
+// ---------------------------------------------------------------------------
+// Execução (Fase 4)
+// ---------------------------------------------------------------------------
+
+// Um processo de execução = um subconjunto dos itens homologados com êxito de
+// uma consolidação, agrupados pela Unidade de Execução sob um novo processo
+// SEI próprio (pode haver mais de um processo de execução por consolidação).
+model ProcessoExecucao {
+  id                  String              @id @default(cuid())
+  consolidacaoId      String
+  consolidacao        ConsolidacaoTecnica @relation(fields: [consolidacaoId], references: [id])
+  subperfil           SubperfilExecucao
+  acessoExecucaoId    String
+  acessoExecucao      AcessoExecucao      @relation(fields: [acessoExecucaoId], references: [id])
+  processoSEIExecucao String
+
+  itensDfd      ItemDfd[]
+  itensTecnicos ItemTecnico[]
+
+  statusExecucao StatusExecucao[]
+  entregas       Entrega[]
+
+  createdAt DateTime @default(now())
+
+  @@index([consolidacaoId])
+}
+
+enum StatusExecucaoValor {
+  REMETIDO_FORNECEDOR
+  REJEITADA_FORNECEDOR
+  RECEBIDA_CONFERENCIA
+  RECEBIDA_DEFINITIVO
+}
+
+model StatusExecucao {
+  id                 String              @id @default(cuid())
+  processoExecucaoId String
+  processoExecucao   ProcessoExecucao    @relation(fields: [processoExecucaoId], references: [id], onDelete: Cascade)
+  status             StatusExecucaoValor
+
+  dataEnvio DateTime? @db.Date // remetido_fornecedor
+  prazoDias Int? // remetido_fornecedor — prazo contratual, em dias; "em atraso" é calculado (dataEnvio + prazoDias < hoje)
+
+  criadoPorId String
+  criadoPor   AcessoExecucao @relation(fields: [criadoPorId], references: [id])
+  createdAt   DateTime       @default(now())
+
+  @@index([processoExecucaoId])
+}
+
+// ---------------------------------------------------------------------------
+// Entrega de Bens (Fase 4) + casos especiais (Fase 5)
+// ---------------------------------------------------------------------------
+
+// Uma entrega é um registro autocontido (categoria/item/valor snapshot no
+// momento da autorização) — não é sempre um espelho 1:1 de um ItemDfd/
+// ItemTecnico: Atendimento por Estoque gera uma entrega avulsa ("carimbada"),
+// sem item de origem, enquanto o item real segue seu próprio ciclo (vira
+// "estoque geral"). itemDfdId/itemTecnicoId são só a referência solta usada
+// para localizar a quantidade total ao registrar uma entrega parcial.
+model Entrega {
+  id              String           @id @default(cuid())
+  unidadeId       String?
+  unidade         Unidade?         @relation(fields: [unidadeId], references: [id])
+  categoriaId     String
+  categoria       Categoria        @relation(fields: [categoriaId], references: [id])
+  itemNome        String
+  enquadramento   Enquadramento
+  tipoBem         TipoBem?
+  subperfilBens   SubperfilEntrega
+  valorAdjudicado Decimal          @db.Decimal(14, 2)
+
+  processoExecucaoId String?
+  processoExecucao   ProcessoExecucao? @relation(fields: [processoExecucaoId], references: [id])
+  acessoEntregaId    String?
+  acessoEntrega      AcessoEntrega?    @relation(fields: [acessoEntregaId], references: [id])
+
+  itemDfdId     String?      @unique
+  itemDfd       ItemDfd?     @relation(fields: [itemDfdId], references: [id])
+  itemTecnicoId String?      @unique
+  itemTecnico   ItemTecnico? @relation(fields: [itemTecnicoId], references: [id])
+
+  viaEstoque Boolean @default(false)
+  viaTrocaOP Boolean @default(false)
+
+  statusEntrega      StatusEntrega[]
+  confirmacoes       ConfirmacaoEntrega[]
+  atendimentoEstoque AtendimentoEstoque?
+
+  createdAt DateTime @default(now())
+
+  @@index([unidadeId])
+}
+
+enum StatusEntregaValor {
+  EM_ESTOQUE
+  AUTORIZADO_PROAD
+  ENTREGA_ANDAMENTO
+  ENTREGUE
+}
+
+model StatusEntrega {
+  id        String             @id @default(cuid())
+  entregaId String
+  entrega   Entrega            @relation(fields: [entregaId], references: [id], onDelete: Cascade)
+  status    StatusEntregaValor
+
+  // Nulo quando o status foi lançado pela PROAD (ex.: autorização em lote,
+  // atendimento por estoque, troca OP) em vez da Unidade de Entrega de Bens.
+  criadoPorId String?
+  criadoPor   AcessoEntrega? @relation(fields: [criadoPorId], references: [id])
+  createdAt   DateTime       @default(now())
+
+  @@index([entregaId])
+}
+
+// Aceite tácito em 10 dias / contestação do demandante sobre uma entrega
+// marcada como "entregue". Uma entrega pode passar por mais de um ciclo: se
+// a Administração ratifica uma contestação, a entrega é reaberta e um novo
+// ciclo de confirmação começa quando ela for marcada como entregue de novo —
+// o ciclo anterior fica preservado aqui, nunca é apagado.
+enum StatusConfirmacaoEntrega {
+  PENDENTE
+  CONFIRMADO
+  CONTESTACAO_PENDENTE_ENTREGA
+  CONTESTACAO_PENDENTE_ADMIN
+  CONTESTACAO_RATIFICADA
+  CONTESTACAO_REJEITADA
+}
+
+model ConfirmacaoEntrega {
+  id           String                   @id @default(cuid())
+  entregaId    String
+  entrega      Entrega                  @relation(fields: [entregaId], references: [id], onDelete: Cascade)
+  status       StatusConfirmacaoEntrega @default(PENDENTE)
+  dataLimite   DateTime                 @db.Date
+  confirmadoEm DateTime?
+
+  contestacaoMotivo                   String?
+  contestacaoSolicitadoEm             DateTime?
+  contestacaoAnaliseEntregaOk         Boolean?
+  contestacaoAnaliseEntregaComentario String?
+  contestacaoAnaliseEntregaPorId      String?
+  contestacaoAnaliseEntregaPor        AcessoEntrega? @relation(fields: [contestacaoAnaliseEntregaPorId], references: [id])
+  contestacaoAnaliseEntregaEm         DateTime?
+  contestacaoAnaliseAdminOk           Boolean?
+  contestacaoAnaliseAdminEm           DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([entregaId])
+}
+
+// ---------------------------------------------------------------------------
+// Casos especiais (Fase 5)
+// ---------------------------------------------------------------------------
+
+enum StatusAtendimentoEstoque {
+  PENDENTE_PROAD
+  APROVADO
+  REJEITADO
+}
+
+// Exceção do Patrimônio para itens OP já consolidados: propõe atender de
+// imediato com o que já tem em estoque, sem esperar a licitação terminar. A
+// PROAD aprova (gera uma Entrega avulsa "carimbada" — ver Entrega) ou rejeita.
+model AtendimentoEstoque {
+  id              String                   @id @default(cuid())
+  itemDfdId       String                   @unique
+  itemDfd         ItemDfd                  @relation(fields: [itemDfdId], references: [id])
+  solicitadoPorId String
+  solicitadoPor   AcessoEntrega            @relation(fields: [solicitadoPorId], references: [id])
+  solicitadoEm    DateTime                 @default(now())
+  status          StatusAtendimentoEstoque @default(PENDENTE_PROAD)
+  motivoRejeicao  String?
+  analisadoEm     DateTime?
+  entregaId       String?                  @unique
+  entrega         Entrega?                 @relation(fields: [entregaId], references: [id])
+}
+
+enum StatusTrocaOP {
+  PENDENTE_PROAD_INICIAL
+  REJEITADO_INICIAL
+  PENDENTE_PATRIMONIO
+  SEM_ESTOQUE
+  PENDENTE_PROAD_FINAL
+  REJEITADO_FINAL
+  APROVADO
+}
+
+// Troca de item OP: demandante -> PROAD (triagem) -> Patrimônio
+// (disponibilidade) -> PROAD (autorização final). Autorizado, cria um novo
+// ItemDfd (o "item B") e uma Entrega avulsa carimbada para ele.
+model TrocaOP {
+  id        String        @id @default(cuid())
+  itemDfdId String        @unique
+  itemDfd   ItemDfd       @relation("ItemComTrocaOP", fields: [itemDfdId], references: [id])
+  status    StatusTrocaOP @default(PENDENTE_PROAD_INICIAL)
+
+  justificativaDemandante String
+
+  // "Item B" pretendido pelo demandante — do catálogo ou personalizado.
+  itemBOrigemCatalogo Boolean
+  itemBCategoria      String
+  itemBNome           String
+  itemBValor          Decimal @db.Decimal(14, 2)
+  itemBTipoBem        TipoBem
+
+  analiseProadInicialOk     Boolean?
+  analiseProadInicialMotivo String?
+  analiseProadInicialEm     DateTime?
+
+  analisePatrimonioDisponivel Boolean?
+  analisePatrimonioPorId      String?
+  analisePatrimonioPor        AcessoEntrega? @relation(fields: [analisePatrimonioPorId], references: [id])
+  analisePatrimonioEm         DateTime?
+
+  analiseProadFinalOk         Boolean?
+  analiseProadFinalMotivo     String?
+  analiseProadFinalExtrapolou Boolean?
+  analiseProadFinalEm         DateTime?
+
+  itemNovoId String?  @unique
+  itemNovo   ItemDfd? @relation("ItemGeradoPorTrocaOP", fields: [itemNovoId], references: [id])
+
+  solicitadoEm DateTime @default(now())
+
+  @@index([status])
 }
