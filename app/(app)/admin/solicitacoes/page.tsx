@@ -40,8 +40,18 @@ export default async function SolicitacoesCatalogoPage() {
           pendentes.map((s) => (
             <RevisaoSolicitacaoForm
               key={s.id}
-              solicitacao={s}
-              unidade={s.unidade}
+              solicitacao={{
+                id: s.id,
+                nomeResumido: s.nomeResumido,
+                descricao: s.descricao,
+                marcaModelo: s.marcaModelo,
+                aplicacao: s.aplicacao,
+                link: s.link,
+                valorEstimado: Number(s.valorEstimado),
+                tipoBemSugerido: s.tipoBemSugerido,
+                createdAt: s.createdAt.toISOString(),
+              }}
+              unidade={s.unidade ? { nome: s.unidade.nome } : null}
               categoriasExistentes={nomesCategorias}
             />
           ))

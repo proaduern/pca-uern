@@ -86,7 +86,16 @@ export default async function DfdDetalhePage({
       )}
 
       <DadosGeraisForm
-        dfd={dfd}
+        dfd={{
+          id: dfd.id,
+          descricaoSumaria: dfd.descricaoSumaria,
+          tipificacaoId: dfd.tipificacaoId,
+          prioridadeId: dfd.prioridadeId,
+          justificativa: dfd.justificativa,
+          tipoDemanda: dfd.tipoDemanda,
+          dataRenovacao: dfd.dataRenovacao,
+          dataEntrega: dfd.dataEntrega,
+        }}
         tipificacoes={tipificacoes}
         prioridades={prioridades}
         podeEditar={podeEditar}
@@ -146,8 +155,19 @@ export default async function DfdDetalhePage({
         {podeEditar && (
           <ItemForm
             dfdId={dfd.id}
-            categorias={categorias}
-            itensCatalogo={itensCatalogo}
+            categorias={categorias.map((c) => ({
+              id: c.id,
+              nome: c.nome,
+              tipo: c.tipo,
+              semItem: c.semItem,
+              modoServico: c.modoServico,
+            }))}
+            itensCatalogo={itensCatalogo.map((it) => ({
+              id: it.id,
+              categoriaId: it.categoriaId,
+              item: it.item,
+              valor: Number(it.valor),
+            }))}
             unidadeElegivelOP={dfd.unidade.elegivelCotaOP}
             modoAdmin={modoAdmin}
           />

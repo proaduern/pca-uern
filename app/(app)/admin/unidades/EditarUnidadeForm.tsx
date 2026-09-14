@@ -2,9 +2,20 @@
 
 import { useState, useTransition } from "react";
 import { atualizarUnidadeAction } from "@/lib/actions/admin";
-import type { Unidade } from "@prisma/client";
+import type { CotaTipo } from "@prisma/client";
 
-export default function EditarUnidadeForm({ unidade }: { unidade: Unidade }) {
+interface UnidadeParaEdicao {
+  id: string;
+  nome: string;
+  email: string;
+  elegivelCotaOP: boolean;
+  cotaOP: number;
+  cotaGeral: number;
+  cotaTipo: CotaTipo;
+  verCotaGeralPCA: boolean;
+}
+
+export default function EditarUnidadeForm({ unidade }: { unidade: UnidadeParaEdicao }) {
   const [aberto, setAberto] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -74,7 +85,7 @@ export default function EditarUnidadeForm({ unidade }: { unidade: Unidade }) {
           type="number"
           min={0}
           step="0.01"
-          defaultValue={Number(unidade.cotaOP)}
+          defaultValue={unidade.cotaOP}
           className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
         />
       </div>
@@ -85,7 +96,7 @@ export default function EditarUnidadeForm({ unidade }: { unidade: Unidade }) {
           type="number"
           min={0}
           step="0.01"
-          defaultValue={Number(unidade.cotaGeral)}
+          defaultValue={unidade.cotaGeral}
           className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
         />
       </div>

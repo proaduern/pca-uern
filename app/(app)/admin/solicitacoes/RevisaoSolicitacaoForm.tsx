@@ -3,15 +3,27 @@
 import { useState, useTransition } from "react";
 import { aceitarSolicitacaoCatalogoAction, rejeitarSolicitacaoCatalogoAction } from "@/lib/actions/solicitacoes";
 import { brl } from "@/lib/formato";
-import type { SolicitacaoCatalogo, Unidade } from "@prisma/client";
+import type { TipoBem } from "@prisma/client";
+
+interface SolicitacaoParaRevisao {
+  id: string;
+  nomeResumido: string;
+  descricao: string;
+  marcaModelo: string | null;
+  aplicacao: string;
+  link: string | null;
+  valorEstimado: number;
+  tipoBemSugerido: TipoBem;
+  createdAt: string;
+}
 
 export default function RevisaoSolicitacaoForm({
   solicitacao,
   unidade,
   categoriasExistentes,
 }: {
-  solicitacao: SolicitacaoCatalogo;
-  unidade: Unidade | null;
+  solicitacao: SolicitacaoParaRevisao;
+  unidade: { nome: string } | null;
   categoriasExistentes: string[];
 }) {
   const [aberto, setAberto] = useState(false);
@@ -115,7 +127,7 @@ export default function RevisaoSolicitacaoForm({
                 min={0}
                 step="0.01"
                 required
-                defaultValue={Number(solicitacao.valorEstimado)}
+                defaultValue={solicitacao.valorEstimado}
                 className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
               />
             </div>

@@ -60,7 +60,18 @@ export default async function UnidadesPage() {
                 <td className="px-4 py-2 text-slate-600">{brl(u.cotaGeral)}</td>
                 <td className="px-4 py-2 text-slate-600">{u.ativa ? "Ativa" : "Inativa"}</td>
                 <td className="px-4 py-2 space-y-1">
-                  <EditarUnidadeForm unidade={u} />
+                  <EditarUnidadeForm
+                    unidade={{
+                      id: u.id,
+                      nome: u.nome,
+                      email: u.email,
+                      elegivelCotaOP: u.elegivelCotaOP,
+                      cotaOP: Number(u.cotaOP),
+                      cotaGeral: Number(u.cotaGeral),
+                      cotaTipo: u.cotaTipo,
+                      verCotaGeralPCA: u.verCotaGeralPCA,
+                    }}
+                  />
                   <RedefinirSenhaForm unidadeId={u.id} />
                   <AtuarComoBotao tipo="UNIDADE" id={u.id} />
                   <BotaoExcluir action={excluirUnidadeAction} id={u.id} />

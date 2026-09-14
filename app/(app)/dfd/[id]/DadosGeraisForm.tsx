@@ -2,8 +2,19 @@
 
 import { useState, useTransition } from "react";
 import { adminAtualizarDadosGeraisDfdAction, atualizarDadosGeraisDfdAction } from "@/lib/actions/dfd";
-import type { Dfd, Prioridade, Tipificacao } from "@prisma/client";
+import type { Prioridade, Tipificacao, TipoDemanda } from "@prisma/client";
 import { DESCRICAO_SUMARIA_MAX, JUSTIFICATIVA_MIN } from "@/lib/dfd-validacao";
+
+interface DfdParaDadosGerais {
+  id: string;
+  descricaoSumaria: string;
+  tipificacaoId: string | null;
+  prioridadeId: string;
+  justificativa: string;
+  tipoDemanda: TipoDemanda;
+  dataRenovacao: Date | null;
+  dataEntrega: Date | null;
+}
 
 export default function DadosGeraisForm({
   dfd,
@@ -12,7 +23,7 @@ export default function DadosGeraisForm({
   podeEditar,
   modoAdmin = false,
 }: {
-  dfd: Dfd;
+  dfd: DfdParaDadosGerais;
   tipificacoes: Tipificacao[];
   prioridades: Prioridade[];
   podeEditar: boolean;

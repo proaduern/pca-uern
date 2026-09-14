@@ -4,9 +4,22 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { adicionarItemDfdAction, adminAdicionarItemDfdAction } from "@/lib/actions/dfd";
 import { brl } from "@/lib/formato";
 import SolicitarItemPainel from "./SolicitarItemPainel";
-import type { Categoria, ItemCatalogo } from "@prisma/client";
+import type { ModoServico, TipoCategoria } from "@prisma/client";
 
-type ItemCatalogoComCategoria = ItemCatalogo & { categoria: Categoria };
+interface CategoriaParaItem {
+  id: string;
+  nome: string;
+  tipo: TipoCategoria;
+  semItem: boolean;
+  modoServico: ModoServico;
+}
+
+interface ItemCatalogoParaItem {
+  id: string;
+  categoriaId: string;
+  item: string;
+  valor: number;
+}
 
 export default function ItemForm({
   dfdId,
@@ -16,8 +29,8 @@ export default function ItemForm({
   modoAdmin = false,
 }: {
   dfdId: string;
-  categorias: Categoria[];
-  itensCatalogo: ItemCatalogoComCategoria[];
+  categorias: CategoriaParaItem[];
+  itensCatalogo: ItemCatalogoParaItem[];
   unidadeElegivelOP: boolean;
   modoAdmin?: boolean;
 }) {
@@ -44,7 +57,7 @@ export default function ItemForm({
   const itensDaCategoria = itensCatalogo.filter((it) => it.categoriaId === categoriaId);
   const itemCatalogoSelecionado = itensDaCategoria.find((it) => it.id === itemCatalogoId);
   const valorEstimado = itemCatalogoSelecionado
-    ? Number(itemCatalogoSelecionado.valor) * (Number(quantidade) || 1)
+    ? itemCatalogoSelecionado.valor * (Number(quantidade) || 1)
     : null;
 
   return (
