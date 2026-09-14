@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { obterSessao, obterSessaoReal } from "@/lib/auth";
+import { resolverPcaEmAtuacao } from "@/lib/pca-contexto";
 import VoltarParaAdminBotao from "./VoltarParaAdminBotao";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
@@ -15,6 +16,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // senha temporária dessa sessão — evita alterar sem querer a senha de uma
   // unidade/setor/licitação real só por estar navegando como ela.
   if (sessao.tipo !== "ADMIN" && sessao.senhaTemporaria && !atuandoComo) redirect("/trocar-senha");
+
+  // Com mais de um PCA ativo ao mesmo tempo (ex.: o do ano corrente ainda em
+  // execução e o do ano seguinte já em coleta), a unidade/setor técnico
+  // precisa dizer em qual está atuando antes de ver demandas ou lançar novas.
+  let contextoPca: Awaited<ReturnType<typeof resolverPcaEmAtuacao>> | null = null;
+  if (sessao.tipo === "UNIDADE" || sessao.tipo === "SETOR_TECNICO") {
+    contextoPca = await resolverPcaEmAtuacao(sessao);
+    if (contextoPca.status === "precisa_escolher") redirect("/selecionar-pca");
+  }
 
   const linksAdmin = [
     { href: "/", label: "Aprovação de DFDs" },
@@ -72,7 +82,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <VoltarParaAdminBotao />
         </div>
       )}
-      <Navbar nome={sessao.nome} tipo={sessao.tipo} />
+      <Navbar
+        nome={sessao.nome}
+        tipo={sessao.tipo}
+        pcaAtuacao={
+          contextoPca?.status === "resolvido"
+            ? { ano: contextoPca.pca.ano, podeTrocar: contextoPca.totalAtivos > 1 }
+            : null
+        }
+      />
       <div className="flex">
         <Sidebar links={links} tipo={sessao.tipo} />
         <main className="min-w-0 flex-1 px-4 py-6 md:px-8">{children}</main>

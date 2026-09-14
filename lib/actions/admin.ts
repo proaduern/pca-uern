@@ -39,7 +39,10 @@ async function validarAlocacaoCotaOuErro(opts: {
   const aumentandoGeral = cotaGeral > 0 && cotaGeral > cotaGeralAnterior;
   if (!aumentandoOP && !aumentandoGeral) return;
 
-  const pca = await prisma.pca.findFirst({ where: { ativo: true } });
+  // Pode haver mais de um PCA ativo ao mesmo tempo (o do ano corrente ainda em
+  // execução e o do ano seguinte já em coleta) — o teto orçamentário pra cota
+  // fixa usa o mais recente, que é o que está de fato recebendo novas demandas.
+  const pca = await prisma.pca.findFirst({ where: { ativo: true }, orderBy: { ano: "desc" } });
   if (!pca) {
     throw new Error("Cadastre um PCA ativo antes de atribuir cota OP ou cota Geral fechada a uma unidade.");
   }
@@ -356,12 +359,23 @@ export async function criarOuAtualizarPcaAction(formData: FormData) {
   revalidatePath("/admin/pca");
 }
 
+/**
+ * Ativa este PCA para seleção por unidades e setores técnicos. Diferente do
+ * legado de PCA único, mais de um PCA pode ficar ativo ao mesmo tempo — é o
+ * caso comum de o PCA do ano corrente ainda estar em execução quando o do
+ * ano seguinte já é aberto para coleta. Quando isso acontece, cada unidade
+ * escolhe em qual está atuando (ver lib/pca-contexto.ts).
+ */
 export async function ativarPcaAction(ano: number) {
   await exigirAdmin();
-  await prisma.$transaction([
-    prisma.pca.updateMany({ data: { ativo: false }, where: { ativo: true } }),
-    prisma.pca.update({ where: { ano }, data: { ativo: true } }),
-  ]);
+  await prisma.pca.update({ where: { ano }, data: { ativo: true } });
+  revalidatePath("/admin/pca");
+}
+
+/** Retira este PCA da lista de seleção — não afeta os DFDs já lançados nele. */
+export async function desativarPcaAction(ano: number) {
+  await exigirAdmin();
+  await prisma.pca.update({ where: { ano }, data: { ativo: false } });
   revalidatePath("/admin/pca");
 }
 

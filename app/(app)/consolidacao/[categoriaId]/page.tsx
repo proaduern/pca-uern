@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/auth";
+import { resolverPcaEmAtuacao } from "@/lib/pca-contexto";
 import PainelConsolidacao from "./PainelConsolidacao";
 
 export default async function ConsolidacaoCategoriaPage({
@@ -15,7 +16,10 @@ export default async function ConsolidacaoCategoriaPage({
   const categoria = await prisma.categoria.findUnique({ where: { id: categoriaId } });
   if (!categoria || categoria.setorTecnicoId !== sessao.id) notFound();
 
-  const pcaAtivo = await prisma.pca.findFirst({ where: { ativo: true } });
+  // AppLayout já redireciona pra /selecionar-pca quando há mais de um PCA
+  // ativo e o setor técnico ainda não escolheu em qual está atuando.
+  const contextoPca = await resolverPcaEmAtuacao(sessao);
+  const pcaAtivo = contextoPca.status === "resolvido" ? contextoPca.pca : null;
 
   const [itensDfd, itensTecnicos, itensCatalogo, historico] = await Promise.all([
     pcaAtivo && !categoria.fluxoContinuo

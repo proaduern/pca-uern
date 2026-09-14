@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { exigirSetorTecnico } from "@/lib/auth";
+import { resolverPcaEmAtuacao } from "@/lib/pca-contexto";
 import { validarDataConclusao } from "@/lib/consolidacao";
 
 async function obterCategoriaDoSetorOuErro(categoriaId: string, setorTecnicoId: string) {
@@ -145,8 +146,12 @@ export async function consolidarCategoriaAction(categoriaId: string, formData: F
   const erroData = validarDataConclusao(dataETP, dataEsperadaConclusao);
   if (erroData) throw new Error(erroData);
 
-  const pcaAtivo = await prisma.pca.findFirst({ where: { ativo: true } });
-  if (!pcaAtivo) throw new Error("Nenhum PCA ativo no momento.");
+  const contextoPca = await resolverPcaEmAtuacao(sessao);
+  if (contextoPca.status === "nenhum") throw new Error("Nenhum PCA ativo no momento.");
+  if (contextoPca.status === "precisa_escolher") {
+    throw new Error("Selecione em qual PCA você está atuando antes de continuar.");
+  }
+  const pcaAtivo = contextoPca.pca;
 
   // Revalida no servidor que os itens marcados realmente pertencem a esta
   // categoria, estão aprovados (no caso de DFD) e ainda não foram

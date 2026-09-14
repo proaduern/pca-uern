@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import {
   ativarPcaAction,
+  desativarPcaAction,
   toggleAberturaExtraAction,
   toggleConcluidoAction,
 } from "@/lib/actions/admin";
@@ -31,13 +32,21 @@ export default function PcaAcoes({ pca }: { pca: PcaResumo }) {
 
   return (
     <div className="flex flex-wrap items-center gap-3 text-xs">
-      {!pca.ativo && (
+      {!pca.ativo ? (
         <button
           disabled={isPending}
           onClick={() => executar(() => ativarPcaAction(pca.ano))}
           className="rounded-lg bg-[#003366] px-2 py-1 text-white hover:bg-[#002244] disabled:opacity-60"
         >
           Ativar este PCA
+        </button>
+      ) : (
+        <button
+          disabled={isPending}
+          onClick={() => executar(() => desativarPcaAction(pca.ano))}
+          className="rounded-lg border border-slate-300 px-2 py-1 text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+        >
+          Desativar (tira da lista de seleção)
         </button>
       )}
       <label className="flex items-center gap-1">

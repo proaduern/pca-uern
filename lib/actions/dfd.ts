@@ -3,7 +3,8 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { exigirAdmin, exigirUnidade } from "@/lib/auth";
+import { exigirAdmin, exigirUnidade, type SessionPayload } from "@/lib/auth";
+import { resolverPcaEmAtuacao } from "@/lib/pca-contexto";
 import { calcularGastos, janelaAberta, saldoPCA, saldoUnidadeGeral, saldoUnidadeOP } from "@/lib/cota";
 import {
   validarDescricaoSumaria,
@@ -44,10 +45,16 @@ async function gastoComprometidoDaCategoria(categoriaId: string, ano: number) {
   return itens.reduce((soma, it) => soma + Number(it.valorTotal), 0);
 }
 
-async function obterPcaAtivoOuErro() {
-  const pca = await prisma.pca.findFirst({ where: { ativo: true } });
-  if (!pca) throw new Error("Nenhum PCA ativo no momento. Aguarde a liberação da PROAD.");
-  return pca;
+/** O PCA em que a unidade escolheu atuar (ou o único ativo, se só houver um). */
+async function obterPcaEmAtuacaoOuErro(sessao: Pick<SessionPayload, "id" | "tipo">) {
+  const contexto = await resolverPcaEmAtuacao(sessao);
+  if (contexto.status === "nenhum") {
+    throw new Error("Nenhum PCA ativo no momento. Aguarde a liberação da PROAD.");
+  }
+  if (contexto.status === "precisa_escolher") {
+    throw new Error("Selecione em qual PCA você está atuando antes de continuar.");
+  }
+  return contexto.pca;
 }
 
 async function verificarJanelaOuErro(unidadeId: string, pcaAno: number) {
@@ -88,7 +95,7 @@ async function reverterAprovacaoSeNecessario(dfd: { id: string; status: string }
 
 export async function criarRascunhoDfdAction() {
   const sessao = await exigirUnidade();
-  const pca = await obterPcaAtivoOuErro();
+  const pca = await obterPcaEmAtuacaoOuErro(sessao);
   await verificarJanelaOuErro(sessao.id, pca.ano);
 
   const prioridade = await prisma.prioridade.findFirst();

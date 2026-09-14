@@ -1,14 +1,19 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { resolverPcaEmAtuacao } from "@/lib/pca-contexto";
 
 export default async function SetorTecnicoHomePage({ setorTecnicoId }: { setorTecnicoId: string }) {
-  const [pcaAtivo, categorias] = await Promise.all([
-    prisma.pca.findFirst({ where: { ativo: true } }),
+  const [contextoPca, categorias] = await Promise.all([
+    resolverPcaEmAtuacao({ id: setorTecnicoId, tipo: "SETOR_TECNICO" }),
     prisma.categoria.findMany({
       where: { setorTecnicoId },
       orderBy: { nome: "asc" },
     }),
   ]);
+
+  // AppLayout já redireciona pra /selecionar-pca quando há mais de um PCA
+  // ativo e o setor técnico ainda não escolheu em qual está atuando.
+  const pcaAtivo = contextoPca.status === "resolvido" ? contextoPca.pca : null;
 
   const categoriaIds = categorias.map((c) => c.id);
 

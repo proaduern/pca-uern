@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { brl } from "@/lib/formato";
 import { calcularGastos, dfdComprometeOrcamento } from "@/lib/cota";
 import { criarRascunhoDfdAction } from "@/lib/actions/dfd";
+import { resolverPcaEmAtuacao } from "@/lib/pca-contexto";
 
 const STATUS_LABEL: Record<string, string> = {
   RASCUNHO: "Rascunho",
@@ -18,9 +19,9 @@ const STATUS_SOLICITACAO_LABEL: Record<string, string> = {
 };
 
 export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: string }) {
-  const [unidade, pcaAtivo, dfds, solicitacoesCatalogo] = await Promise.all([
+  const [unidade, contextoPca, dfds, solicitacoesCatalogo] = await Promise.all([
     prisma.unidade.findUniqueOrThrow({ where: { id: unidadeId } }),
-    prisma.pca.findFirst({ where: { ativo: true } }),
+    resolverPcaEmAtuacao({ id: unidadeId, tipo: "UNIDADE" }),
     prisma.dfd.findMany({
       where: { unidadeId },
       include: { itens: true },
@@ -32,6 +33,10 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
       orderBy: { createdAt: "desc" },
     }),
   ]);
+
+  // AppLayout já redireciona pra /selecionar-pca quando há mais de um PCA
+  // ativo e a unidade ainda não escolheu em qual está atuando.
+  const pcaAtivo = contextoPca.status === "resolvido" ? contextoPca.pca : null;
 
   const itensComprometidos = dfds
     .filter((d) => dfdComprometeOrcamento(d.status))
@@ -89,6 +94,7 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
           <thead className="bg-slate-50 text-left text-slate-500">
             <tr>
               <th className="px-4 py-2 font-medium">Descrição</th>
+              <th className="px-4 py-2 font-medium">PCA</th>
               <th className="px-4 py-2 font-medium">Itens</th>
               <th className="px-4 py-2 font-medium">Valor</th>
               <th className="px-4 py-2 font-medium">Status</th>
@@ -106,6 +112,7 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
                       <div className="text-xs text-red-600">Motivo: {d.motivoReprovacao}</div>
                     )}
                   </td>
+                  <td className="px-4 py-2 text-slate-600">{d.ano}</td>
                   <td className="px-4 py-2 text-slate-600">{d.itens.length}</td>
                   <td className="px-4 py-2 text-slate-600">{brl(total)}</td>
                   <td className="px-4 py-2">
@@ -123,7 +130,7 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
             })}
             {dfds.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
                   Nenhum DFD lançado ainda.
                 </td>
               </tr>
