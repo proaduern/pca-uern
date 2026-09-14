@@ -64,4 +64,28 @@ describe("lerPlanilha", () => {
     const linhas = await lerPlanilha("teste.csv", paraBuffer(csv));
     expect(linhas.map((l) => l.linha)).toEqual([2, 3]);
   });
+
+  it("respeita campo entre aspas contendo o separador (vírgula na descrição do item)", async () => {
+    const csv =
+      'categoria,item,valor,tipoBem\n' +
+      'Mobília,"Cadeira Giratória, com ajuste de assento, encosto e braços",475,PERMANENTE\n';
+    const linhas = await lerPlanilha("teste.csv", paraBuffer(csv));
+    expect(linhas).toEqual([
+      {
+        linha: 2,
+        dados: {
+          categoria: "Mobília",
+          item: "Cadeira Giratória, com ajuste de assento, encosto e braços",
+          valor: "475",
+          tipoBem: "PERMANENTE",
+        },
+      },
+    ]);
+  });
+
+  it('interpreta "" dentro de um campo entre aspas como uma aspas literal escapada', async () => {
+    const csv = 'nome,obs\nFulano,"Tubo de 3/4"" de diâmetro"\n';
+    const linhas = await lerPlanilha("teste.csv", paraBuffer(csv));
+    expect(linhas).toEqual([{ linha: 2, dados: { nome: "Fulano", obs: 'Tubo de 3/4" de diâmetro' } }]);
+  });
 });

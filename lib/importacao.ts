@@ -12,6 +12,59 @@ function detectarSeparadorCsv(texto: string): string {
   return pontoEVirgula > virgula ? ";" : ",";
 }
 
+/**
+ * Parser CSV respeitando RFC4180: um campo entre aspas pode conter o próprio
+ * separador (e até quebras de linha), e "" dentro de um campo entre aspas é
+ * uma aspas literal escapada. Um split ingênuo por separador (a versão
+ * anterior deste parser) quebra qualquer linha cujo campo tenha uma vírgula
+ * dentro de aspas — comum em descrições de item longas — deslocando todas
+ * as colunas seguintes daquela linha.
+ */
+function parseCsv(texto: string, separador: string): string[][] {
+  const linhas: string[][] = [];
+  let linhaAtual: string[] = [];
+  let campo = "";
+  let dentroDeAspas = false;
+
+  for (let i = 0; i < texto.length; i++) {
+    const c = texto[i];
+    if (dentroDeAspas) {
+      if (c === '"') {
+        if (texto[i + 1] === '"') {
+          campo += '"';
+          i++;
+        } else {
+          dentroDeAspas = false;
+        }
+      } else {
+        campo += c;
+      }
+      continue;
+    }
+    if (c === '"') {
+      dentroDeAspas = true;
+    } else if (c === separador) {
+      linhaAtual.push(campo);
+      campo = "";
+    } else if (c === "\r") {
+      // ignorado — a quebra de linha real é tratada no \n (ou no fim do CRLF)
+    } else if (c === "\n") {
+      linhaAtual.push(campo);
+      linhas.push(linhaAtual);
+      linhaAtual = [];
+      campo = "";
+    } else {
+      campo += c;
+    }
+  }
+  if (campo !== "" || linhaAtual.length > 0) {
+    linhaAtual.push(campo);
+    linhas.push(linhaAtual);
+  }
+
+  return linhas.map((linha) => linha.map((valor) => valor.trim()));
+}
+
 function valorCelula(v: unknown): string {
   if (v === undefined || v === null) return "";
   if (v instanceof Date) return v.toISOString();
@@ -34,9 +87,9 @@ async function carregarPrimeiraPlanilha(
     const texto = new TextDecoder("utf-8").decode(buffer);
     const separador = detectarSeparadorCsv(texto);
     const planilha = workbook.addWorksheet("dados");
-    for (const linhaTexto of texto.split(/\r?\n/)) {
-      if (linhaTexto.trim() === "") continue;
-      planilha.addRow(linhaTexto.split(separador).map((v) => v.trim()));
+    for (const linhaValores of parseCsv(texto, separador)) {
+      if (linhaValores.every((v) => v === "")) continue;
+      planilha.addRow(linhaValores);
     }
     return planilha;
   }
