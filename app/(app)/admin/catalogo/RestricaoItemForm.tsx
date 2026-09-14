@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { definirRestricaoItemCatalogoAction } from "@/lib/actions/admin";
+import SeletorUnidadesRestritas from "../SeletorUnidadesRestritas";
 
 export default function RestricaoItemForm({
   itemId,
@@ -47,20 +48,12 @@ export default function RestricaoItemForm({
         <option value="EXCETO">Para todas, exceto as marcadas</option>
       </select>
       {(modo === "SOMENTE" || modo === "EXCETO") && (
-        <select
+        <SeletorUnidadesRestritas
           name="unidadeId"
-          multiple
+          unidades={unidades}
+          selecionadosIniciais={unidadesRestritasIds}
           disabled={isPending}
-          defaultValue={unidadesRestritasIds}
-          size={Math.min(6, unidades.length || 1)}
-          className="block w-52 rounded-md border border-slate-300 px-2 py-1 text-xs"
-        >
-          {unidades.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.nome}
-            </option>
-          ))}
-        </select>
+        />
       )}
       <button
         type="submit"
