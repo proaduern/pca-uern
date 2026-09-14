@@ -58,12 +58,12 @@ export default function AnaliseContestacaoForm({ entregaId }: { entregaId: strin
             name="comentario"
             required
             placeholder="Motivo para rejeitar (visível ao demandante)"
-            className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs"
+            className="flex-1 rounded-xl border border-slate-300 px-3 py-1.5 text-xs"
           />
           <button
             type="submit"
             disabled={isPending}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-100 disabled:opacity-60"
+            className="rounded-xl border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-100 disabled:opacity-60"
           >
             Confirmar
           </button>

@@ -51,7 +51,7 @@ export default function RevisaoSolicitacaoForm({
           {!aberto && (
             <button
               onClick={() => setAberto(true)}
-              className="mt-2 rounded-md bg-slate-900 px-2 py-1 text-xs text-white"
+              className="mt-2 rounded-lg bg-[#003366] px-2 py-1 text-xs text-white hover:bg-[#002244]"
             >
               Analisar
             </button>
@@ -86,7 +86,7 @@ export default function RevisaoSolicitacaoForm({
                 list="categorias-existentes-catalogo"
                 defaultValue=""
                 placeholder="Selecione ou digite uma nova categoria"
-                className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+                className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
               />
               <datalist id="categorias-existentes-catalogo">
                 {categoriasExistentes.map((c) => (
@@ -102,7 +102,7 @@ export default function RevisaoSolicitacaoForm({
                 name="item"
                 required
                 defaultValue={solicitacao.nomeResumido}
-                className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+                className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
               />
             </div>
             <div>
@@ -116,7 +116,7 @@ export default function RevisaoSolicitacaoForm({
                 step="0.01"
                 required
                 defaultValue={Number(solicitacao.valorEstimado)}
-                className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+                className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
               />
             </div>
             <div>
@@ -128,7 +128,7 @@ export default function RevisaoSolicitacaoForm({
                 required
                 value={tipoBem}
                 onChange={(e) => setTipoBem(e.target.value as typeof tipoBem)}
-                className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+                className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
               >
                 <option value="PERMANENTE">Permanente</option>
                 <option value="CONSUMO">Consumo</option>
@@ -142,7 +142,7 @@ export default function RevisaoSolicitacaoForm({
             <button
               type="submit"
               disabled={isPending}
-              className="rounded-md bg-slate-900 px-2 py-1 text-xs text-white disabled:opacity-60"
+              className="rounded-lg bg-[#003366] px-2 py-1 text-xs text-white hover:bg-[#002244] disabled:opacity-60"
             >
               {isPending ? "Salvando..." : "Aceitar e Incluir no Catálogo"}
             </button>

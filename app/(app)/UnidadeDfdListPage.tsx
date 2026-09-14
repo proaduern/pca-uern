@@ -45,7 +45,7 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {unidade.elegivelCotaOP && (
-          <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
             <p className="text-xs text-slate-500">Cota OP disponível</p>
             <p className="text-xl font-semibold text-slate-900">
               {brl(Number(unidade.cotaOP) - gastos.op)}
@@ -53,14 +53,14 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
             <p className="text-xs text-slate-400">de {brl(unidade.cotaOP)}</p>
           </div>
         )}
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <p className="text-xs text-slate-500">Cota Geral disponível</p>
           <p className="text-xl font-semibold text-slate-900">
             {brl(Number(unidade.cotaGeral) - gastos.geral)}
           </p>
           <p className="text-xs text-slate-400">de {brl(unidade.cotaGeral)}</p>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <p className="text-xs text-slate-500">PCA ativo</p>
           <p className="text-xl font-semibold text-slate-900">{pcaAtivo?.ano ?? "—"}</p>
         </div>
@@ -72,14 +72,14 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
         </div>
       )}
 
-      <div className="rounded-lg border border-slate-200 bg-white">
+      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 p-4">
           <h2 className="text-sm font-semibold text-slate-900">
             Meus Documentos de Formalização de Demanda (DFD)
           </h2>
           {pcaAtivo && (
             <form action={criarRascunhoDfdAction}>
-              <button className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+              <button className="rounded-xl bg-[#003366] px-3 py-2 text-sm font-medium text-white hover:bg-[#002244]">
                 + Nova Demanda (DFD)
               </button>
             </form>
@@ -133,7 +133,7 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
       </div>
 
       {solicitacoesCatalogo.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
           <div className="border-b border-slate-100 p-4">
             <h2 className="text-sm font-semibold text-slate-900">
               Minhas Solicitações de Novo Item de Catálogo

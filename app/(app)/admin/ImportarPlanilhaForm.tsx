@@ -24,7 +24,7 @@ export default function ImportarPlanilhaForm({
   const formRef = useRef<HTMLFormElement>(null);
 
   return (
-    <details className="rounded-lg border border-slate-200 bg-white p-4">
+    <details className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
       <summary className="cursor-pointer text-sm font-semibold text-slate-900">{titulo}</summary>
       <div className="mt-3 space-y-3">
         <p className="text-xs text-slate-500">
@@ -57,13 +57,13 @@ export default function ImportarPlanilhaForm({
           <button
             type="submit"
             disabled={isPending}
-            className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+            className="rounded-xl bg-[#003366] px-3 py-2 text-sm font-medium text-white hover:bg-[#002244] disabled:opacity-60"
           >
             {isPending ? "Importando..." : "Importar"}
           </button>
         </form>
 
-        {erroGeral && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erroGeral}</p>}
+        {erroGeral && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{erroGeral}</p>}
 
         {resultado && (
           <div className="space-y-2">

@@ -32,7 +32,7 @@ export default function CodigoPcaInput({
             }
           });
         }}
-        className="w-40 rounded-md border border-slate-300 px-2 py-1 text-xs"
+        className="w-40 rounded-xl border border-slate-300 px-2 py-1 text-xs"
       />
       {erro && <p className="text-xs text-red-600">{erro}</p>}
     </div>

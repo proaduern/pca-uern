@@ -66,7 +66,7 @@ export default function SolicitarItemPainel() {
             name="nomeResumido"
             required
             placeholder="Ex: Cadeira ergonômica giratória"
-            className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+            className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
           />
         </div>
         <div>
@@ -76,7 +76,7 @@ export default function SolicitarItemPainel() {
             required
             rows={2}
             placeholder="Descreva as especificações e características do bem"
-            className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+            className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
           />
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -87,7 +87,7 @@ export default function SolicitarItemPainel() {
             <input
               name="marcaModelo"
               placeholder="Ex: Marca X, modelo Y"
-              className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+              className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
             />
           </div>
           <div>
@@ -97,7 +97,7 @@ export default function SolicitarItemPainel() {
             <input
               name="link"
               placeholder="https://..."
-              className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+              className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
             />
           </div>
         </div>
@@ -108,7 +108,7 @@ export default function SolicitarItemPainel() {
             required
             rows={2}
             placeholder="Para que essa aquisição será usada?"
-            className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+            className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
           />
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -120,7 +120,7 @@ export default function SolicitarItemPainel() {
               min={0}
               step="0.01"
               required
-              className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+              className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
             />
           </div>
           <div>
@@ -129,7 +129,7 @@ export default function SolicitarItemPainel() {
               name="tipoBemSugerido"
               required
               defaultValue="PERMANENTE"
-              className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+              className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
             >
               <option value="PERMANENTE">Permanente</option>
               <option value="CONSUMO">Consumo</option>
@@ -147,7 +147,7 @@ export default function SolicitarItemPainel() {
           <button
             type="submit"
             disabled={isPending}
-            className="rounded-md bg-slate-900 px-2 py-1 text-xs text-white disabled:opacity-60"
+            className="rounded-lg bg-[#003366] px-2 py-1 text-xs text-white hover:bg-[#002244] disabled:opacity-60"
           >
             {isPending ? "Enviando..." : "Enviar Solicitação"}
           </button>

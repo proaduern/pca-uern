@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { obterSessao, obterSessaoReal } from "@/lib/auth";
-import { logoutAction } from "@/lib/actions/auth";
 import VoltarParaAdminBotao from "./VoltarParaAdminBotao";
+import Sidebar from "./Sidebar";
+import Navbar from "./Navbar";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const sessao = await obterSessao();
@@ -63,7 +63,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const rotuloPerfil = ROTULO_POR_TIPO[sessao.tipo];
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="min-h-screen bg-slate-50">
       {atuandoComo && (
         <div className="flex flex-wrap items-center justify-between gap-2 bg-amber-500 px-4 py-2 text-sm text-white">
           <span>
@@ -72,33 +72,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <VoltarParaAdminBotao />
         </div>
       )}
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <div className="flex flex-wrap items-center gap-4">
-            <span className="text-sm font-semibold text-slate-900">
-              Coleta de Demandas — UERN
-            </span>
-            <nav className="flex flex-wrap gap-3 text-sm text-slate-600">
-              {links.map((l) => (
-                <Link key={l.href} href={l.href} className="hover:text-slate-900">
-                  {l.label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-          <div className="flex items-center gap-3 text-sm text-slate-500">
-            <span>
-              {sessao.nome} · {rotuloPerfil}
-            </span>
-            <form action={logoutAction}>
-              <button className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100">
-                Sair
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
+      <Navbar nome={sessao.nome} tipo={sessao.tipo} />
+      <div className="flex">
+        <Sidebar links={links} tipo={sessao.tipo} />
+        <main className="min-w-0 flex-1 px-4 py-6 md:px-8">{children}</main>
+      </div>
     </div>
   );
 }

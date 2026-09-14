@@ -27,7 +27,7 @@ export default async function ParametrosPage() {
             titulo="Nova tipificação"
             campos={[{ name: "nome", label: "Nome", required: true }]}
           />
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-slate-100">
                 {tipificacoes.map((t) => (
@@ -66,7 +66,7 @@ export default async function ParametrosPage() {
             A unidade demandante só vê a frase — o nível real fica visível só a partir do setor
             técnico, para evitar viés de resposta (todo mundo marcar &quot;alta&quot;).
           </p>
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-slate-100">
                 {prioridades.map((p) => (

@@ -40,7 +40,7 @@ export default function FormularioSimples({
           }
         });
       }}
-      className="space-y-3 rounded-lg border border-slate-200 bg-white p-4"
+      className="space-y-3 rounded-2xl border border-slate-100 bg-white shadow-sm p-4"
     >
       <h2 className="text-sm font-semibold text-slate-900">{titulo}</h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -62,7 +62,7 @@ export default function FormularioSimples({
                   <select
                     name={c.name}
                     required={c.required}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                   >
                     <option value="">Selecione...</option>
                     {c.options.map((o) => (
@@ -76,7 +76,7 @@ export default function FormularioSimples({
                     name={c.name}
                     type={c.type ?? "text"}
                     required={c.required}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                   />
                 )}
               </>
@@ -85,12 +85,12 @@ export default function FormularioSimples({
         ))}
       </div>
 
-      {erro && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+      {erro && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
 
       <button
         type="submit"
         disabled={isPending}
-        className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+        className="rounded-xl bg-[#003366] px-3 py-2 text-sm font-medium text-white hover:bg-[#002244] disabled:opacity-60"
       >
         {isPending ? "Salvando..." : "Salvar"}
       </button>

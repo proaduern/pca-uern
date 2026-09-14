@@ -157,10 +157,10 @@ export default function PainelLicitacao({
         </h1>
       </div>
 
-      {erro && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+      {erro && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
       {mensagem && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{mensagem}</p>}
 
-      <div className="space-y-1 rounded-lg border border-slate-200 bg-white p-4 text-sm">
+      <div className="space-y-1 rounded-2xl border border-slate-100 bg-white shadow-sm p-4 text-sm">
         <p>
           <b>ID do documento ETP:</b> {idDocumentoETP} &nbsp;·&nbsp; <b>Data do ETP:</b> {formatarData(dataETP)}
         </p>
@@ -184,7 +184,7 @@ export default function PainelLicitacao({
         )}
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Itens do Processo ({itens.length})</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -215,7 +215,7 @@ export default function PainelLicitacao({
       </div>
 
       {homologacaoIniciada && (
-        <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
+        <div className="space-y-4 rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <h2 className="text-sm font-semibold text-slate-900">Registrar Resultados da Homologação</h2>
           {semPendencias ? (
             <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
@@ -272,7 +272,7 @@ export default function PainelLicitacao({
         </div>
       )}
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
         <h2 className="mb-1 text-sm font-semibold text-slate-900">Revisar Prioridade / Data Esperada de Conclusão</h2>
         <p className="mb-3 text-xs text-slate-500">
           A marcação original do setor técnico é mantida no sistema; esta revisão fica registrada
@@ -293,7 +293,7 @@ export default function PainelLicitacao({
                 name="prioridade"
                 required
                 defaultValue={revisao?.prioridade ?? prioridade}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
               >
                 <option value="ALTA">Alta</option>
                 <option value="MEDIA">Média</option>
@@ -307,7 +307,7 @@ export default function PainelLicitacao({
                 type="date"
                 required
                 defaultValue={(revisao?.dataEsperadaConclusao ?? dataEsperadaConclusao).slice(0, 10)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
               />
             </div>
           </div>
@@ -317,13 +317,13 @@ export default function PainelLicitacao({
               name="justificativa"
               required
               placeholder="Explique o motivo da alteração"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
             />
           </div>
           <button
             type="submit"
             disabled={isPending}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100 disabled:opacity-60"
+            className="rounded-xl border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100 disabled:opacity-60"
           >
             Salvar Revisão
           </button>
@@ -353,7 +353,7 @@ export default function PainelLicitacao({
       )}
 
       {historico.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Histórico de Status (Timeline)</h2>
           <div className="space-y-2">
             {historico.map((h) => (
@@ -397,7 +397,7 @@ function ProximoStatusForm({
   const infoStatusSelecionado = statusSelecionado ? statusLicitacaoInfo(statusSelecionado) : undefined;
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
       <h2 className="mb-1 text-sm font-semibold text-slate-900">Registrar Próximo Status do Processo</h2>
       <p className="mb-3 text-xs text-slate-500">
         Só é possível avançar para a etapa seguinte da sequência — a etapa anterior precisa estar
@@ -419,7 +419,7 @@ function ProximoStatusForm({
             required
             value={statusSelecionado}
             onChange={(e) => setStatusSelecionado(e.target.value as StatusLicitacaoValor)}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
           >
             {proximos.map((s) => (
               <option key={s.value} value={s.value}>
@@ -436,7 +436,7 @@ function ProximoStatusForm({
               name={campo}
               type={CAMPO_TIPO[campo]}
               required
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
             />
           </div>
         ))}
@@ -449,7 +449,7 @@ function ProximoStatusForm({
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+          className="rounded-xl bg-[#003366] px-3 py-2 text-sm font-medium text-white hover:bg-[#002244] disabled:opacity-60"
         >
           Registrar Status
         </button>
@@ -554,7 +554,7 @@ function GrupoMaterialForm({
                         onChange={(e) =>
                           setQuantidades((q) => ({ ...q, [it.id]: Number(e.target.value) || 0 }))
                         }
-                        className="w-20 rounded-md border border-slate-300 px-2 py-1 text-xs"
+                        className="w-20 rounded-xl border border-slate-300 px-2 py-1 text-xs"
                       />
                     </td>
                   </tr>
@@ -570,7 +570,7 @@ function GrupoMaterialForm({
               <button
                 type="submit"
                 disabled={isPending}
-                className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+                className="rounded-lg bg-[#003366] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#002244] disabled:opacity-60"
               >
                 Confirmar Alocação
               </button>
@@ -580,7 +580,7 @@ function GrupoMaterialForm({
                   setManualAlocacao(null);
                   setQuantidades({});
                 }}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-100"
+                className="rounded-xl border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-100"
               >
                 Cancelar
               </button>
@@ -609,7 +609,7 @@ function GrupoMaterialForm({
               name="resultado"
               value={resultado}
               onChange={(e) => setResultado(e.target.value as typeof resultado)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm sm:w-72"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm sm:w-72"
             >
               <option value="sucesso_total">Sucesso — Todo o Quantitativo</option>
               <option value="sucesso_parcial">Sucesso Parcial (informar quantidade)</option>
@@ -626,7 +626,7 @@ function GrupoMaterialForm({
                 min={1}
                 max={grupo.quantidadeTotal - 1}
                 required
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm sm:w-40"
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm sm:w-40"
               />
             </div>
           )}
@@ -639,14 +639,14 @@ function GrupoMaterialForm({
                 min={0}
                 step="0.01"
                 required
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm sm:w-40"
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm sm:w-40"
               />
             </div>
           )}
           <button
             type="submit"
             disabled={isPending}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 disabled:opacity-60"
+            className="rounded-xl border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 disabled:opacity-60"
           >
             Registrar Resultado do Grupo
           </button>
@@ -709,7 +709,7 @@ function GrupoServicoValorForm({
         <input type="hidden" name="nomeGrupo" value={grupo.nome} />
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-700">Resultado</label>
-          <select name="resultado" defaultValue="sucesso" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm sm:w-72">
+          <select name="resultado" defaultValue="sucesso" className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm sm:w-72">
             <option value="sucesso">Sucesso — todo o grupo</option>
             <option value="fracassado">Fracassado</option>
             <option value="deserto">Deserto</option>
@@ -723,7 +723,7 @@ function GrupoServicoValorForm({
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 disabled:opacity-60"
+          className="rounded-xl border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 disabled:opacity-60"
         >
           Registrar Resultado do Grupo
         </button>
@@ -764,7 +764,7 @@ function ServicoObjetoForm({
             name="resultado"
             value={resultado}
             onChange={(e) => setResultado(e.target.value as typeof resultado)}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm sm:w-72"
+            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm sm:w-72"
           >
             <option value="sucesso">Sucesso</option>
             <option value="fracassado">Fracassado</option>
@@ -780,14 +780,14 @@ function ServicoObjetoForm({
               min={0}
               step="0.01"
               required
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm sm:w-40"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm sm:w-40"
             />
           </div>
         )}
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 disabled:opacity-60"
+          className="rounded-xl border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 disabled:opacity-60"
         >
           Registrar
         </button>

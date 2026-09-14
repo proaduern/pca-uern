@@ -119,15 +119,15 @@ export default function TrocaOPPainel({
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Nome do item desejado</label>
-            <input name="nomeCustom" required className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs" />
+            <input name="nomeCustom" required className="w-full rounded-xl border border-slate-300 px-2 py-1.5 text-xs" />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Valor estimado (R$)</label>
-            <input name="valorCustom" type="number" min={0} step="0.01" required className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs" />
+            <input name="valorCustom" type="number" min={0} step="0.01" required className="w-full rounded-xl border border-slate-300 px-2 py-1.5 text-xs" />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Categoria</label>
-            <select name="categoriaCustomId" required className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs">
+            <select name="categoriaCustomId" required className="w-full rounded-xl border border-slate-300 px-2 py-1.5 text-xs">
               <option value="">Selecione…</option>
               {categorias.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -138,7 +138,7 @@ export default function TrocaOPPainel({
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Tipo de bem</label>
-            <select name="tipoBemCustom" defaultValue="PERMANENTE" className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs">
+            <select name="tipoBemCustom" defaultValue="PERMANENTE" className="w-full rounded-xl border border-slate-300 px-2 py-1.5 text-xs">
               <option value="PERMANENTE">Permanente</option>
               <option value="CONSUMO">Consumo</option>
             </select>
@@ -151,7 +151,7 @@ export default function TrocaOPPainel({
             <select
               value={categoriaSelecionada}
               onChange={(e) => setCategoriaSelecionada(e.target.value)}
-              className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
+              className="w-full rounded-xl border border-slate-300 px-2 py-1.5 text-xs"
             >
               <option value="">Selecione…</option>
               {categoriasComCatalogo.map((c) => (
@@ -163,7 +163,7 @@ export default function TrocaOPPainel({
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Item desejado</label>
-            <select name="itemCatalogoId" required className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs">
+            <select name="itemCatalogoId" required className="w-full rounded-xl border border-slate-300 px-2 py-1.5 text-xs">
               <option value="">Selecione a categoria primeiro…</option>
               {itensDaCategoria.map((it) => (
                 <option key={it.id} value={it.id}>
@@ -177,16 +177,16 @@ export default function TrocaOPPainel({
 
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-700">Justificativa da troca</label>
-        <textarea name="justificativa" required placeholder="Explique por que precisa trocar este item" className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs" />
+        <textarea name="justificativa" required placeholder="Explique por que precisa trocar este item" className="w-full rounded-xl border border-slate-300 px-2 py-1.5 text-xs" />
       </div>
 
       {erro && <p className="rounded-md bg-red-50 px-2 py-1.5 text-xs text-red-700">{erro}</p>}
 
       <div className="flex gap-2">
-        <button type="submit" disabled={isPending} className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60">
+        <button type="submit" disabled={isPending} className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60">
           Enviar Solicitação à PROAD
         </button>
-        <button type="button" onClick={() => setAberto(false)} className="rounded-md border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-100">
+        <button type="button" onClick={() => setAberto(false)} className="rounded-xl border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-100">
           Cancelar
         </button>
       </div>

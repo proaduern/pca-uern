@@ -22,7 +22,7 @@ export default function AtribuirSetorForm({
         const valor = e.target.value || null;
         startTransition(() => atribuirSetorTecnicoCategoriaAction(categoriaId, valor));
       }}
-      className="rounded-md border border-slate-300 px-2 py-1 text-xs"
+      className="rounded-xl border border-slate-300 px-2 py-1 text-xs"
     >
       <option value="">Nenhum</option>
       {setores.map((s) => (

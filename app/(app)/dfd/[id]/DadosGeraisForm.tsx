@@ -44,7 +44,7 @@ export default function DadosGeraisForm({
           }
         });
       }}
-      className="space-y-4 rounded-lg border border-slate-200 bg-white p-4"
+      className="space-y-4 rounded-2xl border border-slate-100 bg-white shadow-sm p-4"
     >
       <h2 className="text-sm font-semibold text-slate-900">Dados gerais</h2>
 
@@ -58,7 +58,7 @@ export default function DadosGeraisForm({
           required
           maxLength={DESCRICAO_SUMARIA_MAX}
           defaultValue={dfd.descricaoSumaria}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
+          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
         />
       </div>
 
@@ -72,7 +72,7 @@ export default function DadosGeraisForm({
             required
             disabled={!podeEditar}
             defaultValue={dfd.tipificacaoId ?? ""}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
+            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
           >
             <option value="">Selecione...</option>
             {tipificacoes.map((t) => (
@@ -91,7 +91,7 @@ export default function DadosGeraisForm({
             required
             disabled={!podeEditar}
             defaultValue={dfd.prioridadeId}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
+            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
           >
             <option value="">Selecione...</option>
             {prioridades.map((p) => (
@@ -114,7 +114,7 @@ export default function DadosGeraisForm({
           rows={4}
           defaultValue={dfd.justificativa}
           onChange={(e) => setJustificativaLen(e.target.value.length)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
+          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
         />
         <p
           className={`mt-1 text-xs ${justificativaLen < JUSTIFICATIVA_MIN ? "text-red-600" : "text-emerald-600"}`}
@@ -134,7 +134,7 @@ export default function DadosGeraisForm({
             disabled={!podeEditar}
             value={tipoDemanda}
             onChange={(e) => setTipoDemanda(e.target.value as typeof tipoDemanda)}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
+            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
           >
             <option value="NOVA">Nova compra/contratação</option>
             <option value="RENOVACAO">Renovação de contrato</option>
@@ -153,12 +153,12 @@ export default function DadosGeraisForm({
             required
             disabled={!podeEditar}
             defaultValue={dataStr}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
+            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
           />
         </div>
       </div>
 
-      {erro && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+      {erro && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
       {sucesso && (
         <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">Salvo.</p>
       )}
@@ -167,7 +167,7 @@ export default function DadosGeraisForm({
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+          className="rounded-xl bg-[#003366] px-3 py-2 text-sm font-medium text-white hover:bg-[#002244] disabled:opacity-60"
         >
           {isPending ? "Salvando..." : "Salvar dados gerais"}
         </button>

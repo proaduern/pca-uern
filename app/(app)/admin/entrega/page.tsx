@@ -56,7 +56,7 @@ export default async function AdminEntregaPage() {
       <h1 className="text-lg font-semibold text-slate-900">Unidade de Entrega de Bens</h1>
 
       {estoqueGeralComFase.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
           <div className="border-b border-slate-100 p-4">
             <h2 className="text-sm font-semibold text-slate-900">
               Itens em Estoque Geral (ex-OP atendidos por estoque) — {estoqueGeralComFase.length}
@@ -94,7 +94,7 @@ export default async function AdminEntregaPage() {
       )}
 
       {triagem.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <h2 className="mb-1 text-sm font-semibold text-slate-900">Trocas de Item (OP) — Triagem Inicial ({triagem.length})</h2>
           <p className="mb-3 text-xs text-slate-500">
             O demandante solicitou trocar um item OP por outro. Decida se a solicitação segue para o
@@ -121,7 +121,7 @@ export default async function AdminEntregaPage() {
       )}
 
       {autorizacaoFinalComExtrapolacao.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <h2 className="mb-1 text-sm font-semibold text-slate-900">
             Trocas de Item (OP) — Autorização Final ({autorizacaoFinalComExtrapolacao.length})
           </h2>
@@ -153,7 +153,7 @@ export default async function AdminEntregaPage() {
       )}
 
       {propostasEstoque.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <h2 className="mb-1 text-sm font-semibold text-slate-900">
             Propostas de Atendimento por Estoque — Aguardando Análise ({propostasEstoque.length})
           </h2>
@@ -181,7 +181,7 @@ export default async function AdminEntregaPage() {
       )}
 
       {contestacoesPendentesAdmin.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <h2 className="mb-1 text-sm font-semibold text-slate-900">
             Contestações Aguardando Ratificação da Administração ({contestacoesPendentesAdmin.length})
           </h2>
@@ -234,7 +234,7 @@ export default async function AdminEntregaPage() {
 
       <NovoAcessoEntregaForm unidades={await prisma.unidade.findMany({ where: { ativa: true }, orderBy: { nome: "asc" } })} />
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-slate-500">
             <tr>

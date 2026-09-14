@@ -41,7 +41,7 @@ export default function EditarUnidadeForm({ unidade }: { unidade: Unidade }) {
           name="nome"
           required
           defaultValue={unidade.nome}
-          className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+          className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
         />
       </div>
       <div>
@@ -51,7 +51,7 @@ export default function EditarUnidadeForm({ unidade }: { unidade: Unidade }) {
           type="email"
           required
           defaultValue={unidade.email}
-          className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+          className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
         />
       </div>
       <div className="flex items-center gap-2">
@@ -75,7 +75,7 @@ export default function EditarUnidadeForm({ unidade }: { unidade: Unidade }) {
           min={0}
           step="0.01"
           defaultValue={Number(unidade.cotaOP)}
-          className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+          className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
         />
       </div>
       <div>
@@ -86,7 +86,7 @@ export default function EditarUnidadeForm({ unidade }: { unidade: Unidade }) {
           min={0}
           step="0.01"
           defaultValue={Number(unidade.cotaGeral)}
-          className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+          className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
         />
       </div>
       {elegivelCotaOP ? (
@@ -99,7 +99,7 @@ export default function EditarUnidadeForm({ unidade }: { unidade: Unidade }) {
           <select
             name="cotaTipo"
             defaultValue={unidade.cotaTipo}
-            className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+            className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
           >
             <option value="FECHADA">Fechada (valor fixo)</option>
             <option value="ABERTA">Aberta (usa saldo do PCA)</option>
@@ -126,7 +126,7 @@ export default function EditarUnidadeForm({ unidade }: { unidade: Unidade }) {
           name="novaSenha"
           type="password"
           minLength={8}
-          className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+          className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
         />
       </div>
 
@@ -136,7 +136,7 @@ export default function EditarUnidadeForm({ unidade }: { unidade: Unidade }) {
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-md bg-slate-900 px-2 py-1 text-xs text-white disabled:opacity-60"
+          className="rounded-lg bg-[#003366] px-2 py-1 text-xs text-white hover:bg-[#002244] disabled:opacity-60"
         >
           {isPending ? "Salvando..." : "Salvar"}
         </button>

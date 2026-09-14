@@ -51,13 +51,13 @@ export default function AutorizarEntregaTabela({ pendentes }: { pendentes: ItemP
         <button
           disabled={isPending}
           onClick={autorizar}
-          className="rounded-md bg-amber-500 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+          className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
         >
           Autorizar Entrega dos Itens Selecionados
         </button>
         {erro && <span className="text-sm text-red-600">{erro}</span>}
       </div>
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-slate-500">
             <tr>

@@ -82,7 +82,7 @@ export default function PainelHomologacaoExecucao({
         </h1>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">
           Itens com Êxito Pendentes de Abertura de Processo de Execução ({pendentes.length})
         </h2>
@@ -130,15 +130,15 @@ export default function PainelHomologacaoExecucao({
                 name="processoSEIExecucao"
                 required
                 placeholder="Ex: 00000.000000/2026-00"
-                className="w-full max-w-sm rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full max-w-sm rounded-xl border border-slate-300 px-3 py-2 text-sm"
               />
             </div>
-            {erro && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+            {erro && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
             {mensagem && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{mensagem}</p>}
             <button
               type="submit"
               disabled={isPending}
-              className="rounded-md bg-amber-500 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+              className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
             >
               {isPending ? "Abrindo..." : "Abrir Processo de Execução com os Itens Selecionados"}
             </button>
@@ -147,7 +147,7 @@ export default function PainelHomologacaoExecucao({
       </div>
 
       {emExecucao.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white p-4">
+        <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Itens Já em Execução ({emExecucao.length})</h2>
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-slate-500">

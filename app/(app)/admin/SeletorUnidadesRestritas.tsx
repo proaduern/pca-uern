@@ -61,7 +61,7 @@ export default function SeletorUnidadesRestritas({
         value=""
         disabled={disabled || disponiveis.length === 0}
         onChange={(e) => adicionar(e.target.value)}
-        className="block w-52 rounded-md border border-slate-300 px-2 py-1 text-xs"
+        className="block w-52 rounded-xl border border-slate-300 px-2 py-1 text-xs"
       >
         <option value="">{disponiveis.length === 0 ? "Todas as unidades já adicionadas" : "+ Adicionar unidade…"}</option>
         {disponiveis.map((u) => (

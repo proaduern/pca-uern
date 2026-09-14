@@ -48,7 +48,7 @@ export default function ImportarDfdsForm() {
   const formRef = useRef<HTMLFormElement>(null);
 
   return (
-    <details className="rounded-lg border border-slate-200 bg-white p-4">
+    <details className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
       <summary className="cursor-pointer text-sm font-semibold text-slate-900">
         Importar DFDs em Lote (Planilha)
       </summary>
@@ -118,7 +118,7 @@ export default function ImportarDfdsForm() {
               type="number"
               required
               placeholder="Ex: 2027"
-              className="w-32 rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="w-32 rounded-xl border border-slate-300 px-3 py-2 text-sm"
             />
           </div>
           <div>
@@ -128,7 +128,7 @@ export default function ImportarDfdsForm() {
           <button
             type="submit"
             disabled={isPending}
-            className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+            className="rounded-xl bg-[#003366] px-3 py-2 text-sm font-medium text-white hover:bg-[#002244] disabled:opacity-60"
           >
             {isPending ? "Processando..." : "Processar e Importar"}
           </button>
@@ -140,7 +140,7 @@ export default function ImportarDfdsForm() {
           revisar. Confirme que o PCA informado já está cadastrado e ativo antes de importar.
         </p>
 
-        {erroGeral && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erroGeral}</p>}
+        {erroGeral && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{erroGeral}</p>}
 
         {resultado && (
           <div className="space-y-2">

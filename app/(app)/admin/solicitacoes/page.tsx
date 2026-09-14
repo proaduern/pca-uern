@@ -30,7 +30,7 @@ export default async function SolicitacoesCatalogoPage() {
         não encontram o material desejado ao lançar um DFD.
       </p>
 
-      <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+      <div className="space-y-3 rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
         <h2 className="text-sm font-semibold text-slate-900">
           Pendentes de Análise ({pendentes.length})
         </h2>
@@ -49,7 +49,7 @@ export default async function SolicitacoesCatalogoPage() {
       </div>
 
       {historico.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
           <div className="border-b border-slate-100 p-4">
             <h2 className="text-sm font-semibold text-slate-900">
               Histórico de Solicitações ({historico.length})

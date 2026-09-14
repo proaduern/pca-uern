@@ -26,15 +26,15 @@ export default async function EntregaHomePage({ acessoEntregaId }: { acessoEntre
       <h1 className="text-lg font-semibold text-slate-900">Painel da Unidade de Entrega de Bens</h1>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <p className="text-xs text-slate-500">Itens recebidos, aguardando autorização da PROAD</p>
           <p className="text-xl font-semibold text-slate-900">{aguardandoProadDoSubperfil.length}</p>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <p className="text-xs text-slate-500">Entregas em acompanhamento</p>
           <p className="text-xl font-semibold text-slate-900">{minhasEntregas.length}</p>
         </div>
-        <div className="rounded-lg border border-emerald-200 bg-white p-4">
+        <div className="rounded-2xl border border-emerald-200 bg-white p-4">
           <p className="text-xs text-slate-500">Já entregues ao destinatário</p>
           <p className="text-xl font-semibold text-emerald-700">{entregues}</p>
         </div>
@@ -43,7 +43,7 @@ export default async function EntregaHomePage({ acessoEntregaId }: { acessoEntre
       {acesso.subperfil === "PATRIMONIO" && <PatrimonioAtendimentoEstoque acessoEntregaId={acesso.id} />}
 
       {contestacoesPendentes.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <h2 className="mb-3 text-sm font-semibold text-slate-900">
             Contestações Recebidas — Aguardando Sua Análise ({contestacoesPendentes.length})
           </h2>
@@ -67,7 +67,7 @@ export default async function EntregaHomePage({ acessoEntregaId }: { acessoEntre
       )}
 
       {aguardandoProadDoSubperfil.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
           <div className="border-b border-slate-100 p-4">
             <h2 className="text-sm font-semibold text-slate-900">
               Itens Recebidos — Aguardando Autorização da PROAD ({aguardandoProadDoSubperfil.length})
@@ -100,7 +100,7 @@ export default async function EntregaHomePage({ acessoEntregaId }: { acessoEntre
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
         <div className="border-b border-slate-100 p-4">
           <h2 className="text-sm font-semibold text-slate-900">Minhas Entregas ({minhasEntregas.length})</h2>
         </div>

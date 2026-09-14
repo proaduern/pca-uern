@@ -38,7 +38,7 @@ export default async function AdminAprovacaoPage() {
       />
 
       {historico.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <h2 className="mb-2 text-sm font-semibold text-slate-900">Histórico recente</h2>
           <table className="w-full text-sm">
             <thead className="text-left text-slate-500">

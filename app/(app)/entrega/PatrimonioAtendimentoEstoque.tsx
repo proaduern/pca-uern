@@ -23,7 +23,7 @@ export default async function PatrimonioAtendimentoEstoque({ acessoEntregaId }: 
   return (
     <>
       {trocasParaVerificar.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <h2 className="mb-1 text-sm font-semibold text-slate-900">
             Trocas de Item (OP) — Verificar Disponibilidade ({trocasParaVerificar.length})
           </h2>
@@ -48,7 +48,7 @@ export default async function PatrimonioAtendimentoEstoque({ acessoEntregaId }: 
         </div>
       )}
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
         <h2 className="mb-1 text-sm font-semibold text-slate-900">Propor Atendimento Imediato por Estoque (itens OP)</h2>
         <p className="mb-3 text-xs text-slate-500">
           Se você já dispõe em estoque de item equivalente ao que foi consolidado pelo setor técnico para uma
@@ -90,7 +90,7 @@ export default async function PatrimonioAtendimentoEstoque({ acessoEntregaId }: 
       </div>
 
       {meusPendentes.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <h2 className="mb-3 text-sm font-semibold text-slate-900">
             Minhas Propostas — Aguardando Análise da PROAD ({meusPendentes.length})
           </h2>
@@ -118,7 +118,7 @@ export default async function PatrimonioAtendimentoEstoque({ acessoEntregaId }: 
       )}
 
       {rejeitados.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Propostas Rejeitadas pela PROAD ({rejeitados.length})</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

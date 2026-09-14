@@ -71,7 +71,7 @@ export default async function DfdDetalhePage({
           {dfd.status}
         </span>
         {dfd.status === "REPROVADO" && (
-          <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
             Reprovado pela PROAD. Motivo: {dfd.motivoReprovacao}. Ajuste o que for necessário e
             reenvie.
           </p>
@@ -93,7 +93,7 @@ export default async function DfdDetalhePage({
         modoAdmin={modoAdmin}
       />
 
-      <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+      <section className="space-y-3 rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
         <h2 className="text-sm font-semibold text-slate-900">Itens ({dfd.itens.length})</h2>
 
         {dfd.itens.map((it) => (

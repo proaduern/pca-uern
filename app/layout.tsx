@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Sistema de Coleta de Demandas — UERN",
-  description: "Plano de Contratações Anual (PCA) — Pró-Reitoria de Administração (PROAD/UERN)",
+  title: "Sistema PCA UERN",
+  description: "Coleta, gestão e acompanhamento de demandas de bens e serviços da UERN — Pró-Reitoria de Administração (PROAD/UERN)",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

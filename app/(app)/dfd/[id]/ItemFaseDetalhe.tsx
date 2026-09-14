@@ -110,7 +110,7 @@ export default function ItemFaseDetalhe({ itemId, fase }: { itemId: string; fase
                 name="motivo"
                 required
                 placeholder="Descreva o que houve"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-xs"
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs"
               />
               <button
                 type="submit"

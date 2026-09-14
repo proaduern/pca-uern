@@ -35,7 +35,7 @@ export default async function PcaPage() {
       />
 
       {pcas.map((pca) => (
-        <div key={pca.ano} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+        <div key={pca.ano} className="space-y-3 rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900">
               PCA {pca.ano} {pca.ativo && <span className="text-emerald-600">(ativo)</span>}
@@ -131,7 +131,7 @@ export default async function PcaPage() {
             </ul>
             <form action={adicionarExcecaoPcaAction} className="flex items-center gap-2">
               <input type="hidden" name="ano" value={pca.ano} />
-              <select name="unidadeId" required className="rounded-md border border-slate-300 px-2 py-1 text-xs">
+              <select name="unidadeId" required className="rounded-xl border border-slate-300 px-2 py-1 text-xs">
                 <option value="">Selecione a unidade...</option>
                 {unidades.map((u) => (
                   <option key={u.id} value={u.id}>
@@ -139,7 +139,7 @@ export default async function PcaPage() {
                   </option>
                 ))}
               </select>
-              <button className="rounded-md bg-slate-900 px-2 py-1 text-xs text-white">
+              <button className="rounded-lg bg-[#003366] px-2 py-1 text-xs text-white hover:bg-[#002244]">
                 Adicionar exceção
               </button>
             </form>

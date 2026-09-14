@@ -18,17 +18,17 @@ export default async function GestorAtaHomePage() {
       <h1 className="text-lg font-semibold text-slate-900">Painel da Unidade Gestora de Ata</h1>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <p className="text-xs text-slate-500">Atas recebidas da Licitação</p>
           <p className="text-xl font-semibold text-slate-900">{processos.length}</p>
         </div>
-        <div className="rounded-lg border border-amber-200 bg-white p-4">
+        <div className="rounded-2xl border border-amber-200 bg-white p-4">
           <p className="text-xs text-slate-500">Aguardando autorização da PROAD</p>
           <p className="text-xl font-semibold text-amber-700">{aguardandoProad.length}</p>
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
         <h2 className="mb-1 text-sm font-semibold text-slate-900">
           Atas Recebidas — Solicitar Autorização de Execução ({emAndamento.length})
         </h2>
@@ -55,7 +55,7 @@ export default async function GestorAtaHomePage() {
       </div>
 
       {aguardandoProad.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Aguardando Autorização da PROAD ({aguardandoProad.length})</h2>
           <div className="space-y-2">
             {aguardandoProad.map((c) => (

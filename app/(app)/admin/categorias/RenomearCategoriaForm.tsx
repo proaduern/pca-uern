@@ -44,7 +44,7 @@ export default function RenomearCategoriaForm({
         defaultValue={nomeAtual}
         required
         disabled={isPending}
-        className="w-40 rounded-md border border-slate-300 px-2 py-1 text-xs"
+        className="w-40 rounded-xl border border-slate-300 px-2 py-1 text-xs"
       />
       <div className="flex gap-2">
         <button

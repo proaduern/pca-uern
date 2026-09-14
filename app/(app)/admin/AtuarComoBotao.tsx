@@ -27,7 +27,7 @@ export default function AtuarComoBotao({
             }
           });
         }}
-        className="rounded-md bg-amber-500 px-2 py-1 text-xs font-medium text-white disabled:opacity-60"
+        className="rounded-lg bg-amber-500 px-2 py-1 text-xs font-medium text-white disabled:opacity-60"
       >
         Atuar Como
       </button>

@@ -35,7 +35,7 @@ export default function PcaAcoes({ pca }: { pca: PcaResumo }) {
         <button
           disabled={isPending}
           onClick={() => executar(() => ativarPcaAction(pca.ano))}
-          className="rounded-md bg-slate-900 px-2 py-1 text-white disabled:opacity-60"
+          className="rounded-lg bg-[#003366] px-2 py-1 text-white hover:bg-[#002244] disabled:opacity-60"
         >
           Ativar este PCA
         </button>

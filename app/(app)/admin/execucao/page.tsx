@@ -26,7 +26,7 @@ export default async function AdminExecucaoPage() {
 
       <NovoAcessoExecucaoForm unidades={unidades} />
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-slate-500">
             <tr>
@@ -69,7 +69,7 @@ export default async function AdminExecucaoPage() {
         </table>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
         <h2 className="mb-1 text-sm font-semibold text-slate-900">Exceções de Roteamento por Categoria</h2>
         <p className="mb-3 text-xs text-slate-500">
           Por padrão, &quot;Obra ou Serviço de Engenharia&quot; vai para a Unidade de Obras, as demais

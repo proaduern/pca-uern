@@ -24,7 +24,7 @@ export default function RoteamentoCategoriaSelect({
           await definirExcecaoExecucaoAction(categoriaId, e.target.value);
         });
       }}
-      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+      className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
     >
       <option value="">Manter padrão ({SUBPERFIL_EXECUCAO_LABEL[padrao]})</option>
       {(Object.keys(SUBPERFIL_EXECUCAO_LABEL) as SubperfilExecucao[])

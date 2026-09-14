@@ -33,8 +33,8 @@ export default function RedefinirSenhaExecucaoForm({ acessoId }: { acessoId: str
       }}
       className="flex items-center gap-1"
     >
-      <input name="novaSenha" type="password" minLength={8} required placeholder="Nova senha" className="w-28 rounded-md border border-slate-300 px-2 py-1 text-xs" />
-      <button type="submit" disabled={isPending} className="rounded-md bg-slate-900 px-2 py-1 text-xs text-white disabled:opacity-60">
+      <input name="novaSenha" type="password" minLength={8} required placeholder="Nova senha" className="w-28 rounded-xl border border-slate-300 px-2 py-1 text-xs" />
+      <button type="submit" disabled={isPending} className="rounded-lg bg-[#003366] px-2 py-1 text-xs text-white hover:bg-[#002244] disabled:opacity-60">
         OK
       </button>
       <button type="button" onClick={() => setAberto(false)} className="text-xs text-slate-500">

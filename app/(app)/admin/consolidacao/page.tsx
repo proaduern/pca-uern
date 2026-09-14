@@ -60,11 +60,11 @@ export default async function ConsolidacaoGeralPage() {
       </p>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <p className="text-xs text-slate-500">Valor Global Cadastrado (Cota PCA Geral)</p>
           <p className="text-xl font-semibold text-slate-900">{brl(pca.cotaGeral)}</p>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <p className="text-xs text-slate-500">Total Já Consolidado</p>
           <p className="text-xl font-semibold text-slate-900">{brl(totalConsolidado)}</p>
           <p className="text-xs text-slate-400">
@@ -72,7 +72,7 @@ export default async function ConsolidacaoGeralPage() {
             geral
           </p>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <p className="text-xs text-slate-500">Saldo Disponível</p>
           <p
             className={`text-xl font-semibold ${saldoDisponivel < 0 ? "text-red-600" : "text-slate-900"}`}
@@ -88,7 +88,7 @@ export default async function ConsolidacaoGeralPage() {
 
       <div>
         <h2 className="mb-2 text-sm font-semibold text-slate-900">Materiais por Categoria</h2>
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-slate-500">
               <tr>
@@ -121,7 +121,7 @@ export default async function ConsolidacaoGeralPage() {
         <p className="mb-2 text-xs text-slate-500">
           Inclui Diárias, Passagens e Hospedagens, além das demais categorias de serviço.
         </p>
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-slate-500">
               <tr>

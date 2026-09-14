@@ -25,7 +25,7 @@ export default async function AdminGestorAtaPage() {
       <h1 className="text-lg font-semibold text-slate-900">Unidade Gestora de Ata</h1>
 
       {consolidacoesAta.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <h2 className="mb-1 text-sm font-semibold text-slate-900">
             Solicitações de Execução de Ata — Aguardando Autorização ({consolidacoesAta.length})
           </h2>
@@ -50,7 +50,7 @@ export default async function AdminGestorAtaPage() {
 
       <NovoAcessoGestorAtaForm unidades={unidades} />
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-slate-500">
             <tr>

@@ -40,11 +40,11 @@ export default async function ExecucaoHomePage({ acessoExecucaoId }: { acessoExe
       </h1>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <p className="text-xs text-slate-500">Processos licitatórios homologados de minha competência</p>
           <p className="text-xl font-semibold text-slate-900">{homologacoesDoSubperfil.length}</p>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <p className="text-xs text-slate-500">Processos de execução abertos</p>
           <p className="text-xl font-semibold text-slate-900">{meusProcessos.length}</p>
         </div>
@@ -54,7 +54,7 @@ export default async function ExecucaoHomePage({ acessoExecucaoId }: { acessoExe
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
         <div className="border-b border-slate-100 p-4">
           <h2 className="text-sm font-semibold text-slate-900">Demandas Homologadas de Minha Competência</h2>
         </div>
@@ -109,7 +109,7 @@ export default async function ExecucaoHomePage({ acessoExecucaoId }: { acessoExe
         </table>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
         <div className="border-b border-slate-100 p-4">
           <h2 className="text-sm font-semibold text-slate-900">Meus Processos de Execução ({meusProcessos.length})</h2>
         </div>

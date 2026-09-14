@@ -98,10 +98,10 @@ export default function PainelExecucaoProcesso({
         </div>
       )}
 
-      {erro && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+      {erro && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
       {mensagem && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{mensagem}</p>}
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Itens do Processo ({itens.length})</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -143,7 +143,7 @@ export default function PainelExecucaoProcesso({
       )}
 
       {historico.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Histórico de Status (Timeline)</h2>
           <div className="space-y-2">
             {historico.map((h) => (
@@ -184,7 +184,7 @@ function ProximoStatusForm({
   const mostraRecebimento = statusSelecionado === "RECEBIDA_DEFINITIVO" && itensMaterialParaRecebimento.length > 0;
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
       <h2 className="mb-1 text-sm font-semibold text-slate-900">Registrar Próximo Status</h2>
       <p className="mb-3 text-xs text-slate-500">
         Só é possível avançar para a(s) etapa(s) seguinte(s) da sequência — a etapa anterior precisa estar concluída.
@@ -206,7 +206,7 @@ function ProximoStatusForm({
             required
             value={statusSelecionado}
             onChange={(e) => setStatusSelecionado(e.target.value as StatusExecucaoValor)}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
           >
             {proximos.map((s) => (
               <option key={s.value} value={s.value}>
@@ -223,7 +223,7 @@ function ProximoStatusForm({
               type={CAMPO_TIPO[campo]}
               min={campo === "prazoDias" ? 1 : undefined}
               required
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm sm:w-60"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm sm:w-60"
             />
           </div>
         ))}
@@ -258,7 +258,7 @@ function ProximoStatusForm({
                           min={0}
                           max={it.quantidade}
                           defaultValue={it.quantidade}
-                          className="w-20 rounded-md border border-slate-300 px-2 py-1 text-xs"
+                          className="w-20 rounded-xl border border-slate-300 px-2 py-1 text-xs"
                         />
                       </td>
                     </tr>
@@ -271,7 +271,7 @@ function ProximoStatusForm({
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+          className="rounded-xl bg-[#003366] px-3 py-2 text-sm font-medium text-white hover:bg-[#002244] disabled:opacity-60"
         >
           Registrar Status
         </button>

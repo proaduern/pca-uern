@@ -50,9 +50,9 @@ export default function AprovacaoAcoes({ dfdId }: { dfdId: string }) {
             name="motivo"
             required
             placeholder="Motivo"
-            className="w-40 rounded-md border border-slate-300 px-2 py-1 text-xs"
+            className="w-40 rounded-xl border border-slate-300 px-2 py-1 text-xs"
           />
-          <button type="submit" className="rounded-md bg-slate-900 px-2 py-1 text-xs text-white">
+          <button type="submit" className="rounded-lg bg-[#003366] px-2 py-1 text-xs text-white hover:bg-[#002244]">
             OK
           </button>
         </form>

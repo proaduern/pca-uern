@@ -23,7 +23,7 @@ export default function TrocaOPAutorizacaoFinalBotoes({ trocaId, extrapola }: { 
             }
           });
         }}
-        className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+        className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
       >
         {extrapola ? "Autorizar Mesmo Assim" : "Autorizar Troca"}
       </button>
@@ -51,8 +51,8 @@ export default function TrocaOPAutorizacaoFinalBotoes({ trocaId, extrapola }: { 
           }}
           className="mt-2 flex gap-1"
         >
-          <input name="motivo" required placeholder="Motivo (visível ao demandante)" className="w-56 rounded-md border border-slate-300 px-2 py-1 text-xs" />
-          <button type="submit" disabled={isPending} className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100">
+          <input name="motivo" required placeholder="Motivo (visível ao demandante)" className="w-56 rounded-xl border border-slate-300 px-2 py-1 text-xs" />
+          <button type="submit" disabled={isPending} className="rounded-xl border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100">
             Confirmar
           </button>
         </form>

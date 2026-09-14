@@ -65,7 +65,7 @@ export default function PainelEntregaDetalhe({
         <p className="text-sm text-slate-600">Enquadramento: {enquadramento} · Valor adjudicado: {brl(valorAdjudicado)}</p>
       </div>
 
-      {erro && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+      {erro && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
       {mensagem && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{mensagem}</p>}
 
       {proximos.length > 0 ? (
@@ -84,7 +84,7 @@ export default function PainelEntregaDetalhe({
         </div>
       ) : null}
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Histórico de Status (Timeline)</h2>
         <div className="space-y-2">
           {historico.map((h) => (
@@ -118,7 +118,7 @@ function AvancarStatusForm({
   const mostraQuantidade = statusSelecionado === "ENTREGUE" && !viaEstoque && quantidadeItemOriginal > 1;
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
       <h2 className="mb-1 text-sm font-semibold text-slate-900">Avançar Status da Entrega</h2>
       <p className="mb-3 text-xs text-slate-500">Só é possível avançar para a próxima etapa da sequência.</p>
       <form
@@ -136,7 +136,7 @@ function AvancarStatusForm({
             required
             value={statusSelecionado}
             onChange={(e) => setStatusSelecionado(e.target.value as StatusEntregaValor)}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
           >
             {proximos.map((s) => (
               <option key={s.value} value={s.value}>
@@ -154,7 +154,7 @@ function AvancarStatusForm({
               min={1}
               max={quantidadeItemOriginal}
               defaultValue={quantidadeItemOriginal}
-              className="w-32 rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="w-32 rounded-xl border border-slate-300 px-3 py-2 text-sm"
             />
             <p className="mt-1 text-xs text-slate-500">
               Quantidade total do item: {quantidadeItemOriginal}. Se entregar menos que isso, o restante
@@ -166,7 +166,7 @@ function AvancarStatusForm({
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+          className="rounded-xl bg-[#003366] px-3 py-2 text-sm font-medium text-white hover:bg-[#002244] disabled:opacity-60"
         >
           Registrar Status
         </button>

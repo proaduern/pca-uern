@@ -40,7 +40,7 @@ export default function RestricaoItemForm({
         value={modo}
         disabled={isPending}
         onChange={(e) => setModo(e.target.value as typeof modo)}
-        className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+        className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
       >
         <option value="HERDA">Herda da categoria</option>
         <option value="TODAS">Visível para todas as unidades</option>

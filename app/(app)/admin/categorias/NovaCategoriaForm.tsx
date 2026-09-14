@@ -35,13 +35,13 @@ export default function NovaCategoriaForm() {
           }
         });
       }}
-      className="space-y-3 rounded-lg border border-slate-200 bg-white p-4"
+      className="space-y-3 rounded-2xl border border-slate-100 bg-white shadow-sm p-4"
     >
       <h2 className="text-sm font-semibold text-slate-900">Nova categoria</h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-700">Nome</label>
-          <input name="nome" required className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+          <input name="nome" required className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-700">Tipo</label>
@@ -55,7 +55,7 @@ export default function NovaCategoriaForm() {
               // Espelha o servidor: fora de Material, semItem nunca se aplica.
               if (novoTipo !== "MATERIAL") setSemItem(false);
             }}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
           >
             <option value="MATERIAL">Material</option>
             <option value="SERVICO">Serviço</option>
@@ -68,7 +68,7 @@ export default function NovaCategoriaForm() {
               name="modoServico"
               value={modoServico}
               onChange={(e) => setModoServico(e.target.value as typeof modoServico)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
             >
               <option value="OBJETO">Objeto livre (nunca agrupa)</option>
               <option value="VALOR">Apenas valor (agrupa por categoria)</option>
@@ -104,7 +104,7 @@ export default function NovaCategoriaForm() {
               type="number"
               min={0}
               step="0.01"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
             />
           </div>
           <div className="flex items-center gap-2 pt-5">
@@ -134,12 +134,12 @@ export default function NovaCategoriaForm() {
         </div>
       )}
 
-      {erro && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+      {erro && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
 
       <button
         type="submit"
         disabled={isPending}
-        className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+        className="rounded-xl bg-[#003366] px-3 py-2 text-sm font-medium text-white hover:bg-[#002244] disabled:opacity-60"
       >
         {isPending ? "Salvando..." : "Salvar"}
       </button>

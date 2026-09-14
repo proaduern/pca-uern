@@ -33,7 +33,7 @@ export default function AcessoVinculavelForm({
           }
         });
       }}
-      className="space-y-3 rounded-lg border border-slate-200 bg-white p-4"
+      className="space-y-3 rounded-2xl border border-slate-100 bg-white shadow-sm p-4"
     >
       <h2 className="text-sm font-semibold text-slate-900">{titulo}</h2>
 
@@ -42,7 +42,7 @@ export default function AcessoVinculavelForm({
         <input
           name="nome"
           required
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
         />
       </div>
 
@@ -68,7 +68,7 @@ export default function AcessoVinculavelForm({
           <select
             name="unidadeId"
             required
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
           >
             <option value="">Selecione a unidade…</option>
             {unidades.map((u) => (
@@ -90,7 +90,7 @@ export default function AcessoVinculavelForm({
             <input
               name="email"
               type="email"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
             />
           </div>
           <div>
@@ -100,18 +100,18 @@ export default function AcessoVinculavelForm({
             <input
               name="senhaInicial"
               type="password"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
             />
           </div>
         </div>
       )}
 
-      {erro && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+      {erro && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
 
       <button
         type="submit"
         disabled={isPending}
-        className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+        className="rounded-xl bg-[#003366] px-3 py-2 text-sm font-medium text-white hover:bg-[#002244] disabled:opacity-60"
       >
         {isPending ? "Salvando..." : "Salvar"}
       </button>

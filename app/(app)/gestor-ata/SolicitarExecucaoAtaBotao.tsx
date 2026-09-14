@@ -21,7 +21,7 @@ export default function SolicitarExecucaoAtaBotao({ consolidacaoId }: { consolid
             }
           });
         }}
-        className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+        className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
       >
         Solicitar Autorização à PROAD
       </button>
