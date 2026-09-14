@@ -5,7 +5,14 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { exigirAdmin, exigirUnidade, type SessionPayload } from "@/lib/auth";
 import { resolverPcaEmAtuacao } from "@/lib/pca-contexto";
-import { calcularGastos, janelaAberta, saldoPCA, saldoUnidadeGeral, saldoUnidadeOP } from "@/lib/cota";
+import {
+  arredondarCentavos,
+  calcularGastos,
+  janelaAberta,
+  saldoPCA,
+  saldoUnidadeGeral,
+  saldoUnidadeOP,
+} from "@/lib/cota";
 import {
   validarDescricaoSumaria,
   validarItemDfd,
@@ -42,7 +49,7 @@ async function gastoComprometidoDaCategoria(categoriaId: string, ano: number) {
     where: { categoriaId, dfd: { ano, status: { in: STATUS_COMPROMETEM_ORCAMENTO } } },
     select: { valorTotal: true },
   });
-  return itens.reduce((soma, it) => soma + Number(it.valorTotal), 0);
+  return arredondarCentavos(itens.reduce((soma, it) => soma + Number(it.valorTotal), 0));
 }
 
 /** O PCA em que a unidade escolheu atuar (ou o único ativo, se só houver um). */
@@ -266,10 +273,14 @@ async function processarAdicaoItem(
 
     if (categoria.saldoAnualGlobal != null) {
       const jaGastoCategoria = await gastoComprometidoDaCategoria(categoriaId, dfd.ano);
-      const jaNoDfdCategoria = dfd.itens
-        .filter((it) => it.categoriaId === categoriaId)
-        .reduce((soma, it) => soma + Number(it.valorTotal), 0);
-      const saldoCategoria = Number(categoria.saldoAnualGlobal) - jaGastoCategoria - jaNoDfdCategoria;
+      const jaNoDfdCategoria = arredondarCentavos(
+        dfd.itens
+          .filter((it) => it.categoriaId === categoriaId)
+          .reduce((soma, it) => soma + Number(it.valorTotal), 0),
+      );
+      const saldoCategoria = arredondarCentavos(
+        Number(categoria.saldoAnualGlobal) - jaGastoCategoria - jaNoDfdCategoria,
+      );
       if (valorTotal > saldoCategoria) {
         throw new Error(
           `Valor excede o saldo anual disponível para a categoria "${categoria.nome}" (${brl(saldoCategoria)}).`,

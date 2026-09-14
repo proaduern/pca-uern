@@ -17,6 +17,17 @@ export function dfdComprometeOrcamento(status: StatusDfd): boolean {
   return status === "AGUARDANDO_APROVACAO" || status === "APROVADO";
 }
 
+/**
+ * Arredonda pra centavos. Somas/subtrações de valores monetários em ponto
+ * flutuante acumulam erro binário (ex.: 1000 - 153.18 pode dar
+ * 846.8199999999999 em vez de 846.82) — sem isso, lançar um valor igual ao
+ * saldo exato era bloqueado por engano, exigindo deixar sempre 1 centavo de
+ * sobra. Toda função de saldo abaixo devolve o valor já arredondado.
+ */
+export function arredondarCentavos(valor: number): number {
+  return Math.round((valor + Number.EPSILON) * 100) / 100;
+}
+
 export interface ItemParaGasto {
   enquadramento: Enquadramento;
   valorTotal: number;
@@ -42,19 +53,24 @@ export function calcularGastos(itens: ItemParaGasto[]): GastosPorEnquadramento {
     else if (it.enquadramento === "CONVENIO") convenio += it.valorTotal;
     else geral += it.valorTotal;
   }
-  return { op, geral, convenio, total: op + geral };
+  return {
+    op: arredondarCentavos(op),
+    geral: arredondarCentavos(geral),
+    convenio: arredondarCentavos(convenio),
+    total: arredondarCentavos(op + geral),
+  };
 }
 
 export function saldoUnidadeOP(cotaOP: number, gastoOP: number): number {
-  return cotaOP - gastoOP;
+  return arredondarCentavos(cotaOP - gastoOP);
 }
 
 export function saldoUnidadeGeral(cotaGeral: number, gastoGeral: number): number {
-  return cotaGeral - gastoGeral;
+  return arredondarCentavos(cotaGeral - gastoGeral);
 }
 
 export function saldoPCA(cotaGeralPCA: number, gastoTotalPCA: number): number {
-  return cotaGeralPCA - gastoTotalPCA;
+  return arredondarCentavos(cotaGeralPCA - gastoTotalPCA);
 }
 
 export interface PcaParaJanela {
@@ -114,18 +130,22 @@ export function totalCotaOPAlocada(
   unidades: UnidadeParaAlocacao[],
   excludeUnidadeId?: string | null,
 ): number {
-  return unidades
-    .filter((u) => u.elegivelCotaOP && u.id !== excludeUnidadeId)
-    .reduce((soma, u) => soma + u.cotaOP, 0);
+  return arredondarCentavos(
+    unidades
+      .filter((u) => u.elegivelCotaOP && u.id !== excludeUnidadeId)
+      .reduce((soma, u) => soma + u.cotaOP, 0),
+  );
 }
 
 export function totalCotaGeralFechadaAlocada(
   unidades: UnidadeParaAlocacao[],
   excludeUnidadeId?: string | null,
 ): number {
-  return unidades
-    .filter((u) => u.cotaTipo === "FECHADA" && u.id !== excludeUnidadeId)
-    .reduce((soma, u) => soma + u.cotaGeral, 0);
+  return arredondarCentavos(
+    unidades
+      .filter((u) => u.cotaTipo === "FECHADA" && u.id !== excludeUnidadeId)
+      .reduce((soma, u) => soma + u.cotaGeral, 0),
+  );
 }
 
 export function saldoPCAOPParaAlocar(
@@ -133,7 +153,7 @@ export function saldoPCAOPParaAlocar(
   unidades: UnidadeParaAlocacao[],
   excludeUnidadeId?: string | null,
 ): number {
-  return pcaCotaOP - totalCotaOPAlocada(unidades, excludeUnidadeId);
+  return arredondarCentavos(pcaCotaOP - totalCotaOPAlocada(unidades, excludeUnidadeId));
 }
 
 export function saldoPCAGeralParaAlocar(
@@ -141,7 +161,9 @@ export function saldoPCAGeralParaAlocar(
   unidades: UnidadeParaAlocacao[],
   excludeUnidadeId?: string | null,
 ): number {
-  return pca.cotaGeral - pca.cotaOP - totalCotaGeralFechadaAlocada(unidades, excludeUnidadeId);
+  return arredondarCentavos(
+    pca.cotaGeral - pca.cotaOP - totalCotaGeralFechadaAlocada(unidades, excludeUnidadeId),
+  );
 }
 
 /**

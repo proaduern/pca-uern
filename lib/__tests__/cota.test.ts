@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  arredondarCentavos,
   calcularGastos,
   derivarCotaTipo,
   dfdComprometeOrcamento,
@@ -147,5 +148,41 @@ describe("alocação de cota às unidades (item 6/7 da auditoria)", () => {
   it("exigeCotaFixa: não elegível a OP só disputa quando a cota geral é fechada", () => {
     expect(exigeCotaFixa(false, "FECHADA")).toBe(true);
     expect(exigeCotaFixa(false, "ABERTA")).toBe(false);
+  });
+});
+
+describe("arredondarCentavos (regressão: erro de ponto flutuante bloqueava fechar o saldo exato)", () => {
+  it("corrige o resíduo binário de 1000 - 153.18", () => {
+    expect(1000 - 153.18).not.toBe(846.82); // reproduz o erro cru do JS
+    expect(arredondarCentavos(1000 - 153.18)).toBe(846.82);
+  });
+
+  it("saldoPCAOPParaAlocar permite a última unidade fechar exatamente o subsaldo", () => {
+    // Cota OP do PCA = 1000; uma unidade já com 153.18 alocado; a última
+    // unidade recebendo os 846.82 restantes não pode ser bloqueada.
+    const unidades: UnidadeParaAlocacao[] = [
+      { id: "u1", elegivelCotaOP: true, cotaOP: 153.18, cotaGeral: 0, cotaTipo: "ABERTA" },
+    ];
+    const disponivelParaUltima = saldoPCAOPParaAlocar(1000, unidades);
+    expect(disponivelParaUltima).toBe(846.82);
+    expect(846.82 > disponivelParaUltima).toBe(false);
+  });
+
+  it("saldoUnidadeOP permite lançar uma demanda de valor igual ao saldo, sem sobrar 1 centavo", () => {
+    // Unidade com cota OP de 1000 e nada gasto ainda: lançar uma demanda de
+    // exatos 1000 não pode exigir reduzir pra 999,99 pra passar.
+    const saldo = saldoUnidadeOP(1000, 0);
+    expect(saldo).toBe(1000);
+    expect(1000 > saldo).toBe(false);
+  });
+
+  it("calcularGastos soma valores fracionados sem deixar resíduo binário", () => {
+    const g = calcularGastos([
+      { enquadramento: "OP", valorTotal: 199.99 },
+      { enquadramento: "OP", valorTotal: 200.01 },
+      { enquadramento: "OP", valorTotal: 150.5 },
+      { enquadramento: "OP", valorTotal: 449.5 },
+    ]);
+    expect(g.op).toBe(1000);
   });
 });
