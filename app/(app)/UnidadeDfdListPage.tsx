@@ -49,7 +49,11 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
       <h1 className="text-lg font-semibold text-slate-900">Painel da Unidade — {unidade.nome}</h1>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {unidade.elegivelCotaOP && (
+        {unidade.elegivelCotaOP ? (
+          // Unidade com cota OP: só a cota OP é um teto próprio da unidade —
+          // as demandas fora de OP dela ficam por conta do saldo geral do
+          // PCA como um todo, não de um número fixo desta unidade, então não
+          // faz sentido mostrar "Cota Geral" aqui (ver dfd.ts: temTetoNaUnidade).
           <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
             <p className="text-xs text-slate-500">Cota OP disponível</p>
             <p className="text-xl font-semibold text-slate-900">
@@ -57,14 +61,20 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
             </p>
             <p className="text-xs text-slate-400">de {brl(unidade.cotaOP)}</p>
           </div>
+        ) : (
+          // Sem cota OP: cotaGeral = 0 significa que a unidade não tem teto
+          // próprio (cotaTipo "ABERTA") e disputa direto o saldo geral do
+          // PCA — não é "zero pra gastar", então não mostramos esse card.
+          Number(unidade.cotaGeral) > 0 && (
+            <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
+              <p className="text-xs text-slate-500">Cota Geral disponível</p>
+              <p className="text-xl font-semibold text-slate-900">
+                {brl(Number(unidade.cotaGeral) - gastos.geral)}
+              </p>
+              <p className="text-xs text-slate-400">de {brl(unidade.cotaGeral)}</p>
+            </div>
+          )
         )}
-        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
-          <p className="text-xs text-slate-500">Cota Geral disponível</p>
-          <p className="text-xl font-semibold text-slate-900">
-            {brl(Number(unidade.cotaGeral) - gastos.geral)}
-          </p>
-          <p className="text-xs text-slate-400">de {brl(unidade.cotaGeral)}</p>
-        </div>
         <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <p className="text-xs text-slate-500">PCA ativo</p>
           <p className="text-xl font-semibold text-slate-900">{pcaAtivo?.ano ?? "—"}</p>
