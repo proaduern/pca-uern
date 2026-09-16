@@ -126,17 +126,28 @@ export async function criarRascunhoDfdAction(): Promise<ResultadoCriarDfd> {
     return { erro: "Nenhuma prioridade cadastrada ainda. Peça à PROAD para cadastrar." };
   }
 
-  const dfd = await prisma.dfd.create({
-    data: {
-      unidadeId: sessao.id,
-      ano: pca.ano,
-      descricaoSumaria: "",
-      prioridadeId: prioridade.id,
-      justificativa: "",
-      tipoDemanda: "NOVA",
-      status: "RASCUNHO",
-      criadoPorId: sessao.id,
-    },
+  // Número sequencial do DFD dentro da unidade/ano (ex.: "0007/2027"), usado
+  // no cabeçalho do PDF oficial — atribuído uma única vez, aqui, e nunca
+  // reaproveitado mesmo se um DFD anterior da sequência for excluído.
+  const dfd = await prisma.$transaction(async (tx) => {
+    const ultimo = await tx.dfd.findFirst({
+      where: { unidadeId: sessao.id, ano: pca.ano },
+      orderBy: { numero: "desc" },
+      select: { numero: true },
+    });
+    return tx.dfd.create({
+      data: {
+        unidadeId: sessao.id,
+        ano: pca.ano,
+        numero: (ultimo?.numero ?? 0) + 1,
+        descricaoSumaria: "",
+        prioridadeId: prioridade.id,
+        justificativa: "",
+        tipoDemanda: "NOVA",
+        status: "RASCUNHO",
+        criadoPorId: sessao.id,
+      },
+    });
   });
 
   return { dfdId: dfd.id };

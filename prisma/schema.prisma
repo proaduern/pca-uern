@@ -33,6 +33,11 @@ model Unidade {
   cotaTipo        CotaTipo @default(FECHADA)
   verCotaGeralPCA Boolean  @default(false)
   ativa           Boolean  @default(true)
+
+  responsavelNome      String?
+  responsavelMatricula String?
+  responsavelTelefone  String?
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -366,6 +371,11 @@ model Dfd {
   unidade   Unidade @relation(fields: [unidadeId], references: [id])
   ano       Int
   pca       Pca     @relation(fields: [ano], references: [ano])
+  // Número sequencial do DFD dentro da própria unidade/ano (ex.: "0007/2027"),
+  // atribuído uma única vez na criação — usado no cabeçalho do PDF oficial do
+  // DFD (ver lib/pdf/dfd.tsx). Nunca reatribuído, mesmo se um DFD anterior
+  // da sequência for excluído.
+  numero    Int
 
   descricaoSumaria String
   tipificacaoId    String?
@@ -388,6 +398,7 @@ model Dfd {
 
   itens ItemDfd[]
 
+  @@unique([unidadeId, ano, numero])
   @@index([unidadeId])
   @@index([status])
   @@index([ano])

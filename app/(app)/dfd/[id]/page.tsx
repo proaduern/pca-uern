@@ -4,6 +4,7 @@ import { obterSessao } from "@/lib/auth";
 import { brl, formatarData } from "@/lib/formato";
 import { categoriaVisivelPara, itemCatalogoVisivelPara } from "@/lib/visibilidade";
 import { resolverFaseItemDfd } from "@/lib/fase-item";
+import { numeroFormatado } from "@/lib/pdf/dfd-dados";
 import DadosGeraisForm from "./DadosGeraisForm";
 import ItemForm from "./ItemForm";
 import AcoesDfd from "./AcoesDfd";
@@ -67,6 +68,7 @@ export default async function DfdDetalhePage({
         <h1 className="text-lg font-semibold text-slate-900">
           {dfd.descricaoSumaria || "Novo DFD"}
         </h1>
+        <p className="text-xs text-slate-400">DFD nº {numeroFormatado(dfd)}</p>
         <span className="mt-1 inline-block rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700">
           {dfd.status}
         </span>
@@ -181,6 +183,23 @@ export default async function DfdDetalhePage({
           />
         )}
       </section>
+
+      {dfd.itens.length > 0 && (
+        <div className="flex flex-wrap gap-3 rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
+          <a
+            href={`/dfd/${dfd.id}/pdf`}
+            className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+          >
+            Baixar DFD (PDF)
+          </a>
+          <a
+            href={`/dfd/${dfd.id}/itens-xlsx`}
+            className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+          >
+            Baixar itens (XLSX)
+          </a>
+        </div>
+      )}
 
       <AcoesDfd dfdId={dfd.id} podeEditar={podeEditarUnidade} totalItens={dfd.itens.length} />
 
