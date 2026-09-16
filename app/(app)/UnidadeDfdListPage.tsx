@@ -2,8 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { brl } from "@/lib/formato";
 import { calcularGastos, dfdComprometeOrcamento } from "@/lib/cota";
-import { criarRascunhoDfdAction } from "@/lib/actions/dfd";
 import { resolverPcaEmAtuacao } from "@/lib/pca-contexto";
+import NovaDemandaBotao from "./NovaDemandaBotao";
 
 const STATUS_LABEL: Record<string, string> = {
   RASCUNHO: "Rascunho",
@@ -24,7 +24,7 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
     resolverPcaEmAtuacao({ id: unidadeId, tipo: "UNIDADE" }),
     prisma.dfd.findMany({
       where: { unidadeId },
-      include: { itens: true },
+      include: { itens: true, setorInterno: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.solicitacaoCatalogo.findMany({
@@ -92,13 +92,7 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
           <h2 className="text-sm font-semibold text-slate-900">
             Meus Documentos de Formalização de Demanda (DFD)
           </h2>
-          {pcaAtivo && (
-            <form action={criarRascunhoDfdAction}>
-              <button className="rounded-xl bg-[#003366] px-3 py-2 text-sm font-medium text-white hover:bg-[#002244]">
-                + Nova Demanda (DFD)
-              </button>
-            </form>
-          )}
+          {pcaAtivo && <NovaDemandaBotao />}
         </div>
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-slate-500">
@@ -120,6 +114,12 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
                     {d.descricaoSumaria || <span className="text-slate-400">(sem descrição)</span>}
                     {d.status === "REPROVADO" && (
                       <div className="text-xs text-red-600">Motivo: {d.motivoReprovacao}</div>
+                    )}
+                    {d.setorInterno && (
+                      <div className="text-xs text-slate-400">
+                        Via setor interno: {d.setorInterno.nome}
+                        {d.status === "RASCUNHO" && d.enviadoParaUnidadeEm && " · aguardando sua liberação"}
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-2 text-slate-600">{d.ano}</td>

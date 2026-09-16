@@ -21,6 +21,7 @@ function getSecretKey() {
 export type TipoSessao =
   | "ADMIN"
   | "UNIDADE"
+  | "SETOR_INTERNO"
   | "SETOR_TECNICO"
   | "LICITACOES"
   | "EXECUCAO"
@@ -115,6 +116,22 @@ export async function exigirAdminNaPagina(): Promise<SessionPayload> {
 export async function exigirUnidade(): Promise<SessionPayload> {
   const sessao = await exigirSessao();
   if (sessao.tipo !== "UNIDADE") throw new Error("Acesso restrito a unidades demandantes.");
+  return sessao;
+}
+
+export async function exigirSetorInterno(): Promise<SessionPayload> {
+  const sessao = await exigirSessao();
+  if (sessao.tipo !== "SETOR_INTERNO") throw new Error("Acesso restrito a setores internos.");
+  return sessao;
+}
+
+/** DFD é sempre da Unidade, mas quem preenche pode ser a própria Unidade ou
+ * um dos seus setores internos — ver lib/actions/dfd.ts. */
+export async function exigirUnidadeOuSetorInterno(): Promise<SessionPayload> {
+  const sessao = await exigirSessao();
+  if (sessao.tipo !== "UNIDADE" && sessao.tipo !== "SETOR_INTERNO") {
+    throw new Error("Acesso restrito a unidades demandantes ou setores internos.");
+  }
   return sessao;
 }
 
@@ -368,6 +385,25 @@ export async function autenticar(email: string, senha: string): Promise<Resultad
         nome: gestorAtaProprio.nome,
         email: gestorAtaProprio.email!,
         senhaTemporaria: gestorAtaProprio.senhaTemporaria,
+      },
+    };
+  }
+
+  // Setor interno sempre tem login próprio (nunca "vinculado" como os
+  // demais acima) — checa antes de Unidade porque o email é sempre distinto
+  // do da unidade-mãe, então não há ambiguidade a resolver.
+  const setorInterno = await prisma.setorInterno.findUnique({ where: { email: emailNorm } });
+  if (setorInterno) {
+    const ok = await bcrypt.compare(senha, setorInterno.senhaHash);
+    if (!ok || !setorInterno.ativo) return null;
+    return {
+      resultado: "sessao",
+      sessao: {
+        tipo: "SETOR_INTERNO",
+        id: setorInterno.id,
+        nome: setorInterno.nome,
+        email: setorInterno.email,
+        senhaTemporaria: setorInterno.senhaTemporaria,
       },
     };
   }
