@@ -26,11 +26,8 @@ export default function RestricaoCategoriaForm({
         setErro(null);
         const formData = new FormData(e.currentTarget);
         startTransition(async () => {
-          try {
-            await definirRestricaoCategoriaAction(categoriaId, formData);
-          } catch (err) {
-            setErro(err instanceof Error ? err.message : "Erro inesperado.");
-          }
+          const resultado = await definirRestricaoCategoriaAction(categoriaId, formData);
+          if (resultado.erro) setErro(resultado.erro);
         });
       }}
       className="space-y-1"

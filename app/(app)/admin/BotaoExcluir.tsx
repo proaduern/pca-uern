@@ -23,12 +23,8 @@ export default function BotaoExcluir({
           if (!confirm(confirmMessage)) return;
           setErro(null);
           startTransition(async () => {
-            try {
-              const resultado = await action(id);
-              if (resultado?.erro) setErro(resultado.erro);
-            } catch (err) {
-              setErro(err instanceof Error ? err.message : "Erro inesperado.");
-            }
+            const resultado = await action(id);
+            if (resultado?.erro) setErro(resultado.erro);
           });
         }}
         className="text-xs font-medium text-red-600 underline hover:text-red-800 disabled:opacity-60"

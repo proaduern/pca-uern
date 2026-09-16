@@ -24,15 +24,15 @@ export default function NovaCategoriaForm() {
         setErro(null);
         const formData = new FormData(e.currentTarget);
         startTransition(async () => {
-          try {
-            await criarCategoriaAction(formData);
-            formRef.current?.reset();
-            setTipo("MATERIAL");
-            setSemItem(false);
-            setModoServico("OBJETO");
-          } catch (err) {
-            setErro(err instanceof Error ? err.message : "Erro inesperado.");
+          const resultado = await criarCategoriaAction(formData);
+          if (resultado.erro) {
+            setErro(resultado.erro);
+            return;
           }
+          formRef.current?.reset();
+          setTipo("MATERIAL");
+          setSemItem(false);
+          setModoServico("OBJETO");
         });
       }}
       className="space-y-3 rounded-2xl border border-slate-100 bg-white shadow-sm p-4"
