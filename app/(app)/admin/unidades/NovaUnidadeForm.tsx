@@ -17,13 +17,13 @@ export default function NovaUnidadeForm() {
         setErro(null);
         const formData = new FormData(e.currentTarget);
         startTransition(async () => {
-          try {
-            await criarUnidadeAction(formData);
-            formRef.current?.reset();
-            setElegivelCotaOP(false);
-          } catch (err) {
-            setErro(err instanceof Error ? err.message : "Erro inesperado.");
+          const resultado = await criarUnidadeAction(formData);
+          if (resultado.erro) {
+            setErro(resultado.erro);
+            return;
           }
+          formRef.current?.reset();
+          setElegivelCotaOP(false);
         });
       }}
       className="space-y-3 rounded-2xl border border-slate-100 bg-white shadow-sm p-4"

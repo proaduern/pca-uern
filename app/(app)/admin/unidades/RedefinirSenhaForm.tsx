@@ -23,12 +23,12 @@ export default function RedefinirSenhaForm({ unidadeId }: { unidadeId: string })
         setErro(null);
         const formData = new FormData(e.currentTarget);
         startTransition(async () => {
-          try {
-            await redefinirSenhaUnidadeAction(unidadeId, formData);
-            setAberto(false);
-          } catch (err) {
-            setErro(err instanceof Error ? err.message : "Erro inesperado.");
+          const resultado = await redefinirSenhaUnidadeAction(unidadeId, formData);
+          if (resultado.erro) {
+            setErro(resultado.erro);
+            return;
           }
+          setAberto(false);
         });
       }}
       className="flex items-center gap-1"

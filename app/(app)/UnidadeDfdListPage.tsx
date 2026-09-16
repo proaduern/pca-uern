@@ -2,8 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { brl } from "@/lib/formato";
 import { calcularGastos, dfdComprometeOrcamento } from "@/lib/cota";
-import { criarRascunhoDfdAction } from "@/lib/actions/dfd";
 import { resolverPcaEmAtuacao } from "@/lib/pca-contexto";
+import NovaDemandaBotao from "./NovaDemandaBotao";
 
 const STATUS_LABEL: Record<string, string> = {
   RASCUNHO: "Rascunho",
@@ -92,13 +92,7 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
           <h2 className="text-sm font-semibold text-slate-900">
             Meus Documentos de Formalização de Demanda (DFD)
           </h2>
-          {pcaAtivo && (
-            <form action={criarRascunhoDfdAction}>
-              <button className="rounded-xl bg-[#003366] px-3 py-2 text-sm font-medium text-white hover:bg-[#002244]">
-                + Nova Demanda (DFD)
-              </button>
-            </form>
-          )}
+          {pcaAtivo && <NovaDemandaBotao />}
         </div>
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-slate-500">

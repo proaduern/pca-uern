@@ -46,13 +46,13 @@ export default function DadosGeraisForm({
         setSucesso(false);
         const formData = new FormData(e.currentTarget);
         startTransition(async () => {
-          try {
-            const action = modoAdmin ? adminAtualizarDadosGeraisDfdAction : atualizarDadosGeraisDfdAction;
-            await action(dfd.id, formData);
-            setSucesso(true);
-          } catch (err) {
-            setErro(err instanceof Error ? err.message : "Erro inesperado.");
+          const action = modoAdmin ? adminAtualizarDadosGeraisDfdAction : atualizarDadosGeraisDfdAction;
+          const resultado = await action(dfd.id, formData);
+          if (resultado.erro) {
+            setErro(resultado.erro);
+            return;
           }
+          setSucesso(true);
         });
       }}
       className="space-y-4 rounded-2xl border border-slate-100 bg-white shadow-sm p-4"
