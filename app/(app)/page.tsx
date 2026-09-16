@@ -1,6 +1,7 @@
 import { obterSessao } from "@/lib/auth";
 import AdminAprovacaoPage from "./AdminAprovacaoPage";
 import UnidadeDfdListPage from "./UnidadeDfdListPage";
+import SetorInternoHomePage from "./SetorInternoHomePage";
 import SetorTecnicoHomePage from "./SetorTecnicoHomePage";
 import LicitacoesHomePage from "./LicitacoesHomePage";
 import ExecucaoHomePage from "./ExecucaoHomePage";
@@ -13,6 +14,9 @@ export default async function HomePage() {
 
   if (sessao.tipo === "ADMIN") {
     return <AdminAprovacaoPage />;
+  }
+  if (sessao.tipo === "SETOR_INTERNO") {
+    return <SetorInternoHomePage setorInternoId={sessao.id} />;
   }
   if (sessao.tipo === "SETOR_TECNICO") {
     return <SetorTecnicoHomePage setorTecnicoId={sessao.id} />;

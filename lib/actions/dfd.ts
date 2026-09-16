@@ -3,7 +3,13 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { exigirAdmin, exigirUnidade, type SessionPayload } from "@/lib/auth";
+import {
+  exigirAdmin,
+  exigirSetorInterno,
+  exigirUnidade,
+  exigirUnidadeOuSetorInterno,
+  type SessionPayload,
+} from "@/lib/auth";
 import { resolverPcaEmAtuacao } from "@/lib/pca-contexto";
 import {
   arredondarCentavos,
@@ -54,6 +60,16 @@ async function gastoComprometidoDaCategoria(categoriaId: string, ano: number) {
   return arredondarCentavos(itens.reduce((soma, it) => soma + Number(it.valorTotal), 0));
 }
 
+/** Gastos já comprometidos por um setor interno específico (sub-teto rígido
+ * dentro da cota da própria unidade — ver ContextoDfd/processarAdicaoItem). */
+async function gastosComprometidosDoSetorInterno(setorInternoId: string) {
+  const itens = await prisma.itemDfd.findMany({
+    where: { dfd: { setorInternoId, status: { in: STATUS_COMPROMETEM_ORCAMENTO } } },
+    select: { enquadramento: true, valorTotal: true },
+  });
+  return calcularGastos(itens.map((it) => ({ enquadramento: it.enquadramento, valorTotal: Number(it.valorTotal) })));
+}
+
 /** O PCA em que a unidade escolheu atuar (ou o único ativo, se só houver um). */
 async function resolverPcaAtuacao(
   sessao: Pick<SessionPayload, "id" | "tipo">,
@@ -79,14 +95,38 @@ async function verificarJanela(unidadeId: string, pcaAno: number): Promise<strin
   return null;
 }
 
+interface ContextoDfd {
+  unidadeId: string;
+  setorInternoId: string | null;
+}
+
+/** DFD é sempre da unidade (unidadeId); setorInternoId, quando presente, é
+ * quem de fato está autenticado (um dos setores internos dela). */
+async function resolverContextoDfd(sessao: SessionPayload): Promise<ContextoDfd> {
+  if (sessao.tipo === "UNIDADE") return { unidadeId: sessao.id, setorInternoId: null };
+  const setor = await prisma.setorInterno.findUniqueOrThrow({ where: { id: sessao.id } });
+  return { unidadeId: setor.unidadeId, setorInternoId: setor.id };
+}
+
 type DfdComItens = Dfd & { itens: ItemDfd[] };
 
-async function obterDfdDaUnidade(
+async function obterDfdParaEdicao(
   dfdId: string,
-  unidadeId: string,
+  ctx: ContextoDfd,
 ): Promise<{ erro: string } | { dfd: DfdComItens }> {
   const dfd = await prisma.dfd.findUnique({ where: { id: dfdId }, include: { itens: true } });
-  if (!dfd || dfd.unidadeId !== unidadeId) return { erro: "DFD não encontrado." };
+  if (!dfd || dfd.unidadeId !== ctx.unidadeId) return { erro: "DFD não encontrado." };
+  // Um setor interno só mexe nos DFDs que ele mesmo criou (a unidade continua
+  // vendo e editando todos, próprios e dos seus setores). Uma vez enviado
+  // para a revisão da unidade, o setor perde a edição até ela reabrir.
+  if (ctx.setorInternoId) {
+    if (dfd.setorInternoId !== ctx.setorInternoId) return { erro: "DFD não encontrado." };
+    if (dfd.enviadoParaUnidadeEm) {
+      return {
+        erro: "Este DFD já foi enviado para revisão da unidade e não pode mais ser editado pelo setor.",
+      };
+    }
+  }
   if (dfd.status !== "RASCUNHO" && dfd.status !== "REPROVADO") {
     return { erro: "Este DFD não pode mais ser editado." };
   }
@@ -113,12 +153,13 @@ export interface ResultadoCriarDfd extends ResultadoAcao {
 }
 
 export async function criarRascunhoDfdAction(): Promise<ResultadoCriarDfd> {
-  const sessao = await exigirUnidade();
+  const sessao = await exigirUnidadeOuSetorInterno();
+  const ctx = await resolverContextoDfd(sessao);
   const resultadoPca = await resolverPcaAtuacao(sessao);
   if ("erro" in resultadoPca) return { erro: resultadoPca.erro };
   const { pca } = resultadoPca;
 
-  const erroJanela = await verificarJanela(sessao.id, pca.ano);
+  const erroJanela = await verificarJanela(ctx.unidadeId, pca.ano);
   if (erroJanela) return { erro: erroJanela };
 
   const prioridade = await prisma.prioridade.findFirst();
@@ -128,7 +169,8 @@ export async function criarRascunhoDfdAction(): Promise<ResultadoCriarDfd> {
 
   const dfd = await prisma.dfd.create({
     data: {
-      unidadeId: sessao.id,
+      unidadeId: ctx.unidadeId,
+      setorInternoId: ctx.setorInternoId,
       ano: pca.ano,
       descricaoSumaria: "",
       prioridadeId: prioridade.id,
@@ -192,8 +234,9 @@ async function processarAtualizacaoDadosGerais(dfdId: string, ano: number, formD
 }
 
 export async function atualizarDadosGeraisDfdAction(dfdId: string, formData: FormData): Promise<ResultadoAcao> {
-  const sessao = await exigirUnidade();
-  const resultadoDfd = await obterDfdDaUnidade(dfdId, sessao.id);
+  const sessao = await exigirUnidadeOuSetorInterno();
+  const ctx = await resolverContextoDfd(sessao);
+  const resultadoDfd = await obterDfdParaEdicao(dfdId, ctx);
   if ("erro" in resultadoDfd) return { erro: resultadoDfd.erro };
   const resultado = await processarAtualizacaoDadosGerais(dfdId, resultadoDfd.dfd.ano, formData);
   if (resultado.erro) return resultado;
@@ -364,6 +407,29 @@ async function processarAdicaoItem(
         return { erro: `Valor excede o saldo disponível da Cota PCA Geral (${brl(saldoPCAAtual)}).` };
       }
     }
+
+    // Sub-teto do setor interno: uma fatia fixa da cota da própria unidade
+    // (ver SetorInterno em prisma/schema.prisma) — some gasto igual às
+    // checagens acima, só que restrito aos DFDs deste setor.
+    if (dfd.setorInternoId) {
+      const setorInterno = await prisma.setorInterno.findUniqueOrThrow({ where: { id: dfd.setorInternoId } });
+      const gastoSetor = await gastosComprometidosDoSetorInterno(dfd.setorInternoId);
+      if (enquadramento === "OP") {
+        const saldoOPSetor = saldoUnidadeOP(Number(setorInterno.cotaOP), gastoSetor.op + jaNoDfd.op);
+        if (valorTotal > saldoOPSetor) {
+          return {
+            erro: `Valor excede o saldo de Cota OP disponível do setor interno (${brl(saldoOPSetor)}).`,
+          };
+        }
+      } else {
+        const saldoGeralSetor = saldoUnidadeGeral(Number(setorInterno.cotaGeral), gastoSetor.geral + jaNoDfd.geral);
+        if (valorTotal > saldoGeralSetor) {
+          return {
+            erro: `Valor excede o saldo de Cota Geral disponível do setor interno (${brl(saldoGeralSetor)}).`,
+          };
+        }
+      }
+    }
   }
 
   await prisma.itemDfd.create({
@@ -391,10 +457,11 @@ async function processarAdicaoItem(
 }
 
 export async function adicionarItemDfdAction(dfdId: string, formData: FormData): Promise<ResultadoAcao> {
-  const sessao = await exigirUnidade();
-  const resultadoDfd = await obterDfdDaUnidade(dfdId, sessao.id);
+  const sessao = await exigirUnidadeOuSetorInterno();
+  const ctx = await resolverContextoDfd(sessao);
+  const resultadoDfd = await obterDfdParaEdicao(dfdId, ctx);
   if ("erro" in resultadoDfd) return { erro: resultadoDfd.erro };
-  const unidade = await prisma.unidade.findUniqueOrThrow({ where: { id: sessao.id } });
+  const unidade = await prisma.unidade.findUniqueOrThrow({ where: { id: ctx.unidadeId } });
   const resultado = await processarAdicaoItem(resultadoDfd.dfd, unidade, formData);
   if (resultado.erro) return resultado;
   revalidatePath(`/dfd/${dfdId}`);
@@ -419,8 +486,9 @@ async function processarRemocaoItem(dfdId: string, itemId: string): Promise<Resu
 }
 
 export async function removerItemDfdAction(dfdId: string, itemId: string): Promise<ResultadoAcao> {
-  const sessao = await exigirUnidade();
-  const resultadoDfd = await obterDfdDaUnidade(dfdId, sessao.id);
+  const sessao = await exigirUnidadeOuSetorInterno();
+  const ctx = await resolverContextoDfd(sessao);
+  const resultadoDfd = await obterDfdParaEdicao(dfdId, ctx);
   if ("erro" in resultadoDfd) return { erro: resultadoDfd.erro };
   const resultado = await processarRemocaoItem(dfdId, itemId);
   if (resultado.erro) return resultado;
@@ -438,23 +506,39 @@ export async function adminRemoverItemDfdAction(dfdId: string, itemId: string): 
   return {};
 }
 
+function validarConteudoParaEnvio(dfd: {
+  descricaoSumaria: string;
+  justificativa: string;
+  itens: unknown[];
+}): string | null {
+  if (validarDescricaoSumaria(dfd.descricaoSumaria)) {
+    return "Preencha a descrição sumária antes de enviar.";
+  }
+  if (validarJustificativa(dfd.justificativa)) {
+    return "A justificativa precisa ter pelo menos 100 caracteres antes de enviar.";
+  }
+  if (dfd.itens.length === 0) {
+    return "Adicione ao menos um item antes de enviar para aprovação.";
+  }
+  return null;
+}
+
+/**
+ * Só a Unidade libera para a PROAD (nunca o setor interno diretamente — ver
+ * enviarParaUnidadeAction) — mas isso vale tanto para os DFDs da própria
+ * Unidade quanto para os de qualquer um dos seus setores internos, já que
+ * ela sempre tem acesso pleno a tudo que tem o seu unidadeId.
+ */
 export async function enviarParaAprovacaoAction(dfdId: string): Promise<ResultadoAcao> {
   const sessao = await exigirUnidade();
-  const resultadoDfd = await obterDfdDaUnidade(dfdId, sessao.id);
+  const resultadoDfd = await obterDfdParaEdicao(dfdId, { unidadeId: sessao.id, setorInternoId: null });
   if ("erro" in resultadoDfd) return { erro: resultadoDfd.erro };
   const { dfd } = resultadoDfd;
   const erroJanela = await verificarJanela(sessao.id, dfd.ano);
   if (erroJanela) return { erro: erroJanela };
 
-  if (validarDescricaoSumaria(dfd.descricaoSumaria)) {
-    return { erro: "Preencha a descrição sumária antes de enviar." };
-  }
-  if (validarJustificativa(dfd.justificativa)) {
-    return { erro: "A justificativa precisa ter pelo menos 100 caracteres antes de enviar." };
-  }
-  if (dfd.itens.length === 0) {
-    return { erro: "Adicione ao menos um item antes de enviar para aprovação." };
-  }
+  const erroConteudo = validarConteudoParaEnvio(dfd);
+  if (erroConteudo) return { erro: erroConteudo };
 
   await prisma.dfd.update({
     where: { id: dfdId },
@@ -470,9 +554,47 @@ export async function enviarParaAprovacaoAction(dfdId: string): Promise<Resultad
   redirect("/");
 }
 
-export async function excluirDfdAction(dfdId: string): Promise<ResultadoAcao> {
+/** Setor interno não fala direto com a PROAD: só manda para a revisão da
+ * própria Unidade, que decide se libera (enviarParaAprovacaoAction) ou
+ * devolve para o setor ajustar (reabrirParaSetorAction). */
+export async function enviarParaUnidadeAction(dfdId: string): Promise<ResultadoAcao> {
+  const sessao = await exigirSetorInterno();
+  const ctx = await resolverContextoDfd(sessao);
+  const resultadoDfd = await obterDfdParaEdicao(dfdId, ctx);
+  if ("erro" in resultadoDfd) return { erro: resultadoDfd.erro };
+  const { dfd } = resultadoDfd;
+  const erroJanela = await verificarJanela(ctx.unidadeId, dfd.ano);
+  if (erroJanela) return { erro: erroJanela };
+
+  const erroConteudo = validarConteudoParaEnvio(dfd);
+  if (erroConteudo) return { erro: erroConteudo };
+
+  await prisma.dfd.update({
+    where: { id: dfdId },
+    data: { enviadoParaUnidadeEm: new Date() },
+  });
+
+  revalidatePath("/");
+  redirect("/");
+}
+
+/** A Unidade devolve ao setor interno para continuar editando (ex.: pediu
+ * algum ajuste antes de liberar para a PROAD). */
+export async function reabrirParaSetorAction(dfdId: string): Promise<ResultadoAcao> {
   const sessao = await exigirUnidade();
-  const resultadoDfd = await obterDfdDaUnidade(dfdId, sessao.id);
+  const dfd = await prisma.dfd.findUnique({ where: { id: dfdId } });
+  if (!dfd || dfd.unidadeId !== sessao.id || !dfd.setorInternoId) {
+    return { erro: "DFD não encontrado." };
+  }
+  await prisma.dfd.update({ where: { id: dfdId }, data: { enviadoParaUnidadeEm: null } });
+  revalidatePath(`/dfd/${dfdId}`);
+  return {};
+}
+
+export async function excluirDfdAction(dfdId: string): Promise<ResultadoAcao> {
+  const sessao = await exigirUnidadeOuSetorInterno();
+  const ctx = await resolverContextoDfd(sessao);
+  const resultadoDfd = await obterDfdParaEdicao(dfdId, ctx);
   if ("erro" in resultadoDfd) return { erro: resultadoDfd.erro };
   await prisma.dfd.delete({ where: { id: dfdId } });
   revalidatePath("/");

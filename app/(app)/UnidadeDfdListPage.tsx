@@ -24,7 +24,7 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
     resolverPcaEmAtuacao({ id: unidadeId, tipo: "UNIDADE" }),
     prisma.dfd.findMany({
       where: { unidadeId },
-      include: { itens: true },
+      include: { itens: true, setorInterno: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.solicitacaoCatalogo.findMany({
@@ -114,6 +114,12 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
                     {d.descricaoSumaria || <span className="text-slate-400">(sem descrição)</span>}
                     {d.status === "REPROVADO" && (
                       <div className="text-xs text-red-600">Motivo: {d.motivoReprovacao}</div>
+                    )}
+                    {d.setorInterno && (
+                      <div className="text-xs text-slate-400">
+                        Via setor interno: {d.setorInterno.nome}
+                        {d.status === "RASCUNHO" && d.enviadoParaUnidadeEm && " · aguardando sua liberação"}
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-2 text-slate-600">{d.ano}</td>

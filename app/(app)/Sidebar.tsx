@@ -17,6 +17,7 @@ import {
   ClipboardList,
   Inbox,
   Settings,
+  UserCog,
 } from "lucide-react";
 import type { TipoSessao } from "@/lib/auth";
 
@@ -35,6 +36,7 @@ const ICONE_POR_HREF: Record<string, typeof LayoutDashboard> = {
   "/admin/catalogo": ClipboardList,
   "/admin/solicitacoes": Inbox,
   "/admin/parametros": Settings,
+  "/dados-unidade": UserCog,
 };
 
 export default function Sidebar({
