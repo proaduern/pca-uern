@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  validarDataDentroDoAno,
   validarDescricaoSumaria,
   validarItemDfd,
   validarJustificativa,
@@ -101,5 +102,41 @@ describe("validarItemDfd", () => {
   it("sem correlação é rejeitado", () => {
     const r = validarItemDfd({ ...base, correlacao: "  " }, false);
     expect(r).toMatch(/correlação/i);
+  });
+
+  it("recursos extra sem agência/conta é rejeitado", () => {
+    const r = validarItemDfd({ ...base, enquadramento: "RECURSOS_EXTRA" }, false);
+    expect(r).toMatch(/agência/i);
+  });
+
+  it("recursos extra com agência/conta é aceito", () => {
+    const r = validarItemDfd(
+      {
+        ...base,
+        enquadramento: "RECURSOS_EXTRA",
+        recursoExtraAgencia: "1234-5",
+        recursoExtraConta: "67890-1",
+      },
+      false,
+    );
+    expect(r).toBeNull();
+  });
+});
+
+describe("validarDataDentroDoAno", () => {
+  it("aceita data dentro do ano do PCA", () => {
+    expect(validarDataDentroDoAno("2026-06-15", 2026)).toBeNull();
+  });
+
+  it("rejeita data de ano anterior ao PCA", () => {
+    expect(validarDataDentroDoAno("2025-12-31", 2026)).toMatch(/ano do PCA/);
+  });
+
+  it("rejeita data de ano posterior ao PCA", () => {
+    expect(validarDataDentroDoAno("2027-01-01", 2026)).toMatch(/ano do PCA/);
+  });
+
+  it("rejeita data vazia/inválida", () => {
+    expect(validarDataDentroDoAno("", 2026)).toMatch(/ano do PCA/);
   });
 });

@@ -39,7 +39,9 @@ export default function ItemForm({
   const formRef = useRef<HTMLFormElement>(null);
 
   const [tipo, setTipo] = useState<"MATERIAL" | "SERVICO">("MATERIAL");
-  const [enquadramento, setEnquadramento] = useState<"OP" | "GERAL" | "CONVENIO">("GERAL");
+  const [enquadramento, setEnquadramento] = useState<
+    "OP" | "GERAL" | "CONVENIO" | "RECURSOS_EXTRA"
+  >("GERAL");
   const [emenda, setEmenda] = useState(false);
   const [categoriaId, setCategoriaId] = useState("");
   const [itemCatalogoId, setItemCatalogoId] = useState("");
@@ -69,16 +71,16 @@ export default function ItemForm({
         setErro(null);
         const formData = new FormData(e.currentTarget);
         startTransition(async () => {
-          try {
-            const action = modoAdmin ? adminAdicionarItemDfdAction : adicionarItemDfdAction;
-            await action(dfdId, formData);
-            formRef.current?.reset();
-            setCategoriaId("");
-            setItemCatalogoId("");
-            setQuantidade("1");
-          } catch (err) {
-            setErro(err instanceof Error ? err.message : "Erro inesperado.");
+          const action = modoAdmin ? adminAdicionarItemDfdAction : adicionarItemDfdAction;
+          const resultado = await action(dfdId, formData);
+          if (resultado.erro) {
+            setErro(resultado.erro);
+            return;
           }
+          formRef.current?.reset();
+          setCategoriaId("");
+          setItemCatalogoId("");
+          setQuantidade("1");
         });
       }}
       className="space-y-3 border-t border-slate-100 pt-4"
@@ -113,6 +115,7 @@ export default function ItemForm({
             {unidadeElegivelOP && <option value="OP">OP</option>}
             <option value="GERAL">Geral</option>
             <option value="CONVENIO">Convênio</option>
+            <option value="RECURSOS_EXTRA">Recursos arrecadados pela Unidade (Recursos Extra)</option>
           </select>
         </div>
       </div>
@@ -159,6 +162,33 @@ export default function ItemForm({
               className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
             />
           )}
+        </div>
+      )}
+
+      {enquadramento === "RECURSOS_EXTRA" && (
+        <div className="space-y-2 rounded-md bg-slate-50 p-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700">Agência</label>
+              <input
+                name="recursoExtraAgencia"
+                required
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700">Conta bancária</label>
+              <input
+                name="recursoExtraConta"
+                required
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-slate-500">
+            Conta obrigatoriamente institucional da unidade/curso (em caso de dúvidas, consultar
+            Proplan), não se aplicando para contas bancárias privadas/particulares.
+          </p>
         </div>
       )}
 
@@ -258,9 +288,14 @@ export default function ItemForm({
         <textarea
           name="correlacao"
           required
-          rows={2}
-          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+          rows={5}
+          placeholder="Pode colar aqui uma tabela copiada de uma planilha (Excel, Google Sheets etc.) — a estrutura de linhas e colunas é preservada."
+          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-mono"
         />
+        <p className="mt-1 text-xs text-slate-500">
+          Dica: é possível colar diretamente uma tabela copiada de uma planilha, mantendo a
+          estrutura de linhas e colunas.
+        </p>
       </div>
 
       {erro && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}

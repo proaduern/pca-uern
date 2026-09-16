@@ -14,13 +14,15 @@ import {
   saldoUnidadeOP,
 } from "@/lib/cota";
 import {
+  validarDataDentroDoAno,
   validarDescricaoSumaria,
   validarItemDfd,
   validarJustificativa,
 } from "@/lib/dfd-validacao";
 import { brl } from "@/lib/formato";
 import { categoriaVisivelPara, itemCatalogoVisivelPara } from "@/lib/visibilidade";
-import type { Dfd, ItemDfd, Unidade } from "@prisma/client";
+import type { Dfd, ItemDfd, Pca, Unidade } from "@prisma/client";
+import type { ResultadoAcao } from "./tipos";
 
 type StatusComprometido = "AGUARDANDO_APROVACAO" | "APROVADO";
 const STATUS_COMPROMETEM_ORCAMENTO: StatusComprometido[] = ["AGUARDANDO_APROVACAO", "APROVADO"];
@@ -53,36 +55,42 @@ async function gastoComprometidoDaCategoria(categoriaId: string, ano: number) {
 }
 
 /** O PCA em que a unidade escolheu atuar (ou o único ativo, se só houver um). */
-async function obterPcaEmAtuacaoOuErro(sessao: Pick<SessionPayload, "id" | "tipo">) {
+async function resolverPcaAtuacao(
+  sessao: Pick<SessionPayload, "id" | "tipo">,
+): Promise<{ erro: string } | { pca: Pca }> {
   const contexto = await resolverPcaEmAtuacao(sessao);
   if (contexto.status === "nenhum") {
-    throw new Error("Nenhum PCA ativo no momento. Aguarde a liberação da PROAD.");
+    return { erro: "Nenhum PCA ativo no momento. Aguarde a liberação da PROAD." };
   }
   if (contexto.status === "precisa_escolher") {
-    throw new Error("Selecione em qual PCA você está atuando antes de continuar.");
+    return { erro: "Selecione em qual PCA você está atuando antes de continuar." };
   }
-  return contexto.pca;
+  return { pca: contexto.pca };
 }
 
-async function verificarJanelaOuErro(unidadeId: string, pcaAno: number) {
+async function verificarJanela(unidadeId: string, pcaAno: number): Promise<string | null> {
   const pca = await prisma.pca.findUniqueOrThrow({ where: { ano: pcaAno } });
   const excecao = await prisma.pcaExcecao.findUnique({
     where: { pcaAno_unidadeId: { pcaAno, unidadeId } },
   });
   if (!janelaAberta(pca, !!excecao, new Date())) {
-    throw new Error(
-      `O período de lançamento de demandas para o PCA ${pcaAno} está fechado no momento.`,
-    );
+    return `O período de lançamento de demandas para o PCA ${pcaAno} está fechado no momento.`;
   }
+  return null;
 }
 
-async function obterDfdDaUnidadeOuErro(dfdId: string, unidadeId: string) {
+type DfdComItens = Dfd & { itens: ItemDfd[] };
+
+async function obterDfdDaUnidade(
+  dfdId: string,
+  unidadeId: string,
+): Promise<{ erro: string } | { dfd: DfdComItens }> {
   const dfd = await prisma.dfd.findUnique({ where: { id: dfdId }, include: { itens: true } });
-  if (!dfd || dfd.unidadeId !== unidadeId) throw new Error("DFD não encontrado.");
+  if (!dfd || dfd.unidadeId !== unidadeId) return { erro: "DFD não encontrado." };
   if (dfd.status !== "RASCUNHO" && dfd.status !== "REPROVADO") {
-    throw new Error("Este DFD não pode mais ser editado.");
+    return { erro: "Este DFD não pode mais ser editado." };
   }
-  return dfd;
+  return { dfd };
 }
 
 /**
@@ -100,14 +108,22 @@ async function reverterAprovacaoSeNecessario(dfd: { id: string; status: string }
   }
 }
 
-export async function criarRascunhoDfdAction() {
+export interface ResultadoCriarDfd extends ResultadoAcao {
+  dfdId?: string;
+}
+
+export async function criarRascunhoDfdAction(): Promise<ResultadoCriarDfd> {
   const sessao = await exigirUnidade();
-  const pca = await obterPcaEmAtuacaoOuErro(sessao);
-  await verificarJanelaOuErro(sessao.id, pca.ano);
+  const resultadoPca = await resolverPcaAtuacao(sessao);
+  if ("erro" in resultadoPca) return { erro: resultadoPca.erro };
+  const { pca } = resultadoPca;
+
+  const erroJanela = await verificarJanela(sessao.id, pca.ano);
+  if (erroJanela) return { erro: erroJanela };
 
   const prioridade = await prisma.prioridade.findFirst();
   if (!prioridade) {
-    throw new Error("Nenhuma prioridade cadastrada ainda. Peça à PROAD para cadastrar.");
+    return { erro: "Nenhuma prioridade cadastrada ainda. Peça à PROAD para cadastrar." };
   }
 
   const dfd = await prisma.dfd.create({
@@ -123,10 +139,13 @@ export async function criarRascunhoDfdAction() {
     },
   });
 
-  redirect(`/dfd/${dfd.id}`);
+  return { dfdId: dfd.id };
 }
 
-async function processarAtualizacaoDadosGerais(dfdId: string, formData: FormData) {
+function validarDadosGerais(
+  formData: FormData,
+  ano: number,
+): { erro: string } | { dados: Parameters<typeof prisma.dfd.update>[0]["data"] } {
   const descricaoSumaria = String(formData.get("descricaoSumaria") ?? "").trim();
   const tipificacaoId = String(formData.get("tipificacaoId") ?? "") || null;
   const prioridadeId = String(formData.get("prioridadeId") ?? "");
@@ -138,17 +157,22 @@ async function processarAtualizacaoDadosGerais(dfdId: string, formData: FormData
   const data = String(formData.get("data") ?? "");
 
   const erroDescricao = validarDescricaoSumaria(descricaoSumaria);
-  if (erroDescricao) throw new Error(erroDescricao);
+  if (erroDescricao) return { erro: erroDescricao };
   const erroJustificativa = validarJustificativa(justificativa);
-  if (erroJustificativa) throw new Error(erroJustificativa);
-  if (!tipificacaoId) throw new Error("Selecione a tipificação do problema.");
-  if (!prioridadeId) throw new Error("Selecione a prioridade.");
-  if (!tipoDemanda) throw new Error("Selecione a natureza da demanda.");
-  if (!data) throw new Error("Informe a data.");
+  if (erroJustificativa) return { erro: erroJustificativa };
+  if (!tipificacaoId) return { erro: "Selecione a tipificação do problema." };
+  if (!prioridadeId) return { erro: "Selecione a prioridade." };
+  if (!tipoDemanda) return { erro: "Selecione a natureza da demanda." };
+  if (!data) return { erro: "Informe a data." };
+  // A trava de ano só vale para a data pretendida de entrega — a data de
+  // renovação de contrato não tem essa restrição.
+  if (tipoDemanda !== "RENOVACAO") {
+    const erroData = validarDataDentroDoAno(data, ano);
+    if (erroData) return { erro: erroData };
+  }
 
-  await prisma.dfd.update({
-    where: { id: dfdId },
-    data: {
+  return {
+    dados: {
       descricaoSumaria,
       tipificacaoId,
       prioridadeId,
@@ -157,40 +181,55 @@ async function processarAtualizacaoDadosGerais(dfdId: string, formData: FormData
       dataRenovacao: tipoDemanda === "RENOVACAO" ? new Date(data) : null,
       dataEntrega: tipoDemanda !== "RENOVACAO" ? new Date(data) : null,
     },
-  });
+  };
 }
 
-export async function atualizarDadosGeraisDfdAction(dfdId: string, formData: FormData) {
+async function processarAtualizacaoDadosGerais(dfdId: string, ano: number, formData: FormData): Promise<ResultadoAcao> {
+  const resultado = validarDadosGerais(formData, ano);
+  if ("erro" in resultado) return { erro: resultado.erro };
+  await prisma.dfd.update({ where: { id: dfdId }, data: resultado.dados });
+  return {};
+}
+
+export async function atualizarDadosGeraisDfdAction(dfdId: string, formData: FormData): Promise<ResultadoAcao> {
   const sessao = await exigirUnidade();
-  await obterDfdDaUnidadeOuErro(dfdId, sessao.id);
-  await processarAtualizacaoDadosGerais(dfdId, formData);
+  const resultadoDfd = await obterDfdDaUnidade(dfdId, sessao.id);
+  if ("erro" in resultadoDfd) return { erro: resultadoDfd.erro };
+  const resultado = await processarAtualizacaoDadosGerais(dfdId, resultadoDfd.dfd.ano, formData);
+  if (resultado.erro) return resultado;
   revalidatePath(`/dfd/${dfdId}`);
+  return {};
 }
 
-export async function adminAtualizarDadosGeraisDfdAction(dfdId: string, formData: FormData) {
+export async function adminAtualizarDadosGeraisDfdAction(dfdId: string, formData: FormData): Promise<ResultadoAcao> {
   await exigirAdmin();
   const dfd = await prisma.dfd.findUniqueOrThrow({ where: { id: dfdId } });
-  await processarAtualizacaoDadosGerais(dfdId, formData);
+  const resultado = await processarAtualizacaoDadosGerais(dfdId, dfd.ano, formData);
+  if (resultado.erro) return resultado;
   await reverterAprovacaoSeNecessario(dfd);
   revalidatePath(`/dfd/${dfdId}`);
+  return {};
 }
 
 async function processarAdicaoItem(
   dfd: Dfd & { itens: ItemDfd[] },
   unidade: Unidade,
   formData: FormData,
-) {
+): Promise<ResultadoAcao> {
   const dfdId = dfd.id;
   const tipo = String(formData.get("tipo") ?? "MATERIAL") as "MATERIAL" | "SERVICO";
   const enquadramento = String(formData.get("enquadramento") ?? "GERAL") as
     | "OP"
     | "GERAL"
-    | "CONVENIO";
+    | "CONVENIO"
+    | "RECURSOS_EXTRA";
   const convenioNumero = String(formData.get("convenioNumero") ?? "").trim() || null;
   const convenioAnoRaw = String(formData.get("convenioAno") ?? "").trim();
   const convenioAno = convenioAnoRaw ? Number(convenioAnoRaw) : null;
   const emendaParlamentar = formData.get("emendaParlamentar") === "on";
   const parlamentarNome = String(formData.get("parlamentarNome") ?? "").trim() || null;
+  const recursoExtraAgencia = String(formData.get("recursoExtraAgencia") ?? "").trim() || null;
+  const recursoExtraConta = String(formData.get("recursoExtraConta") ?? "").trim() || null;
   const categoriaId = String(formData.get("categoriaId") ?? "") || null;
   const itemCatalogoId = String(formData.get("itemCatalogoId") ?? "") || null;
   const itemNomeLivreInput = String(formData.get("itemNomeLivre") ?? "").trim() || null;
@@ -199,13 +238,13 @@ async function processarAdicaoItem(
   const valorLivreRaw = String(formData.get("valorLivre") ?? "").trim();
   const correlacao = String(formData.get("correlacao") ?? "").trim();
 
-  if (!categoriaId) throw new Error("Selecione a categoria do item.");
+  if (!categoriaId) return { erro: "Selecione a categoria do item." };
   const categoria = await prisma.categoria.findUnique({
     where: { id: categoriaId },
     include: { unidadesRestritas: { select: { id: true } } },
   });
   if (!categoria || !categoriaVisivelPara(categoria, unidade.id)) {
-    throw new Error("Categoria não encontrada.");
+    return { erro: "Categoria não encontrada." };
   }
 
   let itemCatalogoNome: string | null = null;
@@ -223,7 +262,7 @@ async function processarAdicaoItem(
       itemCatalogo.categoriaId !== categoriaId ||
       !itemCatalogoVisivelPara(itemCatalogo, categoria, unidade.id)
     ) {
-      throw new Error("Item de catálogo não encontrado.");
+      return { erro: "Item de catálogo não encontrado." };
     }
     itemCatalogoNome = itemCatalogo.item;
     valorUnit = Number(itemCatalogo.valor);
@@ -249,6 +288,8 @@ async function processarAdicaoItem(
       convenioAno,
       emendaParlamentar,
       parlamentarNome,
+      recursoExtraAgencia,
+      recursoExtraConta,
       categoriaId,
       itemCatalogoNome,
       itemNomeLivre,
@@ -259,9 +300,11 @@ async function processarAdicaoItem(
     },
     unidade.elegivelCotaOP,
   );
-  if (erro) throw new Error(erro);
+  if (erro) return { erro };
 
-  if (enquadramento !== "CONVENIO") {
+  // Convênio e Recursos Extra são recursos externos à unidade: não disputam
+  // cota OP/Geral nem o subsaldo do PCA (ver lib/cota.ts).
+  if (enquadramento !== "CONVENIO" && enquadramento !== "RECURSOS_EXTRA") {
     const pca = await prisma.pca.findUniqueOrThrow({ where: { ano: dfd.ano } });
     const jaNoDfd = calcularGastos(
       dfd.itens.map((it) => ({ enquadramento: it.enquadramento, valorTotal: Number(it.valorTotal) })),
@@ -282,23 +325,23 @@ async function processarAdicaoItem(
         Number(categoria.saldoAnualGlobal) - jaGastoCategoria - jaNoDfdCategoria,
       );
       if (valorTotal > saldoCategoria) {
-        throw new Error(
-          `Valor excede o saldo anual disponível para a categoria "${categoria.nome}" (${brl(saldoCategoria)}).`,
-        );
+        return {
+          erro: `Valor excede o saldo anual disponível para a categoria "${categoria.nome}" (${brl(saldoCategoria)}).`,
+        };
       }
     }
 
     if (enquadramento === "OP") {
       const saldoOP = saldoUnidadeOP(Number(unidade.cotaOP), gastoUnidade.op + jaNoDfd.op);
       if (valorTotal > saldoOP) {
-        throw new Error(`Valor excede o saldo de Cota OP disponível da unidade (${brl(saldoOP)}).`);
+        return { erro: `Valor excede o saldo de Cota OP disponível da unidade (${brl(saldoOP)}).` };
       }
       if (!categoria.ignoraPCA) {
         const saldoOPPCA = saldoUnidadeOP(Number(pca.cotaOP), gastoPca.op + jaNoDfd.op);
         if (valorTotal > saldoOPPCA) {
-          throw new Error(
-            `Valor excede o subsaldo OP disponível no PCA como um todo (${brl(saldoOPPCA)}).`,
-          );
+          return {
+            erro: `Valor excede o subsaldo OP disponível no PCA como um todo (${brl(saldoOPPCA)}).`,
+          };
         }
       }
     } else {
@@ -308,9 +351,9 @@ async function processarAdicaoItem(
       if (temTetoNaUnidade) {
         const saldoGeralU = saldoUnidadeGeral(Number(unidade.cotaGeral), gastoUnidade.geral + jaNoDfd.geral);
         if (valorTotal > saldoGeralU) {
-          throw new Error(
-            `Valor excede o saldo de Cota Geral disponível da unidade (${brl(saldoGeralU)}).`,
-          );
+          return {
+            erro: `Valor excede o saldo de Cota Geral disponível da unidade (${brl(saldoGeralU)}).`,
+          };
         }
       }
     }
@@ -318,7 +361,7 @@ async function processarAdicaoItem(
     if (!categoria.ignoraPCA) {
       const saldoPCAAtual = saldoPCA(Number(pca.cotaGeral), gastoPca.total + jaNoDfd.total);
       if (valorTotal > saldoPCAAtual) {
-        throw new Error(`Valor excede o saldo disponível da Cota PCA Geral (${brl(saldoPCAAtual)}).`);
+        return { erro: `Valor excede o saldo disponível da Cota PCA Geral (${brl(saldoPCAAtual)}).` };
       }
     }
   }
@@ -332,6 +375,8 @@ async function processarAdicaoItem(
       convenioAno,
       emendaParlamentar,
       parlamentarNome,
+      recursoExtraAgencia,
+      recursoExtraConta,
       categoriaId,
       itemCatalogoNome,
       itemNomeLivre,
@@ -342,58 +387,73 @@ async function processarAdicaoItem(
       correlacao,
     },
   });
+  return {};
 }
 
-export async function adicionarItemDfdAction(dfdId: string, formData: FormData) {
+export async function adicionarItemDfdAction(dfdId: string, formData: FormData): Promise<ResultadoAcao> {
   const sessao = await exigirUnidade();
-  const dfd = await obterDfdDaUnidadeOuErro(dfdId, sessao.id);
+  const resultadoDfd = await obterDfdDaUnidade(dfdId, sessao.id);
+  if ("erro" in resultadoDfd) return { erro: resultadoDfd.erro };
   const unidade = await prisma.unidade.findUniqueOrThrow({ where: { id: sessao.id } });
-  await processarAdicaoItem(dfd, unidade, formData);
+  const resultado = await processarAdicaoItem(resultadoDfd.dfd, unidade, formData);
+  if (resultado.erro) return resultado;
   revalidatePath(`/dfd/${dfdId}`);
+  return {};
 }
 
-export async function adminAdicionarItemDfdAction(dfdId: string, formData: FormData) {
+export async function adminAdicionarItemDfdAction(dfdId: string, formData: FormData): Promise<ResultadoAcao> {
   await exigirAdmin();
   const dfd = await prisma.dfd.findUniqueOrThrow({ where: { id: dfdId }, include: { itens: true } });
   const unidade = await prisma.unidade.findUniqueOrThrow({ where: { id: dfd.unidadeId } });
-  await processarAdicaoItem(dfd, unidade, formData);
+  const resultado = await processarAdicaoItem(dfd, unidade, formData);
+  if (resultado.erro) return resultado;
   await reverterAprovacaoSeNecessario(dfd);
   revalidatePath(`/dfd/${dfdId}`);
+  return {};
 }
 
-async function processarRemocaoItem(dfdId: string, itemId: string) {
+async function processarRemocaoItem(dfdId: string, itemId: string): Promise<ResultadoAcao> {
   const { count } = await prisma.itemDfd.deleteMany({ where: { id: itemId, dfdId } });
-  if (count === 0) throw new Error("Item não encontrado neste DFD.");
+  if (count === 0) return { erro: "Item não encontrado neste DFD." };
+  return {};
 }
 
-export async function removerItemDfdAction(dfdId: string, itemId: string) {
+export async function removerItemDfdAction(dfdId: string, itemId: string): Promise<ResultadoAcao> {
   const sessao = await exigirUnidade();
-  await obterDfdDaUnidadeOuErro(dfdId, sessao.id);
-  await processarRemocaoItem(dfdId, itemId);
+  const resultadoDfd = await obterDfdDaUnidade(dfdId, sessao.id);
+  if ("erro" in resultadoDfd) return { erro: resultadoDfd.erro };
+  const resultado = await processarRemocaoItem(dfdId, itemId);
+  if (resultado.erro) return resultado;
   revalidatePath(`/dfd/${dfdId}`);
+  return {};
 }
 
-export async function adminRemoverItemDfdAction(dfdId: string, itemId: string) {
+export async function adminRemoverItemDfdAction(dfdId: string, itemId: string): Promise<ResultadoAcao> {
   await exigirAdmin();
   const dfd = await prisma.dfd.findUniqueOrThrow({ where: { id: dfdId } });
-  await processarRemocaoItem(dfdId, itemId);
+  const resultado = await processarRemocaoItem(dfdId, itemId);
+  if (resultado.erro) return resultado;
   await reverterAprovacaoSeNecessario(dfd);
   revalidatePath(`/dfd/${dfdId}`);
+  return {};
 }
 
-export async function enviarParaAprovacaoAction(dfdId: string) {
+export async function enviarParaAprovacaoAction(dfdId: string): Promise<ResultadoAcao> {
   const sessao = await exigirUnidade();
-  const dfd = await obterDfdDaUnidadeOuErro(dfdId, sessao.id);
-  await verificarJanelaOuErro(sessao.id, dfd.ano);
+  const resultadoDfd = await obterDfdDaUnidade(dfdId, sessao.id);
+  if ("erro" in resultadoDfd) return { erro: resultadoDfd.erro };
+  const { dfd } = resultadoDfd;
+  const erroJanela = await verificarJanela(sessao.id, dfd.ano);
+  if (erroJanela) return { erro: erroJanela };
 
   if (validarDescricaoSumaria(dfd.descricaoSumaria)) {
-    throw new Error("Preencha a descrição sumária antes de enviar.");
+    return { erro: "Preencha a descrição sumária antes de enviar." };
   }
   if (validarJustificativa(dfd.justificativa)) {
-    throw new Error("A justificativa precisa ter pelo menos 100 caracteres antes de enviar.");
+    return { erro: "A justificativa precisa ter pelo menos 100 caracteres antes de enviar." };
   }
   if (dfd.itens.length === 0) {
-    throw new Error("Adicione ao menos um item antes de enviar para aprovação.");
+    return { erro: "Adicione ao menos um item antes de enviar para aprovação." };
   }
 
   await prisma.dfd.update({
@@ -410,9 +470,10 @@ export async function enviarParaAprovacaoAction(dfdId: string) {
   redirect("/");
 }
 
-export async function excluirDfdAction(dfdId: string) {
+export async function excluirDfdAction(dfdId: string): Promise<ResultadoAcao> {
   const sessao = await exigirUnidade();
-  await obterDfdDaUnidadeOuErro(dfdId, sessao.id);
+  const resultadoDfd = await obterDfdDaUnidade(dfdId, sessao.id);
+  if ("erro" in resultadoDfd) return { erro: resultadoDfd.erro };
   await prisma.dfd.delete({ where: { id: dfdId } });
   revalidatePath("/");
   redirect("/");
@@ -423,9 +484,10 @@ export async function excluirDfdAction(dfdId: string) {
  * também não impõe nenhuma (é uma tela client-only), então a única guarda
  * aqui é a de papel administrativo.
  */
-export async function adminExcluirDfdAction(dfdId: string) {
+export async function adminExcluirDfdAction(dfdId: string): Promise<ResultadoAcao> {
   await exigirAdmin();
   await prisma.dfd.delete({ where: { id: dfdId } });
   revalidatePath("/admin/demandas");
   revalidatePath("/");
+  return {};
 }
