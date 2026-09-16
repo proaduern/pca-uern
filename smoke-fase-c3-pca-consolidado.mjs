@@ -59,13 +59,13 @@ await passo("criar categoria e definir Classificação/Rubrica", async () => {
   await page.waitForSelector(`text=${categoriaNome}`);
 
   const linha = page.locator("tr", { hasText: categoriaNome });
-  const inputRubrica = linha.locator('input[placeholder="Ex: Materiais de consumo"]');
-  await inputRubrica.fill(rubrica);
-  await inputRubrica.blur();
-  await page.waitForTimeout(500);
+  await linha.getByRole("button", { name: "Editar", exact: true }).click();
+  await linha.locator('input[name="classificacaoRubrica"]').fill(rubrica);
+  await linha.getByRole("button", { name: "Salvar", exact: true }).click();
+  await page.waitForSelector(`text=${rubrica}`);
   await page.reload();
-  const valorSalvo = await page.locator("tr", { hasText: categoriaNome }).locator('input[placeholder="Ex: Materiais de consumo"]').inputValue();
-  if (valorSalvo !== rubrica) throw new Error("classificação/rubrica não persistiu");
+  const rubricaCelula = await page.locator("tr", { hasText: categoriaNome }).locator("td").nth(2).innerText();
+  if (rubricaCelula.trim() !== rubrica) throw new Error("classificação/rubrica não persistiu");
 });
 
 await passo("criar item de catálogo na categoria", async () => {
