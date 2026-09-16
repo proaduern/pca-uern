@@ -1,7 +1,10 @@
 -- AlterTable
-ALTER TABLE "Unidade" ADD COLUMN     "responsavelMatricula" TEXT,
-ADD COLUMN     "responsavelNome" TEXT,
-ADD COLUMN     "responsavelTelefone" TEXT;
+-- IF NOT EXISTS: estes 3 campos também são adicionados, de forma
+-- independente, pelo PR de cadastros (Fase A2/PR #2) — que já pode ter
+-- rodado sua própria migration contra este mesmo banco de preview/produção.
+ALTER TABLE "Unidade" ADD COLUMN IF NOT EXISTS     "responsavelMatricula" TEXT,
+ADD COLUMN IF NOT EXISTS     "responsavelNome" TEXT,
+ADD COLUMN IF NOT EXISTS     "responsavelTelefone" TEXT;
 
 -- AlterTable
 ALTER TABLE "Dfd" ADD COLUMN     "numero" INTEGER;
