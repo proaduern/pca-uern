@@ -28,3 +28,28 @@ export function computarPorCategoria(itens: { categoriaNome: string; valorTotal:
     .map(([categoria, total]) => ({ categoria, total: arredondarCentavos(total) }))
     .sort((a, b) => b.total - a.total);
 }
+
+export interface GrupoPorCategoria {
+  categoriaNome: string;
+  itens: ItemParaRelatorio[];
+  subtotal: number;
+}
+
+/** Agrupa os itens por categoria, em ordem alfabética, com subtotal por
+ * grupo — usado no relatório geral de itens, que deve vir "separado por
+ * categoria" em vez de listado corrido. */
+export function agruparPorCategoria(itens: ItemParaRelatorio[]): GrupoPorCategoria[] {
+  const mapa = new Map<string, ItemParaRelatorio[]>();
+  for (const it of itens) {
+    const lista = mapa.get(it.categoriaNome) ?? [];
+    lista.push(it);
+    mapa.set(it.categoriaNome, lista);
+  }
+  return [...mapa.entries()]
+    .map(([categoriaNome, itensDaCategoria]) => ({
+      categoriaNome,
+      itens: itensDaCategoria,
+      subtotal: totalDosItens(itensDaCategoria),
+    }))
+    .sort((a, b) => a.categoriaNome.localeCompare(b.categoriaNome, "pt-BR"));
+}
