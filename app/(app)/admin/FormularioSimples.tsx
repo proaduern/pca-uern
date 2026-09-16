@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import type { ResultadoAcao } from "@/lib/actions/tipos";
 
 interface Campo {
   name: string;
@@ -16,7 +17,7 @@ export default function FormularioSimples({
   titulo,
   campos,
 }: {
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<ResultadoAcao | void>;
   titulo: string;
   campos: Campo[];
 }) {
@@ -32,12 +33,12 @@ export default function FormularioSimples({
         setErro(null);
         const formData = new FormData(e.currentTarget);
         startTransition(async () => {
-          try {
-            await action(formData);
-            formRef.current?.reset();
-          } catch (err) {
-            setErro(err instanceof Error ? err.message : "Erro inesperado.");
+          const resultado = await action(formData);
+          if (resultado?.erro) {
+            setErro(resultado.erro);
+            return;
           }
+          formRef.current?.reset();
         });
       }}
       className="space-y-3 rounded-2xl border border-slate-100 bg-white shadow-sm p-4"

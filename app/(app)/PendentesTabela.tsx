@@ -41,12 +41,12 @@ export default function PendentesTabela({ pendentes }: { pendentes: PendenteResu
     if (!confirm(`Aprovar ${selecionados.size} DFD(s) selecionado(s) em lote?`)) return;
     setErro(null);
     startTransition(async () => {
-      try {
-        await aprovarSelecionadosAction([...selecionados]);
-        setSelecionados(new Set());
-      } catch (e) {
-        setErro(e instanceof Error ? e.message : "Erro inesperado.");
+      const resultado = await aprovarSelecionadosAction([...selecionados]);
+      if (resultado.erro) {
+        setErro(resultado.erro);
+        return;
       }
+      setSelecionados(new Set());
     });
   }
 

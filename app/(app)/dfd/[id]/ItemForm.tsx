@@ -69,16 +69,16 @@ export default function ItemForm({
         setErro(null);
         const formData = new FormData(e.currentTarget);
         startTransition(async () => {
-          try {
-            const action = modoAdmin ? adminAdicionarItemDfdAction : adicionarItemDfdAction;
-            await action(dfdId, formData);
-            formRef.current?.reset();
-            setCategoriaId("");
-            setItemCatalogoId("");
-            setQuantidade("1");
-          } catch (err) {
-            setErro(err instanceof Error ? err.message : "Erro inesperado.");
+          const action = modoAdmin ? adminAdicionarItemDfdAction : adicionarItemDfdAction;
+          const resultado = await action(dfdId, formData);
+          if (resultado.erro) {
+            setErro(resultado.erro);
+            return;
           }
+          formRef.current?.reset();
+          setCategoriaId("");
+          setItemCatalogoId("");
+          setQuantidade("1");
         });
       }}
       className="space-y-3 border-t border-slate-100 pt-4"

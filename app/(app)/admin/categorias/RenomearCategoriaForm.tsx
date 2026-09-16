@@ -29,12 +29,12 @@ export default function RenomearCategoriaForm({
         setErro(null);
         const formData = new FormData(e.currentTarget);
         startTransition(async () => {
-          try {
-            await renomearOuMesclarCategoriaAction(categoriaId, formData);
-            setAberto(false);
-          } catch (err) {
-            setErro(err instanceof Error ? err.message : "Erro inesperado.");
+          const resultado = await renomearOuMesclarCategoriaAction(categoriaId, formData);
+          if (resultado.erro) {
+            setErro(resultado.erro);
+            return;
           }
+          setAberto(false);
         });
       }}
       className="space-y-1"
