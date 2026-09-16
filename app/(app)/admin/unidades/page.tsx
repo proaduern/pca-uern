@@ -70,6 +70,9 @@ export default async function UnidadesPage() {
                       cotaGeral: Number(u.cotaGeral),
                       cotaTipo: u.cotaTipo,
                       verCotaGeralPCA: u.verCotaGeralPCA,
+                      responsavelNome: u.responsavelNome,
+                      responsavelMatricula: u.responsavelMatricula,
+                      responsavelTelefone: u.responsavelTelefone,
                     }}
                   />
                   <RedefinirSenhaForm unidadeId={u.id} />

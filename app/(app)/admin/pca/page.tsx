@@ -27,8 +27,8 @@ export default async function PcaPage() {
         titulo="Cadastrar/atualizar PCA de um ano"
         campos={[
           { name: "ano", label: "Ano", type: "number", required: true },
-          { name: "cotaGeral", label: "Cota Geral (R$)", type: "number", required: true },
-          { name: "cotaOP", label: "Cota OP (R$)", type: "number", required: true },
+          { name: "cotaGeral", label: "Cota Geral (R$)", type: "number", step: "0.01", required: true },
+          { name: "cotaOP", label: "Cota OP (R$)", type: "number", step: "0.01", required: true },
           { name: "dataAbertura", label: "Data de abertura", type: "date", required: true },
           { name: "dataFechamento", label: "Data de fechamento", type: "date", required: true },
         ]}

@@ -8,8 +8,8 @@ import BotaoExcluir from "../BotaoExcluir";
 import AtribuirSetorForm from "./AtribuirSetorForm";
 import RestricaoCategoriaForm from "./RestricaoCategoriaForm";
 import RenomearCategoriaForm from "./RenomearCategoriaForm";
-import ClassificacaoRubricaInput from "./ClassificacaoRubricaInput";
 import ConsolidarPorObjetoToggle from "./ConsolidarPorObjetoToggle";
+import EditarCategoriaForm from "./EditarCategoriaForm";
 import { exigirAdminNaPagina } from "@/lib/auth";
 
 export default async function CategoriasPage() {
@@ -54,8 +54,8 @@ export default async function CategoriasPage() {
           <thead className="bg-slate-50 text-left text-slate-500">
             <tr>
               <th className="px-4 py-2 font-medium">Nome</th>
-              <th className="px-4 py-2 font-medium">Classificação/Rubrica</th>
               <th className="px-4 py-2 font-medium">Tipo</th>
+              <th className="px-4 py-2 font-medium">Rubrica</th>
               <th className="px-4 py-2 font-medium">Teto anual</th>
               <th className="px-4 py-2 font-medium">Consolidação no PCA</th>
               <th className="px-4 py-2 font-medium">Flags</th>
@@ -72,16 +72,30 @@ export default async function CategoriasPage() {
                   <div className="mt-1">
                     <RenomearCategoriaForm categoriaId={c.id} nomeAtual={c.nome} />
                   </div>
-                </td>
-                <td className="px-4 py-2">
-                  <ClassificacaoRubricaInput
-                    categoriaId={c.id}
-                    valorInicial={c.classificacaoRubrica ?? ""}
+                  <EditarCategoriaForm
+                    categoria={{
+                      id: c.id,
+                      tipo: c.tipo,
+                      semItem: c.semItem,
+                      modoServico: c.modoServico,
+                      fluxoContinuo: c.fluxoContinuo,
+                      dependeContrato: c.dependeContrato,
+                      ignoraPCA: c.ignoraPCA,
+                      saldoAnualGlobal: c.saldoAnualGlobal ? Number(c.saldoAnualGlobal) : null,
+                      classificacaoRubrica: c.classificacaoRubrica,
+                      tipoBemPadrao: c.tipoBemPadrao,
+                    }}
                   />
                 </td>
                 <td className="px-4 py-2 text-slate-600">
                   {c.tipo === "MATERIAL" ? "Material" : `Serviço (${c.modoServico})`}
+                  {c.tipoBemPadrao && (
+                    <div className="text-[11px] text-slate-400">
+                      {c.tipoBemPadrao === "CONSUMO" ? "Consumo" : "Permanente"}
+                    </div>
+                  )}
                 </td>
+                <td className="px-4 py-2 text-slate-600">{c.classificacaoRubrica ?? "—"}</td>
                 <td className="px-4 py-2 text-slate-600">
                   {c.saldoAnualGlobal ? brl(c.saldoAnualGlobal) : "—"}
                 </td>
