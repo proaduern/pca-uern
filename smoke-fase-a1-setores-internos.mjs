@@ -128,7 +128,7 @@ await passo("login Setor Interno (senha padrão 123) e criar DFD", async () => {
     "Justificativa de teste do smoke test de setor interno, com o tamanho mínimo exigido pelo sistema para ser aceita como válida.",
   );
   await page.selectOption('select[name="tipoDemanda"]', "NOVA");
-  await page.fill('input[name="data"]', "2030-06-01");
+  await page.fill('input[name="data"]', `${ANO}-06-01`);
   await page.click('button:has-text("Salvar dados gerais")');
   await page.waitForSelector("text=Salvo.");
 });
