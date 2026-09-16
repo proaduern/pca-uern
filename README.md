@@ -84,6 +84,7 @@ node smoke-admin-edicao.mjs             # edição administrativa de DFD aprovad
 node smoke-cota-visibilidade.mjs        # validação de cota/saldo (unidade, categoria, PCA) e visibilidade de catálogo por unidade
 node smoke-item6-10.mjs                 # itens finais de fidelidade ao legado (6-10)
 node smoke-recursos-legado.mjs          # demais recursos herdados do sistema anterior
+node smoke-fase-a2-cadastros.mjs        # responsável da unidade, edição de categoria/catálogo, rubrica, tipo de bem padrão
 ```
 
 ## Importação em lote

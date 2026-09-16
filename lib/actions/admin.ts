@@ -143,6 +143,9 @@ export async function atualizarUnidadeAction(unidadeId: string, formData: FormDa
   const cotaTipo = derivarCotaTipo(elegivelCotaOP, cotaGeral, cotaTipoManual);
   const verCotaGeralPCA = formData.get("verCotaGeralPCA") === "on";
   const novaSenha = String(formData.get("novaSenha") ?? "");
+  const responsavelNome = String(formData.get("responsavelNome") ?? "").trim() || null;
+  const responsavelMatricula = String(formData.get("responsavelMatricula") ?? "").trim() || null;
+  const responsavelTelefone = String(formData.get("responsavelTelefone") ?? "").trim() || null;
 
   if (!nome || !email) return { erro: "Preencha nome e email." };
   if (!email.endsWith("@uern.br")) {
@@ -168,6 +171,9 @@ export async function atualizarUnidadeAction(unidadeId: string, formData: FormDa
     cotaGeral,
     cotaTipo,
     verCotaGeralPCA,
+    responsavelNome,
+    responsavelMatricula,
+    responsavelTelefone,
   };
   if (novaSenha) {
     dados.senhaHash = await gerarHashSenha(novaSenha);
@@ -440,6 +446,28 @@ export async function removerExcecaoPcaAction(id: string) {
 // Categorias e catálogo
 // ---------------------------------------------------------------------------
 
+/**
+ * tipoBemPadrao só existe para decidir, de antemão, o roteamento de execução/
+ * entrega (Patrimônio x Almoxarifado — ver lib/entrega.ts) de categorias de
+ * material sem catálogo: sem um ItemCatalogo pra carregar seu próprio
+ * tipoBem, a categoria precisa fixar isso. Fora desse caso o campo é
+ * irrelevante e sempre gravado como null.
+ */
+function lerTipoBemPadrao(
+  formData: FormData,
+  tipo: "MATERIAL" | "SERVICO",
+  semItem: boolean,
+): { erro: string } | { tipoBemPadrao: "CONSUMO" | "PERMANENTE" | null } {
+  if (tipo !== "MATERIAL" || !semItem) return { tipoBemPadrao: null };
+  const tipoBemPadrao = String(formData.get("tipoBemPadrao") ?? "") as "CONSUMO" | "PERMANENTE" | "";
+  if (!tipoBemPadrao) {
+    return {
+      erro: "Categorias de material sem catálogo precisam indicar se são bem permanente ou de consumo.",
+    };
+  }
+  return { tipoBemPadrao };
+}
+
 export async function criarCategoriaAction(formData: FormData): Promise<ResultadoAcao> {
   await exigirAdmin();
   const nome = String(formData.get("nome") ?? "").trim();
@@ -449,8 +477,12 @@ export async function criarCategoriaAction(formData: FormData): Promise<Resultad
     | "OBJETO"
     | "VALOR"
     | "ITENS";
+  const classificacaoRubrica = String(formData.get("classificacaoRubrica") ?? "").trim() || null;
 
   if (!nome) return { erro: "Informe o nome da categoria." };
+  const resultadoTipoBem = lerTipoBemPadrao(formData, tipo, semItem);
+  if ("erro" in resultadoTipoBem) return { erro: resultadoTipoBem.erro };
+  const { tipoBemPadrao } = resultadoTipoBem;
 
   // fluxoContinuo/dependeContrato/saldoAnualGlobal/ignoraPCA só fazem sentido
   // quando a categoria tem valor livre (material sem catálogo, ou serviço em
@@ -474,6 +506,8 @@ export async function criarCategoriaAction(formData: FormData): Promise<Resultad
         dependeContrato,
         ignoraPCA,
         saldoAnualGlobal,
+        classificacaoRubrica,
+        tipoBemPadrao,
       },
     });
   } catch (erro) {
@@ -482,6 +516,63 @@ export async function criarCategoriaAction(formData: FormData): Promise<Resultad
     }
     throw erro;
   }
+
+  revalidatePath("/admin/categorias");
+  return {};
+}
+
+/**
+ * Edição completa do cadastro de uma categoria (tipo, modo, flags, teto
+ * anual, rubrica e tipo de bem padrão) — nome/mesclagem continua sendo só
+ * via renomearOuMesclarCategoriaAction, que tem semântica própria. Só vale
+ * daqui pra frente: DFDs e itens de catálogo já lançados guardam seus
+ * próprios valores (nome, valor, tipoBem) e não são recalculados.
+ */
+export async function atualizarCategoriaAction(categoriaId: string, formData: FormData): Promise<ResultadoAcao> {
+  await exigirAdmin();
+  const categoriaExistente = await prisma.categoria.findUniqueOrThrow({ where: { id: categoriaId } });
+
+  const tipo = (String(formData.get("tipo") ?? "") || "MATERIAL") as "MATERIAL" | "SERVICO";
+  const semItem = formData.get("semItem") === "on";
+  const modoServico = (String(formData.get("modoServico") ?? "") || "OBJETO") as
+    | "OBJETO"
+    | "VALOR"
+    | "ITENS";
+  const classificacaoRubrica = String(formData.get("classificacaoRubrica") ?? "").trim() || null;
+  const resultadoTipoBem = lerTipoBemPadrao(formData, tipo, semItem);
+  if ("erro" in resultadoTipoBem) return { erro: resultadoTipoBem.erro };
+  const { tipoBemPadrao } = resultadoTipoBem;
+
+  if (semItem && !categoriaExistente.semItem) {
+    const temCatalogo = await prisma.itemCatalogo.count({ where: { categoriaId } });
+    if (temCatalogo > 0) {
+      return {
+        erro: "Esta categoria tem itens de catálogo cadastrados; exclua-os antes de torná-la \"sem catálogo\".",
+      };
+    }
+  }
+
+  const precisaExtras = semItem || (tipo === "SERVICO" && modoServico !== "OBJETO");
+  const fluxoContinuo = precisaExtras && formData.get("fluxoContinuo") === "on";
+  const dependeContrato = precisaExtras ? formData.get("dependeContrato") === "on" : true;
+  const ignoraPCA = precisaExtras && formData.get("ignoraPCA") === "on";
+  const saldoAnualGlobalRaw = precisaExtras ? String(formData.get("saldoAnualGlobal") ?? "").trim() : "";
+  const saldoAnualGlobal = saldoAnualGlobalRaw ? Number(saldoAnualGlobalRaw) : null;
+
+  await prisma.categoria.update({
+    where: { id: categoriaId },
+    data: {
+      tipo,
+      semItem,
+      modoServico,
+      fluxoContinuo,
+      dependeContrato,
+      ignoraPCA,
+      saldoAnualGlobal,
+      classificacaoRubrica,
+      tipoBemPadrao,
+    },
+  });
 
   revalidatePath("/admin/categorias");
   return {};
@@ -588,6 +679,37 @@ export async function criarItemCatalogoAction(formData: FormData): Promise<Resul
 
   try {
     await prisma.itemCatalogo.create({ data: { categoriaId, item, valor, tipoBem } });
+  } catch (erro) {
+    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+      return { erro: "Já existe um item com este nome nesta categoria." };
+    }
+    throw erro;
+  }
+  revalidatePath("/admin/catalogo");
+  return {};
+}
+
+/** Só vale daqui pra frente: ItemDfd guarda seu próprio nome/valor/tipoBem
+ * já no momento em que o demandante escolhe o item, então editar o catálogo
+ * depois não altera nada já lançado. */
+export async function atualizarItemCatalogoAction(itemId: string, formData: FormData): Promise<ResultadoAcao> {
+  await exigirAdmin();
+  const categoriaId = String(formData.get("categoriaId") ?? "");
+  const item = String(formData.get("item") ?? "").trim();
+  const valor = Number(formData.get("valor") ?? 0);
+  const tipoBem = (String(formData.get("tipoBem") ?? "") || "PERMANENTE") as
+    | "CONSUMO"
+    | "PERMANENTE";
+
+  if (!categoriaId || !item || !(valor > 0)) {
+    return { erro: "Preencha categoria, nome do item e um valor maior que zero." };
+  }
+
+  try {
+    await prisma.itemCatalogo.update({
+      where: { id: itemId },
+      data: { categoriaId, item, valor, tipoBem },
+    });
   } catch (erro) {
     if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
       return { erro: "Já existe um item com este nome nesta categoria." };

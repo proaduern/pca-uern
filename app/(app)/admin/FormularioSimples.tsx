@@ -7,6 +7,7 @@ interface Campo {
   name: string;
   label: string;
   type?: string;
+  step?: string;
   required?: boolean;
   checkbox?: boolean;
   options?: { value: string; label: string }[];
@@ -76,6 +77,7 @@ export default function FormularioSimples({
                   <input
                     name={c.name}
                     type={c.type ?? "text"}
+                    step={c.step}
                     required={c.required}
                     className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                   />
