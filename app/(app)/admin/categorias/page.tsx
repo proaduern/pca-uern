@@ -8,6 +8,7 @@ import BotaoExcluir from "../BotaoExcluir";
 import AtribuirSetorForm from "./AtribuirSetorForm";
 import RestricaoCategoriaForm from "./RestricaoCategoriaForm";
 import RenomearCategoriaForm from "./RenomearCategoriaForm";
+import ClassificacaoRubricaInput from "./ClassificacaoRubricaInput";
 import { exigirAdminNaPagina } from "@/lib/auth";
 
 export default async function CategoriasPage() {
@@ -52,6 +53,7 @@ export default async function CategoriasPage() {
           <thead className="bg-slate-50 text-left text-slate-500">
             <tr>
               <th className="px-4 py-2 font-medium">Nome</th>
+              <th className="px-4 py-2 font-medium">Classificação/Rubrica</th>
               <th className="px-4 py-2 font-medium">Tipo</th>
               <th className="px-4 py-2 font-medium">Teto anual</th>
               <th className="px-4 py-2 font-medium">Flags</th>
@@ -68,6 +70,12 @@ export default async function CategoriasPage() {
                   <div className="mt-1">
                     <RenomearCategoriaForm categoriaId={c.id} nomeAtual={c.nome} />
                   </div>
+                </td>
+                <td className="px-4 py-2">
+                  <ClassificacaoRubricaInput
+                    categoriaId={c.id}
+                    valorInicial={c.classificacaoRubrica ?? ""}
+                  />
                 </td>
                 <td className="px-4 py-2 text-slate-600">
                   {c.tipo === "MATERIAL" ? "Material" : `Serviço (${c.modoServico})`}

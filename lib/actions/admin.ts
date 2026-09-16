@@ -325,6 +325,15 @@ export async function salvarCodigoPcaAction(consolidacaoId: string, codigo: stri
   revalidatePath("/admin/pca");
 }
 
+export async function salvarClassificacaoRubricaAction(categoriaId: string, valor: string) {
+  await exigirAdmin();
+  await prisma.categoria.update({
+    where: { id: categoriaId },
+    data: { classificacaoRubrica: valor.trim() || null },
+  });
+  revalidatePath("/admin/categorias");
+}
+
 // ---------------------------------------------------------------------------
 // PCA
 // ---------------------------------------------------------------------------

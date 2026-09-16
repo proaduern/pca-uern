@@ -260,6 +260,7 @@ model Categoria {
   saldoAnualGlobal Decimal?      @db.Decimal(16, 2)
   ignoraPCA        Boolean       @default(false)
   ativa            Boolean       @default(true)
+  classificacaoRubrica String?
   setorTecnicoId   String?
   setorTecnico     SetorTecnico? @relation(fields: [setorTecnicoId], references: [id])
   createdAt        DateTime      @default(now())

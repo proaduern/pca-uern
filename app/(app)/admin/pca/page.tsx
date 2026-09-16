@@ -117,6 +117,22 @@ export default async function PcaPage() {
               Só é possível concluir o PCA quando toda categoria consolidada tiver o código PCA
               preenchido.
             </p>
+            {consolidacoes.some((c) => c.pcaAno === pca.ano) && (
+              <div className="mt-2 flex gap-3">
+                <a
+                  href={`/admin/pca/${pca.ano}/consolidado-pdf`}
+                  className="text-xs text-slate-600 underline hover:text-slate-900"
+                >
+                  Baixar PCA Consolidado (PDF)
+                </a>
+                <a
+                  href={`/admin/pca/${pca.ano}/consolidado-xlsx`}
+                  className="text-xs text-slate-600 underline hover:text-slate-900"
+                >
+                  XLSX
+                </a>
+              </div>
+            )}
           </div>
 
           <div>
