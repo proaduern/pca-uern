@@ -21,7 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // execução e o do ano seguinte já em coleta), a unidade/setor técnico
   // precisa dizer em qual está atuando antes de ver demandas ou lançar novas.
   let contextoPca: Awaited<ReturnType<typeof resolverPcaEmAtuacao>> | null = null;
-  if (sessao.tipo === "UNIDADE" || sessao.tipo === "SETOR_TECNICO") {
+  if (sessao.tipo === "UNIDADE" || sessao.tipo === "SETOR_INTERNO" || sessao.tipo === "SETOR_TECNICO") {
     contextoPca = await resolverPcaEmAtuacao(sessao);
     if (contextoPca.status === "precisa_escolher") redirect("/selecionar-pca");
   }
@@ -47,6 +47,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/", label: "Minhas Demandas" },
     { href: "/dados-unidade", label: "Dados da Unidade" },
   ];
+  const linksSetorInterno = [{ href: "/", label: "Minhas Demandas" }];
   const linksSetorTecnico = [{ href: "/", label: "Consolidação" }];
   const linksLicitacoes = [{ href: "/", label: "Processos Consolidados" }];
   const linksExecucao = [{ href: "/", label: "Execução" }];
@@ -56,6 +57,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const LINKS_POR_TIPO = {
     ADMIN: linksAdmin,
     UNIDADE: linksUnidade,
+    SETOR_INTERNO: linksSetorInterno,
     SETOR_TECNICO: linksSetorTecnico,
     LICITACOES: linksLicitacoes,
     EXECUCAO: linksExecucao,
@@ -67,6 +69,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const ROTULO_POR_TIPO = {
     ADMIN: "PROAD",
     UNIDADE: "Unidade demandante",
+    SETOR_INTERNO: "Setor interno",
     SETOR_TECNICO: "Setor técnico",
     LICITACOES: "Licitações",
     EXECUCAO: "Execução",
