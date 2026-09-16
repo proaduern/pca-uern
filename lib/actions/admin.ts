@@ -334,6 +334,15 @@ export async function salvarClassificacaoRubricaAction(categoriaId: string, valo
   revalidatePath("/admin/categorias");
 }
 
+export async function salvarConsolidarPorObjetoAction(categoriaId: string, consolidarPorObjeto: boolean) {
+  await exigirAdmin();
+  await prisma.categoria.update({
+    where: { id: categoriaId },
+    data: { consolidarPorObjeto },
+  });
+  revalidatePath("/admin/categorias");
+}
+
 // ---------------------------------------------------------------------------
 // PCA
 // ---------------------------------------------------------------------------

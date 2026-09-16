@@ -261,6 +261,15 @@ model Categoria {
   ignoraPCA        Boolean       @default(false)
   ativa            Boolean       @default(true)
   classificacaoRubrica String?
+
+  // Governa como o setor técnico consolida esta categoria no PCA Consolidado:
+  // false (padrão) = uma só consolidação por categoria/ano — novos itens
+  // pendentes se juntam à consolidação já aberta (sem código PNCP ainda),
+  // e o relatório soma tudo numa linha só. true = cada consolidação vira
+  // sua própria linha, nunca mescla com outra — usar para categorias onde
+  // cada objeto é independente (obras, serviços por objeto).
+  consolidarPorObjeto Boolean @default(false)
+
   setorTecnicoId   String?
   setorTecnico     SetorTecnico? @relation(fields: [setorTecnicoId], references: [id])
   createdAt        DateTime      @default(now())

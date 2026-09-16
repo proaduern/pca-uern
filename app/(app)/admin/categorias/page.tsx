@@ -9,6 +9,7 @@ import AtribuirSetorForm from "./AtribuirSetorForm";
 import RestricaoCategoriaForm from "./RestricaoCategoriaForm";
 import RenomearCategoriaForm from "./RenomearCategoriaForm";
 import ClassificacaoRubricaInput from "./ClassificacaoRubricaInput";
+import ConsolidarPorObjetoToggle from "./ConsolidarPorObjetoToggle";
 import { exigirAdminNaPagina } from "@/lib/auth";
 
 export default async function CategoriasPage() {
@@ -56,6 +57,7 @@ export default async function CategoriasPage() {
               <th className="px-4 py-2 font-medium">Classificação/Rubrica</th>
               <th className="px-4 py-2 font-medium">Tipo</th>
               <th className="px-4 py-2 font-medium">Teto anual</th>
+              <th className="px-4 py-2 font-medium">Consolidação no PCA</th>
               <th className="px-4 py-2 font-medium">Flags</th>
               <th className="px-4 py-2 font-medium">Setor técnico</th>
               <th className="px-4 py-2 font-medium">Visibilidade</th>
@@ -82,6 +84,9 @@ export default async function CategoriasPage() {
                 </td>
                 <td className="px-4 py-2 text-slate-600">
                   {c.saldoAnualGlobal ? brl(c.saldoAnualGlobal) : "—"}
+                </td>
+                <td className="px-4 py-2">
+                  <ConsolidarPorObjetoToggle categoriaId={c.id} valorInicial={c.consolidarPorObjeto} />
                 </td>
                 <td className="px-4 py-2 text-slate-600">
                   {[

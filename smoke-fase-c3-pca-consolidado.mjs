@@ -101,14 +101,93 @@ await passo("criar unidade de teste com cota geral", async () => {
   await page.waitForSelector(`text=${unidadeEmail}`);
 });
 
+async function loginUnidade(senha) {
+  await page.context().clearCookies();
+  await page.goto(`${BASE}/login`);
+  await page.fill('input[name="email"]', unidadeEmail);
+  await page.fill('input[name="senha"]', senha);
+  await page.click('button[type="submit"]');
+}
+
+/** DFD com um único item Geral numa categoria — usado nos lotes extras que
+ * testam o merge/não-merge de consolidações. */
+async function unidadeCriarDfdComItemUnico(descricao, categoria, quantidade) {
+  await loginUnidade("novaSenha123");
+  await page.waitForURL(`${BASE}/`);
+
+  await page.click('button:has-text("+ Nova Demanda (DFD)")');
+  await page.waitForURL(/\/dfd\/.+/);
+
+  await page.fill('input[name="descricaoSumaria"]', descricao);
+  await page.selectOption('select[name="prioridadeId"]', { index: 1 });
+  await page.selectOption('select[name="tipificacaoId"]', { index: 1 });
+  await page.fill(
+    'textarea[name="justificativa"]',
+    "Justificativa de teste do smoke test da Fase C3, com o tamanho mínimo exigido pelo sistema para ser aceita.",
+  );
+  await page.selectOption('select[name="tipoDemanda"]', "NOVA");
+  await page.fill('input[name="data"]', `${ANO}-06-01`);
+  await page.click('button:has-text("Salvar dados gerais")');
+  await page.waitForSelector("text=Salvo.");
+
+  await page.selectOption('select[name="categoriaId"]', { label: categoria });
+  await page.waitForTimeout(200);
+  await page.selectOption('select[name="itemCatalogoId"]', { index: 1 });
+  await page.fill('input[name="quantidade"]', String(quantidade));
+  await page.fill('textarea[name="correlacao"]', `Correlação de teste — ${descricao}.`);
+  await page.click('button:has-text("Adicionar item ao DFD")');
+  await page.waitForTimeout(300);
+
+  await page.click('button:has-text("Enviar para aprovação da PROAD")');
+  await page.waitForURL(`${BASE}/`);
+}
+
+async function aprovarDfdPorDescricao(descricao) {
+  await page.context().clearCookies();
+  await loginProad();
+  await page.waitForSelector(`text=${descricao}`);
+  const linhaDfd = page.locator("tr", { hasText: descricao });
+  await linhaDfd.locator('button:has-text("Aprovar")').click();
+  await page.waitForTimeout(1000);
+}
+
+async function loginSetorTecnico() {
+  await page.context().clearCookies();
+  await page.goto(`${BASE}/login`);
+  await page.fill('input[name="email"]', setorEmail);
+  await page.fill('input[name="senha"]', "novaSenha123");
+  await page.click('button[type="submit"]');
+  await page.waitForURL(`${BASE}/`);
+}
+
+/** Abre a consolidação da categoria, marca todos os itens pendentes e
+ * consolida — usado nos lotes extras (a primeira consolidação, com o item
+ * técnico, tem seu próprio passo mais abaixo por ser mais elaborada). */
+async function setorTecnicoConsolidarPendentes(categoria, processoSEI) {
+  await page.click(`tr:has-text("${categoria}") >> text=Abrir`);
+  await page.waitForURL(/\/consolidacao\/.+/);
+
+  const checkboxes = page.locator(
+    'input[type="checkbox"][name="itemDfdId"], input[type="checkbox"][name="itemTecnicoId"]',
+  );
+  const total = await checkboxes.count();
+  if (total === 0) throw new Error("nenhum item pendente encontrado para consolidar");
+  for (let i = 0; i < total; i++) await checkboxes.nth(i).check();
+
+  await page.fill('input[name="processoSEI"]', processoSEI);
+  await page.fill('input[name="idDocumentoETP"]', "1234567");
+  await page.fill('input[name="dataETP"]', "2030-01-01");
+  await page.selectOption('select[name="prioridade"]', "ALTA");
+  await page.selectOption('select[name="tipoContratacao"]', "NORMAL");
+  await page.fill('input[name="dataEsperadaConclusao"]', "2030-03-05");
+  await page.click('button:has-text("Consolidar Itens Selecionados")');
+  await page.waitForSelector("text=Categoria consolidada com sucesso.");
+}
+
 await passo(
   "login Unidade, criar DFD com itens Geral + Convênio + Recursos Extra e enviar",
   async () => {
-    await page.context().clearCookies();
-    await page.goto(`${BASE}/login`);
-    await page.fill('input[name="email"]', unidadeEmail);
-    await page.fill('input[name="senha"]', "senha12345");
-    await page.click('button[type="submit"]');
+    await loginUnidade("senha12345");
     await page.waitForURL(`${BASE}/trocar-senha`);
     await page.fill('input[name="novaSenha"]', "novaSenha123");
     await page.fill('input[name="confirmacao"]', "novaSenha123");
@@ -169,12 +248,7 @@ await passo(
 );
 
 await passo("login PROAD e aprovar DFD", async () => {
-  await page.context().clearCookies();
-  await loginProad();
-  await page.waitForSelector("text=Demanda de teste da Fase C3 (PCA Consolidado)");
-  const linhaDfd = page.locator("tr", { hasText: "Demanda de teste da Fase C3 (PCA Consolidado)" });
-  await linhaDfd.locator('button:has-text("Aprovar")').click();
-  await page.waitForTimeout(1000);
+  await aprovarDfdPorDescricao("Demanda de teste da Fase C3 (PCA Consolidado)");
 });
 
 await passo(
@@ -221,6 +295,30 @@ await passo(
   },
 );
 
+const DESC_LOTE2 = "Demanda de teste da Fase C3 - lote 2 (mesma categoria)";
+await passo("Unidade cria 2º lote na mesma categoria (antes do código PNCP) e PROAD aprova", async () => {
+  await unidadeCriarDfdComItemUnico(DESC_LOTE2, categoriaNome, 1);
+  await aprovarDfdPorDescricao(DESC_LOTE2);
+});
+
+await passo(
+  "Setor Técnico consolida o 2º lote — categoria agrupável (padrão) deve juntar na mesma consolidação",
+  async () => {
+    await loginSetorTecnico();
+    await setorTecnicoConsolidarPendentes(categoriaNome, `00000.000000/${ANO}-00`);
+  },
+);
+
+await passo("confirma no banco que o 2º lote se juntou à mesma consolidação (não criou uma segunda)", async () => {
+  const { execSync } = await import("node:child_process");
+  const saida = execSync(
+    `sudo -u postgres psql -d pca -tA -c "SELECT count(*) FROM \\"ConsolidacaoTecnica\\" WHERE \\"pcaAno\\" = ${ANO} AND \\"categoriaId\\" = (SELECT id FROM \\"Categoria\\" WHERE nome = '${categoriaNome}');"`,
+  )
+    .toString()
+    .trim();
+  if (saida !== "1") throw new Error(`esperava 1 consolidação após o 2º lote (agrupável), veio ${saida}`);
+});
+
 await passo("PROAD preenche o código PCA (PNCP) da consolidação", async () => {
   await page.context().clearCookies();
   await loginProad();
@@ -231,7 +329,88 @@ await passo("PROAD preenche o código PCA (PNCP) da consolidação", async () =>
   await page.waitForTimeout(500);
 });
 
+const DESC_LOTE3 = "Demanda de teste da Fase C3 - lote 3 (pos codigo PNCP)";
+await passo("Unidade cria 3º lote na mesma categoria (depois do código PNCP já preenchido) e PROAD aprova", async () => {
+  await unidadeCriarDfdComItemUnico(DESC_LOTE3, categoriaNome, 1);
+  await aprovarDfdPorDescricao(DESC_LOTE3);
+});
+
+await passo(
+  "Setor Técnico consolida o 3º lote — consolidação anterior já tem código PNCP, deve virar uma NOVA linha",
+  async () => {
+    await loginSetorTecnico();
+    await setorTecnicoConsolidarPendentes(categoriaNome, `00000.000001/${ANO}-00`);
+  },
+);
+
+await passo("confirma no banco que o 3º lote criou uma segunda consolidação (não reaproveitou a coded)", async () => {
+  const { execSync } = await import("node:child_process");
+  const saida = execSync(
+    `sudo -u postgres psql -d pca -tA -c "SELECT count(*) FROM \\"ConsolidacaoTecnica\\" WHERE \\"pcaAno\\" = ${ANO} AND \\"categoriaId\\" = (SELECT id FROM \\"Categoria\\" WHERE nome = '${categoriaNome}');"`,
+  )
+    .toString()
+    .trim();
+  if (saida !== "2") throw new Error(`esperava 2 consolidações após o 3º lote (a 1ª já tinha código PNCP), veio ${saida}`);
+});
+
+const categoriaObjeto = `Material Smoke C3 Objeto ${sufixo}`;
+await passo("criar 2ª categoria marcada 'consolidar por objeto' (obras/serviços por objeto)", async () => {
+  await page.context().clearCookies();
+  await loginProad();
+  await page.goto(`${BASE}/admin/categorias`);
+  await page.fill('form:has(h2:text("Nova categoria")) input[name="nome"]', categoriaObjeto);
+  await page.click('form:has(h2:text("Nova categoria")) button:has-text("Salvar")');
+  await page.waitForSelector(`text=${categoriaObjeto}`);
+
+  const linha = page.locator("tr", { hasText: categoriaObjeto });
+  await linha.locator('input[type="checkbox"]').check();
+  await page.waitForTimeout(500);
+
+  await linha.locator('select:not([name="modo"])').selectOption({ label: "Setor Smoke C3" });
+  await page.waitForTimeout(500);
+
+  await page.goto(`${BASE}/admin/catalogo`);
+  await page.selectOption('select[name="categoriaId"]', { label: categoriaObjeto });
+  await page.fill('input[name="item"]', "Item Objeto Smoke C3");
+  await page.fill('input[name="valor"]', "700");
+  await page.click('button:has-text("Salvar")');
+  await page.waitForSelector("text=Item Objeto Smoke C3");
+});
+
+const DESC_OBJETO_A = "Demanda de teste da Fase C3 - objeto A";
+const DESC_OBJETO_B = "Demanda de teste da Fase C3 - objeto B";
+
+// Objeto A é criado, aprovado E consolidado sozinho antes de o objeto B sequer
+// existir — senão as duas chegariam pendentes juntas e a 1ª consolidação (que
+// marca "todos os itens pendentes") levaria as duas de uma vez, inutilizando
+// o teste de que a categoria "por objeto" nunca agrupa.
+await passo("Unidade cria objeto A, PROAD aprova, Setor Técnico consolida sozinho", async () => {
+  await unidadeCriarDfdComItemUnico(DESC_OBJETO_A, categoriaObjeto, 1);
+  await aprovarDfdPorDescricao(DESC_OBJETO_A);
+  await loginSetorTecnico();
+  await setorTecnicoConsolidarPendentes(categoriaObjeto, `00000.000002/${ANO}-00`);
+});
+
+await passo("Unidade cria objeto B, PROAD aprova, Setor Técnico consolida sozinho", async () => {
+  await unidadeCriarDfdComItemUnico(DESC_OBJETO_B, categoriaObjeto, 1);
+  await aprovarDfdPorDescricao(DESC_OBJETO_B);
+  await loginSetorTecnico();
+  await setorTecnicoConsolidarPendentes(categoriaObjeto, `00000.000003/${ANO}-00`);
+});
+
+await passo("confirma no banco que categoria 'por objeto' NUNCA agrupa — 2 consolidações mesmo sem código PNCP", async () => {
+  const { execSync } = await import("node:child_process");
+  const saida = execSync(
+    `sudo -u postgres psql -d pca -tA -c "SELECT count(*) FROM \\"ConsolidacaoTecnica\\" WHERE \\"pcaAno\\" = ${ANO} AND \\"categoriaId\\" = (SELECT id FROM \\"Categoria\\" WHERE nome = '${categoriaObjeto}');"`,
+  )
+    .toString()
+    .trim();
+  if (saida !== "2") throw new Error(`esperava 2 consolidações (por objeto, nunca agrupa), veio ${saida}`);
+});
+
 await passo("baixar PCA Consolidado (PDF) e validar arquivo + totais", async () => {
+  await page.context().clearCookies();
+  await loginProad();
   await page.goto(`${BASE}/admin/pca`);
   const [download] = await Promise.all([
     page.waitForEvent("download"),
