@@ -13,6 +13,9 @@ interface UnidadeParaEdicao {
   cotaGeral: number;
   cotaTipo: CotaTipo;
   verCotaGeralPCA: boolean;
+  responsavelNome: string | null;
+  responsavelMatricula: string | null;
+  responsavelTelefone: string | null;
 }
 
 export default function EditarUnidadeForm({ unidade }: { unidade: UnidadeParaEdicao }) {
@@ -36,12 +39,12 @@ export default function EditarUnidadeForm({ unidade }: { unidade: UnidadeParaEdi
         setErro(null);
         const formData = new FormData(e.currentTarget);
         startTransition(async () => {
-          try {
-            await atualizarUnidadeAction(unidade.id, formData);
-            setAberto(false);
-          } catch (err) {
-            setErro(err instanceof Error ? err.message : "Erro inesperado.");
+          const resultado = await atualizarUnidadeAction(unidade.id, formData);
+          if (resultado.erro) {
+            setErro(resultado.erro);
+            return;
           }
+          setAberto(false);
         });
       }}
       className="mt-2 w-64 space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3"
@@ -128,6 +131,33 @@ export default function EditarUnidadeForm({ unidade }: { unidade: UnidadeParaEdi
         <label htmlFor={`verCotaGeralPCA-${unidade.id}`} className="text-xs text-slate-700">
           Unidade vê a cota geral do PCA
         </label>
+      </div>
+      <div className="border-t border-slate-200 pt-2">
+        <p className="mb-1 text-xs font-semibold text-slate-700">Responsável pela unidade</p>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-700">Nome completo</label>
+        <input
+          name="responsavelNome"
+          defaultValue={unidade.responsavelNome ?? ""}
+          className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
+        />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-700">Matrícula</label>
+        <input
+          name="responsavelMatricula"
+          defaultValue={unidade.responsavelMatricula ?? ""}
+          className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
+        />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-700">Telefone para contato</label>
+        <input
+          name="responsavelTelefone"
+          defaultValue={unidade.responsavelTelefone ?? ""}
+          className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs"
+        />
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-700">

@@ -44,6 +44,7 @@ model Unidade {
   dfds                 Dfd[]
   setoresVinculados    SetorTecnico[]
   licitacoesVinculadas Licitacoes[]
+  setoresInternos      SetorInterno[]
 
   categoriasRestritas    Categoria[]    @relation("CategoriaRestricaoUnidades")
   itensCatalogoRestritos ItemCatalogo[] @relation("ItemCatalogoRestricaoUnidades")
@@ -59,6 +60,32 @@ model Unidade {
 enum CotaTipo {
   FECHADA
   ABERTA
+}
+
+// Setor interno de uma Unidade demandante (ex.: um departamento ou curso
+// dentro da unidade) — só a própria Unidade (e a PROAD) enxerga e gerencia
+// os seus. Tem login e senha próprios (sempre — nunca "vinculado" a outra
+// conta, ao contrário de SetorTecnico/Licitacoes/etc.), e uma fatia fixa
+// (cotaOP/cotaGeral) da cota da própria Unidade, que funciona como um teto
+// adicional: o gasto do setor não pode passar da sua fatia, mesmo que a
+// Unidade como um todo ainda tenha saldo (ver lib/actions/dfd.ts).
+model SetorInterno {
+  id              String   @id @default(cuid())
+  unidadeId       String
+  unidade         Unidade  @relation(fields: [unidadeId], references: [id])
+  nome            String
+  email           String   @unique
+  senhaHash       String
+  senhaTemporaria Boolean  @default(true)
+  ativo           Boolean  @default(true)
+  cotaOP          Decimal  @default(0) @db.Decimal(14, 2)
+  cotaGeral       Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  dfds Dfd[]
+
+  @@index([unidadeId])
 }
 
 // Login de setor técnico: OU tem email/senha próprios, OU é "vinculado" ao
@@ -260,6 +287,17 @@ model Categoria {
   saldoAnualGlobal Decimal?      @db.Decimal(16, 2)
   ignoraPCA        Boolean       @default(false)
   ativa            Boolean       @default(true)
+
+  // Classificação orçamentária (ex.: "3.3.9.0.30 Material de Consumo"),
+  // só para identificação nos relatórios — não afeta nenhuma regra de negócio.
+  classificacaoRubrica String?
+
+  // Só se aplica a categorias de material sem catálogo (semItem=true): como
+  // o item não vem de um ItemCatalogo (que já carrega seu próprio tipoBem),
+  // a categoria precisa fixar se é bem permanente ou de consumo, para que o
+  // roteamento de execução/entrega (Patrimônio x Almoxarifado) saiba prever
+  // isso mesmo antes de a demanda ter itens — ver lib/actions/dfd.ts.
+  tipoBemPadrao TipoBem?
   setorTecnicoId   String?
   setorTecnico     SetorTecnico? @relation(fields: [setorTecnicoId], references: [id])
   createdAt        DateTime      @default(now())
@@ -392,6 +430,17 @@ model Dfd {
   reprovadoEm            DateTime?
   motivoReprovacao       String?
 
+  // Preenchido quando o DFD foi lançado por um setor interno da unidade (em
+  // vez do login da própria unidade) — o DFD continua pertencendo à unidade
+  // (unidadeId acima), isto é só uma anotação de origem, visível apenas para
+  // a unidade e a PROAD (nunca para Setor Técnico/Licitações/Execução).
+  setorInternoId String?
+  setorInterno   SetorInterno? @relation(fields: [setorInternoId], references: [id])
+  // Setor interno enviou para a unidade revisar (fica parado em RASCUNHO até
+  // a unidade liberar para a PROAD com enviarParaAprovacaoAction, ou reabrir
+  // para o setor com reabrirParaSetorAction) — null quando não se aplica.
+  enviadoParaUnidadeEm DateTime?
+
   criadoPorId String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -402,6 +451,7 @@ model Dfd {
   @@index([unidadeId])
   @@index([status])
   @@index([ano])
+  @@index([setorInternoId])
 }
 
 enum TipoItemDfd {

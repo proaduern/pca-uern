@@ -2,20 +2,18 @@
 
 import { useState, useTransition } from "react";
 import { aprovarDfdAction, reprovarDfdAction } from "@/lib/actions/admin";
+import type { ResultadoAcao } from "@/lib/actions/tipos";
 
 export default function AprovacaoAcoes({ dfdId }: { dfdId: string }) {
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
   const [mostrarMotivo, setMostrarMotivo] = useState(false);
 
-  function executar(fn: () => Promise<unknown>) {
+  function executar(fn: () => Promise<ResultadoAcao>) {
     setErro(null);
     startTransition(async () => {
-      try {
-        await fn();
-      } catch (e) {
-        setErro(e instanceof Error ? e.message : "Erro inesperado.");
-      }
+      const resultado = await fn();
+      if (resultado.erro) setErro(resultado.erro);
     });
   }
 

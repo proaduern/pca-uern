@@ -9,6 +9,7 @@ import type { TipoSessao } from "@/lib/auth";
 const ROTULO_POR_TIPO: Record<TipoSessao, string> = {
   ADMIN: "PROAD",
   UNIDADE: "Unidade demandante",
+  SETOR_INTERNO: "Setor interno",
   SETOR_TECNICO: "Setor técnico",
   LICITACOES: "Licitações",
   EXECUCAO: "Execução",

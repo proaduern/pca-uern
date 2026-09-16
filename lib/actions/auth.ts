@@ -94,6 +94,11 @@ export async function trocarSenhaAction(
       where: { id: sessao.id },
       data: { senhaHash, senhaTemporaria: false },
     });
+  } else if (sessao.tipo === "SETOR_INTERNO") {
+    await prisma.setorInterno.update({
+      where: { id: sessao.id },
+      data: { senhaHash, senhaTemporaria: false },
+    });
   } else if (sessao.tipo === "SETOR_TECNICO") {
     const setor = await prisma.setorTecnico.findUniqueOrThrow({ where: { id: sessao.id } });
     if (setor.vinculado) {
