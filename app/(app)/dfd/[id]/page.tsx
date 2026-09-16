@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/auth";
-import { brl, formatarData } from "@/lib/formato";
+import { brl, formatarData, formatarDataHora } from "@/lib/formato";
 import { categoriaVisivelPara, itemCatalogoVisivelPara } from "@/lib/visibilidade";
 import { resolverFaseItemDfd } from "@/lib/fase-item";
 import { numeroFormatado } from "@/lib/pdf/dfd-dados";
@@ -23,18 +23,28 @@ export default async function DfdDetalhePage({
 
   const dfd = await prisma.dfd.findUnique({
     where: { id },
-    include: { itens: { include: { categoria: true, trocaOP: true }, orderBy: { createdAt: "asc" } }, unidade: true },
+    include: {
+      itens: { include: { categoria: true, trocaOP: true }, orderBy: { createdAt: "asc" } },
+      unidade: true,
+      setorInterno: true,
+    },
   });
   if (!dfd) notFound();
 
   if (sessao.tipo === "UNIDADE" && dfd.unidadeId !== sessao.id) notFound();
+  if (sessao.tipo === "SETOR_INTERNO" && dfd.setorInternoId !== sessao.id) notFound();
 
   const editavel = dfd.status === "RASCUNHO" || dfd.status === "REPROVADO";
   const modoAdmin = sessao.tipo === "ADMIN";
-  const podeEditarUnidade = editavel && sessao.tipo === "UNIDADE";
+  const modoUnidade = sessao.tipo === "UNIDADE";
+  const modoSetorInterno = sessao.tipo === "SETOR_INTERNO";
+  // Uma vez enviado para a unidade revisar, o setor interno perde a edição
+  // até ela reabrir (reabrirParaSetorAction) — ver obterDfdParaEdicaoOuErro.
+  const bloqueadoParaSetor = modoSetorInterno && !!dfd.enviadoParaUnidadeEm;
+  const podeEditarAutor = editavel && (modoUnidade || (modoSetorInterno && !bloqueadoParaSetor));
   // A PROAD pode editar o DFD em qualquer status — uma edição em um DFD já
   // aprovado o devolve para "aguardando aprovação" (ver reverterAprovacaoSeNecessario).
-  const podeEditar = podeEditarUnidade || modoAdmin;
+  const podeEditar = podeEditarAutor || modoAdmin;
 
   const [tipificacoes, prioridades, todasCategorias, todosItensCatalogo] = await Promise.all([
     prisma.tipificacao.findMany({ orderBy: { nome: "asc" } }),
@@ -76,6 +86,11 @@ export default async function DfdDetalhePage({
           <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
             Reprovado pela PROAD. Motivo: {dfd.motivoReprovacao}. Ajuste o que for necessário e
             reenvie.
+          </p>
+        )}
+        {(modoUnidade || modoAdmin) && dfd.setorInterno && (
+          <p className="mt-1 text-xs text-slate-500">
+            DFD gerado na Unidade {dfd.unidade.nome}, por setor interno {dfd.setorInterno.nome}
           </p>
         )}
       </div>
@@ -201,7 +216,20 @@ export default async function DfdDetalhePage({
         </div>
       )}
 
-      <AcoesDfd dfdId={dfd.id} podeEditar={podeEditarUnidade} totalItens={dfd.itens.length} />
+      {(modoUnidade || modoSetorInterno) && (
+        <AcoesDfd
+          dfdId={dfd.id}
+          podeEditar={podeEditarAutor}
+          totalItens={dfd.itens.length}
+          papel={modoSetorInterno ? "SETOR_INTERNO" : "UNIDADE"}
+          mensagemBloqueio={
+            bloqueadoParaSetor
+              ? `Enviado para revisão da unidade em ${formatarDataHora(dfd.enviadoParaUnidadeEm!)}. Aguarde a liberação para a PROAD.`
+              : undefined
+          }
+          podeReabrirParaSetor={modoUnidade && !!dfd.setorInternoId && !!dfd.enviadoParaUnidadeEm && editavel}
+        />
+      )}
 
       {dfd.dataRenovacao && (
         <p className="text-xs text-slate-400">
