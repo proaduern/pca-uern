@@ -20,20 +20,37 @@ texto plano e uma senha de admin fixa, então este partiu do zero.
 
 ## Modelo de acesso
 
-Três tabelas de login, sem hierarquia entre si — o email decide qual:
+Sete tabelas de login, sem hierarquia entre si — o email decide qual:
 
 - `Usuario` — PROAD (admin): aprova/reprova DFDs, cadastra PCA, categorias,
-  catálogo, unidades, tipificações, prioridades e setores técnicos.
+  catálogo, unidades, tipificações, prioridades e setores técnicos, e
+  autoriza as etapas administrativas das fases seguintes (ata, atendimento
+  por estoque, troca de item OP).
 - `Unidade` — unidade demandante: cria e edita seus próprios DFDs (rascunho
   ou reprovado), nunca vê ou edita dados de outra unidade.
 - `SetorTecnico` — consolida, para as categorias atribuídas a ele pela PROAD,
   os itens dos DFDs aprovados de todas as unidades (ver "Consolidação"
   abaixo).
+- `Licitacoes` — Diretoria de Licitações e Contratos: conduz a máquina de
+  status da Fase 3 para as consolidações de todos os setores técnicos.
+- `AcessoExecucao` — Unidade de Execução de Compras e Contratações, por
+  subperfil (Obras / Serviços / Materiais e Patrimônio): conduz os
+  processos de execução da Fase 4.
+- `AcessoEntrega` — Unidade de Entrega de Bens, por subperfil (Patrimônio /
+  Almoxarifado): registra entregas, atendimento por estoque e troca de
+  item OP.
+- `AcessoGestorAta` — Unidade Gestora de Ata de Registro de Preços: solicita
+  a execução das consolidações em regime de ata.
+
+`SetorTecnico`, `Licitacoes`, `AcessoExecucao`, `AcessoEntrega` e
+`AcessoGestorAta` podem ter login próprio ou ser "vinculados" ao login de
+uma `Unidade` já existente (mesmo email/senha; quem loga escolhe, na hora,
+em qual papel entrar).
 
 Toda ação de servidor (`lib/actions/*.ts`) começa checando a sessão
-(`exigirAdmin()` / `exigirUnidade()` / `exigirSetorTecnico()`), e toda ação
-que mexe num DFD ou numa consolidação confirma que ele pertence à
-unidade/setor logado antes de ler ou escrever.
+(`exigirAdmin()` / `exigirUnidade()` / `exigirSetorTecnico()` / equivalentes
+para os demais perfis), e toda ação que mexe num recurso de outro perfil
+confirma que ele pertence a quem está logado antes de ler ou escrever.
 
 ## Rodando localmente
 
@@ -57,10 +74,17 @@ npm run lint
 
 # smoke test end-to-end (precisa do servidor rodando em :3001)
 npm run build && npm run start -- -p 3001 &
-node smoke-pca.mjs       # fluxo completo: login → DFD → aprovação
-node smoke-import.mjs    # importação em lote de unidades/categorias/catálogo
-node smoke-fase2.mjs     # consolidação por setor técnico (roda smoke-pca.mjs antes)
-node smoke-fase-a2-cadastros.mjs  # responsável da unidade, edição de categoria/catálogo, rubrica, tipo de bem padrão
+node smoke-pca.mjs                      # fluxo completo: login → DFD → aprovação
+node smoke-import.mjs                   # importação em lote de unidades/categorias/catálogo
+node smoke-fase2.mjs                    # consolidação por setor técnico (roda smoke-pca.mjs antes)
+node smoke-fase3-licitacoes.mjs         # máquina de status de Licitações
+node smoke-fase4-execucao-entrega.mjs   # Execução e Entrega de Bens + confirmação do demandante
+node smoke-fase5-casos-especiais.mjs    # Gestor de Ata, Atendimento por Estoque, Troca de Item OP
+node smoke-admin-edicao.mjs             # edição administrativa de DFD aprovado, mesclagem de categoria, relatório de consolidação geral
+node smoke-cota-visibilidade.mjs        # validação de cota/saldo (unidade, categoria, PCA) e visibilidade de catálogo por unidade
+node smoke-item6-10.mjs                 # itens finais de fidelidade ao legado (6-10)
+node smoke-recursos-legado.mjs          # demais recursos herdados do sistema anterior
+node smoke-fase-a2-cadastros.mjs        # responsável da unidade, edição de categoria/catálogo, rubrica, tipo de bem padrão
 ```
 
 ## Importação em lote
@@ -117,9 +141,23 @@ Preview): `DATABASE_URL` (connection string pooled do Neon, com
 `-pooler` — é a que o `prisma migrate deploy` usa no build), `AUTH_SECRET`
 (uma string aleatória só desta aplicação — `openssl rand -base64 32`).
 
-## Roadmap
+## Fases implementadas
 
-Fase 1 (autenticação, cadastros administrativos, wizard de DFD e aprovação
-da PROAD) e Fase 2 (consolidação por Setor Técnico) prontas. Fases seguintes
-(licitação — máquina de 13 status, execução, entrega de bens, ata de
-registro de preços, casos especiais) ainda não foram iniciadas.
+- **Fase 1** — autenticação, cadastros administrativos (unidades, categorias,
+  catálogo, tipificações, prioridades, PCA/parâmetros), wizard de DFD,
+  aprovação/reprovação pela PROAD, validação de cota/saldo e visibilidade de
+  catálogo por unidade, importação em lote via planilha.
+- **Fase 2** — consolidação de itens por Setor Técnico (ver seção acima).
+- **Fase 3** — Licitações: máquina de 13 status por consolidação
+  (`StatusLicitacaoValor`, de pesquisa de preços a remessa para execução ou
+  para o Gestor de Ata), histórico append-only.
+- **Fase 4** — Execução (processos por subperfil Obras/Serviços/Materiais e
+  Patrimônio, com seu próprio histórico de status) e Entrega de Bens, com
+  confirmação/contestação do demandante (aceite tácito em 10 dias).
+- **Fase 5** — casos especiais: Gestor de Ata de Registro de Preços
+  (solicitação de execução autorizada pela PROAD), Atendimento por Estoque
+  (exceção do Patrimônio para itens OP já consolidados) e Troca de Item OP
+  (fluxo demandante → PROAD → Patrimônio → PROAD).
+
+Todas as fases têm regras de negócio cobertas por testes (`lib/__tests__/`)
+e smoke test end-to-end dedicado (ver seção "Testes").

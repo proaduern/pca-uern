@@ -35,11 +35,11 @@ export default function EditarItemCatalogoForm({
         setErro(null);
         const formData = new FormData(e.currentTarget);
         startTransition(async () => {
-          try {
-            await atualizarItemCatalogoAction(item.id, formData);
+          const resultado = await atualizarItemCatalogoAction(item.id, formData);
+          if (resultado.erro) {
+            setErro(resultado.erro);
+          } else {
             setAberto(false);
-          } catch (err) {
-            setErro(err instanceof Error ? err.message : "Erro inesperado.");
           }
         });
       }}

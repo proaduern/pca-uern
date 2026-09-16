@@ -12,6 +12,7 @@ import {
   type CotaTipo,
 } from "@/lib/cota";
 import { brl } from "@/lib/formato";
+import type { ResultadoAcao } from "./tipos";
 
 // ---------------------------------------------------------------------------
 // Unidades
@@ -23,7 +24,7 @@ import { brl } from "@/lib/formato";
  * relação ao que a unidade já tinha (reduzir, manter ou editar outros
  * campos nunca fica bloqueado por isso) — igual ao sistema original.
  */
-async function validarAlocacaoCotaOuErro(opts: {
+async function validarAlocacaoCota(opts: {
   elegivelCotaOP: boolean;
   cotaOP: number;
   cotaGeral: number;
@@ -31,20 +32,20 @@ async function validarAlocacaoCotaOuErro(opts: {
   cotaOPAnterior: number;
   cotaGeralAnterior: number;
   excludeUnidadeId: string | null;
-}) {
+}): Promise<string | null> {
   const { elegivelCotaOP, cotaOP, cotaGeral, cotaTipo, cotaOPAnterior, cotaGeralAnterior, excludeUnidadeId } = opts;
-  if (!exigeCotaFixa(elegivelCotaOP, cotaTipo)) return;
+  if (!exigeCotaFixa(elegivelCotaOP, cotaTipo)) return null;
 
   const aumentandoOP = cotaOP > 0 && cotaOP > cotaOPAnterior;
   const aumentandoGeral = cotaGeral > 0 && cotaGeral > cotaGeralAnterior;
-  if (!aumentandoOP && !aumentandoGeral) return;
+  if (!aumentandoOP && !aumentandoGeral) return null;
 
   // Pode haver mais de um PCA ativo ao mesmo tempo (o do ano corrente ainda em
   // execução e o do ano seguinte já em coleta) — o teto orçamentário pra cota
   // fixa usa o mais recente, que é o que está de fato recebendo novas demandas.
   const pca = await prisma.pca.findFirst({ where: { ativo: true }, orderBy: { ano: "desc" } });
   if (!pca) {
-    throw new Error("Cadastre um PCA ativo antes de atribuir cota OP ou cota Geral fechada a uma unidade.");
+    return "Cadastre um PCA ativo antes de atribuir cota OP ou cota Geral fechada a uma unidade.";
   }
 
   const unidades = (
@@ -56,9 +57,7 @@ async function validarAlocacaoCotaOuErro(opts: {
   if (aumentandoOP) {
     const disponivel = saldoPCAOPParaAlocar(Number(pca.cotaOP), unidades, excludeUnidadeId);
     if (cotaOP > disponivel) {
-      throw new Error(
-        `Cota OP informada (${brl(cotaOP)}) excede o subsaldo OP disponível no PCA (${brl(disponivel)} disponível, considerando o que esta unidade já tinha).`,
-      );
+      return `Cota OP informada (${brl(cotaOP)}) excede o subsaldo OP disponível no PCA (${brl(disponivel)} disponível, considerando o que esta unidade já tinha).`;
     }
   }
   if (aumentandoGeral) {
@@ -68,14 +67,13 @@ async function validarAlocacaoCotaOuErro(opts: {
       excludeUnidadeId,
     );
     if (cotaGeral > disponivel) {
-      throw new Error(
-        `Cota Geral informada (${brl(cotaGeral)}) excede o saldo geral disponível no PCA (${brl(disponivel)} disponível, considerando o que esta unidade já tinha).`,
-      );
+      return `Cota Geral informada (${brl(cotaGeral)}) excede o saldo geral disponível no PCA (${brl(disponivel)} disponível, considerando o que esta unidade já tinha).`;
     }
   }
+  return null;
 }
 
-export async function criarUnidadeAction(formData: FormData) {
+export async function criarUnidadeAction(formData: FormData): Promise<ResultadoAcao> {
   await exigirAdmin();
   const nome = String(formData.get("nome") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -88,13 +86,13 @@ export async function criarUnidadeAction(formData: FormData) {
   const senhaInicial = String(formData.get("senhaInicial") ?? "");
 
   if (!nome || !email || !senhaInicial) {
-    throw new Error("Preencha nome, email e senha inicial.");
+    return { erro: "Preencha nome, email e senha inicial." };
   }
   if (!email.endsWith("@uern.br")) {
-    throw new Error("O email da unidade precisa ser do domínio @uern.br.");
+    return { erro: "O email da unidade precisa ser do domínio @uern.br." };
   }
 
-  await validarAlocacaoCotaOuErro({
+  const erroCota = await validarAlocacaoCota({
     elegivelCotaOP,
     cotaOP,
     cotaGeral,
@@ -103,27 +101,36 @@ export async function criarUnidadeAction(formData: FormData) {
     cotaGeralAnterior: 0,
     excludeUnidadeId: null,
   });
+  if (erroCota) return { erro: erroCota };
 
   const senhaHash = await gerarHashSenha(senhaInicial);
 
-  await prisma.unidade.create({
-    data: {
-      nome,
-      email,
-      senhaHash,
-      senhaTemporaria: true,
-      elegivelCotaOP,
-      cotaOP,
-      cotaGeral,
-      cotaTipo,
-      verCotaGeralPCA,
-    },
-  });
+  try {
+    await prisma.unidade.create({
+      data: {
+        nome,
+        email,
+        senhaHash,
+        senhaTemporaria: true,
+        elegivelCotaOP,
+        cotaOP,
+        cotaGeral,
+        cotaTipo,
+        verCotaGeralPCA,
+      },
+    });
+  } catch (erro) {
+    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+      return { erro: "Já existe uma unidade cadastrada com este e-mail." };
+    }
+    throw erro;
+  }
 
   revalidatePath("/admin/unidades");
+  return {};
 }
 
-export async function atualizarUnidadeAction(unidadeId: string, formData: FormData) {
+export async function atualizarUnidadeAction(unidadeId: string, formData: FormData): Promise<ResultadoAcao> {
   await exigirAdmin();
   const unidadeExistente = await prisma.unidade.findUniqueOrThrow({ where: { id: unidadeId } });
 
@@ -140,12 +147,12 @@ export async function atualizarUnidadeAction(unidadeId: string, formData: FormDa
   const responsavelMatricula = String(formData.get("responsavelMatricula") ?? "").trim() || null;
   const responsavelTelefone = String(formData.get("responsavelTelefone") ?? "").trim() || null;
 
-  if (!nome || !email) throw new Error("Preencha nome e email.");
+  if (!nome || !email) return { erro: "Preencha nome e email." };
   if (!email.endsWith("@uern.br")) {
-    throw new Error("O email da unidade precisa ser do domínio @uern.br.");
+    return { erro: "O email da unidade precisa ser do domínio @uern.br." };
   }
 
-  await validarAlocacaoCotaOuErro({
+  const erroCota = await validarAlocacaoCota({
     elegivelCotaOP,
     cotaOP,
     cotaGeral,
@@ -154,6 +161,7 @@ export async function atualizarUnidadeAction(unidadeId: string, formData: FormDa
     cotaGeralAnterior: Number(unidadeExistente.cotaGeral),
     excludeUnidadeId: unidadeId,
   });
+  if (erroCota) return { erro: erroCota };
 
   const dados: Prisma.UnidadeUpdateInput = {
     nome,
@@ -176,15 +184,16 @@ export async function atualizarUnidadeAction(unidadeId: string, formData: FormDa
     await prisma.unidade.update({ where: { id: unidadeId }, data: dados });
   } catch (erro) {
     if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
-      throw new Error("Já existe uma unidade cadastrada com este e-mail.");
+      return { erro: "Já existe uma unidade cadastrada com este e-mail." };
     }
     throw erro;
   }
 
   revalidatePath("/admin/unidades");
+  return {};
 }
 
-export async function excluirUnidadeAction(unidadeId: string) {
+export async function excluirUnidadeAction(unidadeId: string): Promise<ResultadoAcao> {
   await exigirAdmin();
   const emUso = await prisma.dfd.count({ where: { unidadeId } });
   if (emUso > 0) {
@@ -193,18 +202,20 @@ export async function excluirUnidadeAction(unidadeId: string) {
     await prisma.unidade.delete({ where: { id: unidadeId } });
   }
   revalidatePath("/admin/unidades");
+  return {};
 }
 
-export async function redefinirSenhaUnidadeAction(unidadeId: string, formData: FormData) {
+export async function redefinirSenhaUnidadeAction(unidadeId: string, formData: FormData): Promise<ResultadoAcao> {
   await exigirAdmin();
   const novaSenha = String(formData.get("novaSenha") ?? "");
-  if (novaSenha.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+  if (novaSenha.length < 8) return { erro: "A senha precisa ter pelo menos 8 caracteres." };
   const senhaHash = await gerarHashSenha(novaSenha);
   await prisma.unidade.update({
     where: { id: unidadeId },
     data: { senhaHash, senhaTemporaria: true },
   });
   revalidatePath("/admin/unidades");
+  return {};
 }
 
 // ---------------------------------------------------------------------------
@@ -442,18 +453,22 @@ export async function removerExcecaoPcaAction(id: string) {
  * tipoBem, a categoria precisa fixar isso. Fora desse caso o campo é
  * irrelevante e sempre gravado como null.
  */
-function lerTipoBemPadrao(formData: FormData, tipo: "MATERIAL" | "SERVICO", semItem: boolean) {
-  if (tipo !== "MATERIAL" || !semItem) return null;
+function lerTipoBemPadrao(
+  formData: FormData,
+  tipo: "MATERIAL" | "SERVICO",
+  semItem: boolean,
+): { erro: string } | { tipoBemPadrao: "CONSUMO" | "PERMANENTE" | null } {
+  if (tipo !== "MATERIAL" || !semItem) return { tipoBemPadrao: null };
   const tipoBemPadrao = String(formData.get("tipoBemPadrao") ?? "") as "CONSUMO" | "PERMANENTE" | "";
   if (!tipoBemPadrao) {
-    throw new Error(
-      "Categorias de material sem catálogo precisam indicar se são bem permanente ou de consumo.",
-    );
+    return {
+      erro: "Categorias de material sem catálogo precisam indicar se são bem permanente ou de consumo.",
+    };
   }
-  return tipoBemPadrao;
+  return { tipoBemPadrao };
 }
 
-export async function criarCategoriaAction(formData: FormData) {
+export async function criarCategoriaAction(formData: FormData): Promise<ResultadoAcao> {
   await exigirAdmin();
   const nome = String(formData.get("nome") ?? "").trim();
   const tipo = (String(formData.get("tipo") ?? "") || "MATERIAL") as "MATERIAL" | "SERVICO";
@@ -464,8 +479,10 @@ export async function criarCategoriaAction(formData: FormData) {
     | "ITENS";
   const classificacaoRubrica = String(formData.get("classificacaoRubrica") ?? "").trim() || null;
 
-  if (!nome) throw new Error("Informe o nome da categoria.");
-  const tipoBemPadrao = lerTipoBemPadrao(formData, tipo, semItem);
+  if (!nome) return { erro: "Informe o nome da categoria." };
+  const resultadoTipoBem = lerTipoBemPadrao(formData, tipo, semItem);
+  if ("erro" in resultadoTipoBem) return { erro: resultadoTipoBem.erro };
+  const { tipoBemPadrao } = resultadoTipoBem;
 
   // fluxoContinuo/dependeContrato/saldoAnualGlobal/ignoraPCA só fazem sentido
   // quando a categoria tem valor livre (material sem catálogo, ou serviço em
@@ -478,22 +495,30 @@ export async function criarCategoriaAction(formData: FormData) {
   const saldoAnualGlobalRaw = precisaExtras ? String(formData.get("saldoAnualGlobal") ?? "").trim() : "";
   const saldoAnualGlobal = saldoAnualGlobalRaw ? Number(saldoAnualGlobalRaw) : null;
 
-  await prisma.categoria.create({
-    data: {
-      nome,
-      tipo,
-      semItem,
-      modoServico,
-      fluxoContinuo,
-      dependeContrato,
-      ignoraPCA,
-      saldoAnualGlobal,
-      classificacaoRubrica,
-      tipoBemPadrao,
-    },
-  });
+  try {
+    await prisma.categoria.create({
+      data: {
+        nome,
+        tipo,
+        semItem,
+        modoServico,
+        fluxoContinuo,
+        dependeContrato,
+        ignoraPCA,
+        saldoAnualGlobal,
+        classificacaoRubrica,
+        tipoBemPadrao,
+      },
+    });
+  } catch (erro) {
+    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+      return { erro: "Já existe uma categoria cadastrada com este nome." };
+    }
+    throw erro;
+  }
 
   revalidatePath("/admin/categorias");
+  return {};
 }
 
 /**
@@ -503,7 +528,7 @@ export async function criarCategoriaAction(formData: FormData) {
  * daqui pra frente: DFDs e itens de catálogo já lançados guardam seus
  * próprios valores (nome, valor, tipoBem) e não são recalculados.
  */
-export async function atualizarCategoriaAction(categoriaId: string, formData: FormData) {
+export async function atualizarCategoriaAction(categoriaId: string, formData: FormData): Promise<ResultadoAcao> {
   await exigirAdmin();
   const categoriaExistente = await prisma.categoria.findUniqueOrThrow({ where: { id: categoriaId } });
 
@@ -514,14 +539,16 @@ export async function atualizarCategoriaAction(categoriaId: string, formData: Fo
     | "VALOR"
     | "ITENS";
   const classificacaoRubrica = String(formData.get("classificacaoRubrica") ?? "").trim() || null;
-  const tipoBemPadrao = lerTipoBemPadrao(formData, tipo, semItem);
+  const resultadoTipoBem = lerTipoBemPadrao(formData, tipo, semItem);
+  if ("erro" in resultadoTipoBem) return { erro: resultadoTipoBem.erro };
+  const { tipoBemPadrao } = resultadoTipoBem;
 
   if (semItem && !categoriaExistente.semItem) {
     const temCatalogo = await prisma.itemCatalogo.count({ where: { categoriaId } });
     if (temCatalogo > 0) {
-      throw new Error(
-        "Esta categoria tem itens de catálogo cadastrados; exclua-os antes de torná-la \"sem catálogo\".",
-      );
+      return {
+        erro: "Esta categoria tem itens de catálogo cadastrados; exclua-os antes de torná-la \"sem catálogo\".",
+      };
     }
   }
 
@@ -548,6 +575,7 @@ export async function atualizarCategoriaAction(categoriaId: string, formData: Fo
   });
 
   revalidatePath("/admin/categorias");
+  return {};
 }
 
 /**
@@ -559,17 +587,17 @@ export async function atualizarCategoriaAction(categoriaId: string, formData: Fo
  * relacional (aqui tudo referencia o id da categoria, não o nome, então
  * o "recadastro em cascata" do legado não é necessário).
  */
-export async function renomearOuMesclarCategoriaAction(categoriaId: string, formData: FormData) {
+export async function renomearOuMesclarCategoriaAction(categoriaId: string, formData: FormData): Promise<ResultadoAcao> {
   await exigirAdmin();
   const novoNome = String(formData.get("novoNome") ?? "").trim();
-  if (!novoNome) throw new Error("Informe o novo nome da categoria.");
+  if (!novoNome) return { erro: "Informe o novo nome da categoria." };
 
   const existente = await prisma.categoria.findUnique({ where: { nome: novoNome } });
 
   if (!existente || existente.id === categoriaId) {
     await prisma.categoria.update({ where: { id: categoriaId }, data: { nome: novoNome } });
     revalidatePath("/admin/categorias");
-    return;
+    return {};
   }
 
   try {
@@ -582,17 +610,19 @@ export async function renomearOuMesclarCategoriaAction(categoriaId: string, form
     ]);
   } catch (erro) {
     if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
-      throw new Error(
-        "Não é possível mesclar: há um item de catálogo com o mesmo nome nas duas categorias. " +
+      return {
+        erro:
+          "Não é possível mesclar: há um item de catálogo com o mesmo nome nas duas categorias. " +
           "Renomeie ou exclua o item duplicado antes de mesclar.",
-      );
+      };
     }
     throw erro;
   }
   revalidatePath("/admin/categorias");
+  return {};
 }
 
-export async function definirRestricaoCategoriaAction(categoriaId: string, formData: FormData) {
+export async function definirRestricaoCategoriaAction(categoriaId: string, formData: FormData): Promise<ResultadoAcao> {
   await exigirAdmin();
   const modo = (String(formData.get("modo") ?? "") || "TODAS") as "TODAS" | "SOMENTE" | "EXCETO";
   const unidadeIds = formData.getAll("unidadeId").map(String);
@@ -604,9 +634,10 @@ export async function definirRestricaoCategoriaAction(categoriaId: string, formD
     },
   });
   revalidatePath("/admin/categorias");
+  return {};
 }
 
-export async function definirRestricaoItemCatalogoAction(itemId: string, formData: FormData) {
+export async function definirRestricaoItemCatalogoAction(itemId: string, formData: FormData): Promise<ResultadoAcao> {
   await exigirAdmin();
   const modoRaw = String(formData.get("modo") ?? "HERDA");
   const modo = modoRaw === "HERDA" ? null : (modoRaw as "TODAS" | "SOMENTE" | "EXCETO");
@@ -619,19 +650,21 @@ export async function definirRestricaoItemCatalogoAction(itemId: string, formDat
     },
   });
   revalidatePath("/admin/catalogo");
+  return {};
 }
 
-export async function excluirCategoriaAction(categoriaId: string) {
+export async function excluirCategoriaAction(categoriaId: string): Promise<ResultadoAcao> {
   await exigirAdmin();
   const emUso = await prisma.itemDfd.count({ where: { categoriaId } });
   if (emUso > 0) {
-    throw new Error("Esta categoria está em uso em algum DFD e não pode ser excluída.");
+    return { erro: "Esta categoria está em uso em algum DFD e não pode ser excluída." };
   }
   await prisma.categoria.delete({ where: { id: categoriaId } });
   revalidatePath("/admin/categorias");
+  return {};
 }
 
-export async function criarItemCatalogoAction(formData: FormData) {
+export async function criarItemCatalogoAction(formData: FormData): Promise<ResultadoAcao> {
   await exigirAdmin();
   const categoriaId = String(formData.get("categoriaId") ?? "");
   const item = String(formData.get("item") ?? "").trim();
@@ -641,17 +674,25 @@ export async function criarItemCatalogoAction(formData: FormData) {
     | "PERMANENTE";
 
   if (!categoriaId || !item || !(valor > 0)) {
-    throw new Error("Preencha categoria, nome do item e um valor maior que zero.");
+    return { erro: "Preencha categoria, nome do item e um valor maior que zero." };
   }
 
-  await prisma.itemCatalogo.create({ data: { categoriaId, item, valor, tipoBem } });
+  try {
+    await prisma.itemCatalogo.create({ data: { categoriaId, item, valor, tipoBem } });
+  } catch (erro) {
+    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+      return { erro: "Já existe um item com este nome nesta categoria." };
+    }
+    throw erro;
+  }
   revalidatePath("/admin/catalogo");
+  return {};
 }
 
 /** Só vale daqui pra frente: ItemDfd guarda seu próprio nome/valor/tipoBem
  * já no momento em que o demandante escolhe o item, então editar o catálogo
  * depois não altera nada já lançado. */
-export async function atualizarItemCatalogoAction(itemId: string, formData: FormData) {
+export async function atualizarItemCatalogoAction(itemId: string, formData: FormData): Promise<ResultadoAcao> {
   await exigirAdmin();
   const categoriaId = String(formData.get("categoriaId") ?? "");
   const item = String(formData.get("item") ?? "").trim();
@@ -661,7 +702,7 @@ export async function atualizarItemCatalogoAction(itemId: string, formData: Form
     | "PERMANENTE";
 
   if (!categoriaId || !item || !(valor > 0)) {
-    throw new Error("Preencha categoria, nome do item e um valor maior que zero.");
+    return { erro: "Preencha categoria, nome do item e um valor maior que zero." };
   }
 
   try {
@@ -671,17 +712,19 @@ export async function atualizarItemCatalogoAction(itemId: string, formData: Form
     });
   } catch (erro) {
     if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
-      throw new Error("Já existe um item com este nome nesta categoria.");
+      return { erro: "Já existe um item com este nome nesta categoria." };
     }
     throw erro;
   }
   revalidatePath("/admin/catalogo");
+  return {};
 }
 
-export async function excluirItemCatalogoAction(itemId: string) {
+export async function excluirItemCatalogoAction(itemId: string): Promise<ResultadoAcao> {
   await exigirAdmin();
   await prisma.itemCatalogo.delete({ where: { id: itemId } });
   revalidatePath("/admin/catalogo");
+  return {};
 }
 
 // ---------------------------------------------------------------------------
@@ -725,55 +768,59 @@ export async function excluirPrioridadeAction(id: string) {
 // Aprovação de DFD
 // ---------------------------------------------------------------------------
 
-export async function aprovarDfdAction(dfdId: string) {
+export async function aprovarDfdAction(dfdId: string): Promise<ResultadoAcao> {
   await exigirAdmin();
   const dfd = await prisma.dfd.findUniqueOrThrow({ where: { id: dfdId } });
   if (dfd.status !== "AGUARDANDO_APROVACAO") {
-    throw new Error("Este DFD não está aguardando aprovação.");
+    return { erro: "Este DFD não está aguardando aprovação." };
   }
   await prisma.dfd.update({
     where: { id: dfdId },
     data: { status: "APROVADO", aprovadoEm: new Date(), reprovadoEm: null, motivoReprovacao: null },
   });
   revalidatePath("/");
+  return {};
 }
 
-export async function reprovarDfdAction(dfdId: string, formData: FormData) {
+export async function reprovarDfdAction(dfdId: string, formData: FormData): Promise<ResultadoAcao> {
   await exigirAdmin();
   const motivo = String(formData.get("motivo") ?? "").trim();
-  if (!motivo) throw new Error("Informe o motivo da reprovação.");
+  if (!motivo) return { erro: "Informe o motivo da reprovação." };
   const dfd = await prisma.dfd.findUniqueOrThrow({ where: { id: dfdId } });
   if (dfd.status !== "AGUARDANDO_APROVACAO") {
-    throw new Error("Este DFD não está aguardando aprovação.");
+    return { erro: "Este DFD não está aguardando aprovação." };
   }
   await prisma.dfd.update({
     where: { id: dfdId },
     data: { status: "REPROVADO", reprovadoEm: new Date(), motivoReprovacao: motivo },
   });
   revalidatePath("/");
+  return {};
 }
 
-export async function aprovarSelecionadosAction(dfdIds: string[]) {
+export async function aprovarSelecionadosAction(dfdIds: string[]): Promise<ResultadoAcao> {
   await exigirAdmin();
-  if (dfdIds.length === 0) throw new Error("Selecione ao menos um DFD.");
+  if (dfdIds.length === 0) return { erro: "Selecione ao menos um DFD." };
   await prisma.dfd.updateMany({
     where: { id: { in: dfdIds }, status: "AGUARDANDO_APROVACAO" },
     data: { status: "APROVADO", aprovadoEm: new Date(), reprovadoEm: null, motivoReprovacao: null },
   });
   revalidatePath("/");
+  return {};
 }
 
-export async function desfazerAprovacaoDfdAction(dfdId: string) {
+export async function desfazerAprovacaoDfdAction(dfdId: string): Promise<ResultadoAcao> {
   await exigirAdmin();
   const dfd = await prisma.dfd.findUniqueOrThrow({ where: { id: dfdId } });
   if (dfd.status !== "APROVADO") {
-    throw new Error("Este DFD não está aprovado no momento.");
+    return { erro: "Este DFD não está aprovado no momento." };
   }
   await prisma.dfd.update({
     where: { id: dfdId },
     data: { status: "AGUARDANDO_APROVACAO", aprovadoEm: null },
   });
   revalidatePath("/");
+  return {};
 }
 
 // ---------------------------------------------------------------------------

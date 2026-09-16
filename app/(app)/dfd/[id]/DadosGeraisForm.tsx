@@ -7,6 +7,7 @@ import { DESCRICAO_SUMARIA_MAX, JUSTIFICATIVA_MIN } from "@/lib/dfd-validacao";
 
 interface DfdParaDadosGerais {
   id: string;
+  ano: number;
   descricaoSumaria: string;
   tipificacaoId: string | null;
   prioridadeId: string;
@@ -46,13 +47,13 @@ export default function DadosGeraisForm({
         setSucesso(false);
         const formData = new FormData(e.currentTarget);
         startTransition(async () => {
-          try {
-            const action = modoAdmin ? adminAtualizarDadosGeraisDfdAction : atualizarDadosGeraisDfdAction;
-            await action(dfd.id, formData);
-            setSucesso(true);
-          } catch (err) {
-            setErro(err instanceof Error ? err.message : "Erro inesperado.");
+          const action = modoAdmin ? adminAtualizarDadosGeraisDfdAction : atualizarDadosGeraisDfdAction;
+          const resultado = await action(dfd.id, formData);
+          if (resultado.erro) {
+            setErro(resultado.erro);
+            return;
           }
+          setSucesso(true);
         });
       }}
       className="space-y-4 rounded-2xl border border-slate-100 bg-white shadow-sm p-4"
@@ -71,6 +72,10 @@ export default function DadosGeraisForm({
           defaultValue={dfd.descricaoSumaria}
           className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
         />
+        <p className="mt-1 text-xs text-slate-500">
+          Campo destinado à unidade informar o objeto que a demanda pretende atender. Por
+          exemplo: &quot;Estruturação de nova sala de aula&quot;.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -132,6 +137,14 @@ export default function DadosGeraisForm({
         >
           {justificativaLen}/{JUSTIFICATIVA_MIN} caracteres mínimos.
         </p>
+        <p className="mt-1 text-xs text-slate-500">
+          Campo destinado a descrever o problema que precisa solucionar em sua unidade ou a
+          demanda que pretende atender. Por exemplo: melhorar sala de aula xxxx, que comporta xxx
+          alunos; ou, ampliar auditório xxxxx, que comporta xxxx pessoas; ou, equipar novo
+          prédio, onde funcionará xxxxxx; ou, minimizar problema apontado no relatório de
+          avaliação de curso xxxxx, com a implantação do espaço xxxxxx, no bloco xxxxxxx; ou, dar
+          suporte a evento xxxxxx; entre outros, conforme o caso.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -164,8 +177,15 @@ export default function DadosGeraisForm({
             required
             disabled={!podeEditar}
             defaultValue={dataStr}
+            min={tipoDemanda === "RENOVACAO" ? undefined : `${dfd.ano}-01-01`}
+            max={tipoDemanda === "RENOVACAO" ? undefined : `${dfd.ano}-12-31`}
             className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
           />
+          {tipoDemanda !== "RENOVACAO" && (
+            <p className="mt-1 text-xs text-slate-500">
+              Precisa estar dentro do ano do PCA ({dfd.ano}).
+            </p>
+          )}
         </div>
       </div>
 

@@ -25,11 +25,8 @@ export default function AcoesDfd({
           onClick={() => {
             setErro(null);
             startTransition(async () => {
-              try {
-                await enviarParaAprovacaoAction(dfdId);
-              } catch (e) {
-                setErro(e instanceof Error ? e.message : "Erro inesperado.");
-              }
+              const resultado = await enviarParaAprovacaoAction(dfdId);
+              if (resultado?.erro) setErro(resultado.erro);
             });
           }}
           className="rounded-xl bg-[#003366] px-3 py-2 text-sm font-medium text-white hover:bg-[#002244] disabled:opacity-60"
@@ -42,11 +39,8 @@ export default function AcoesDfd({
             if (!confirm("Excluir este DFD?")) return;
             setErro(null);
             startTransition(async () => {
-              try {
-                await excluirDfdAction(dfdId);
-              } catch (e) {
-                setErro(e instanceof Error ? e.message : "Erro inesperado.");
-              }
+              const resultado = await excluirDfdAction(dfdId);
+              if (resultado?.erro) setErro(resultado.erro);
             });
           }}
           className="rounded-md border border-red-300 px-3 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-60"

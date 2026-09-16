@@ -42,11 +42,11 @@ export default function EditarCategoriaForm({ categoria }: { categoria: Categori
         setErro(null);
         const formData = new FormData(e.currentTarget);
         startTransition(async () => {
-          try {
-            await atualizarCategoriaAction(categoria.id, formData);
+          const resultado = await atualizarCategoriaAction(categoria.id, formData);
+          if (resultado.erro) {
+            setErro(resultado.erro);
+          } else {
             setAberto(false);
-          } catch (err) {
-            setErro(err instanceof Error ? err.message : "Erro inesperado.");
           }
         });
       }}

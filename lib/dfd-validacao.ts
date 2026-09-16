@@ -19,13 +19,29 @@ export function validarJustificativa(valor: string): string | null {
   return null;
 }
 
+/**
+ * A data pretendida de entrega não pode ser de um ano diferente do PCA em
+ * que o DFD foi lançado (ex.: um DFD do PCA 2026 pedindo entrega em 2025).
+ * Compara pelo ano do texto "YYYY-MM-DD" do <input type="date">, sem passar
+ * por `new Date()`, pra não sofrer deslocamento de fuso horário.
+ */
+export function validarDataDentroDoAno(data: string, ano: number): string | null {
+  const anoDaData = Number(data.slice(0, 4));
+  if (!anoDaData || anoDaData !== ano) {
+    return `A data pretendida de entrega precisa estar dentro do ano do PCA (${ano}).`;
+  }
+  return null;
+}
+
 export interface DadosItemDfd {
   tipo: "MATERIAL" | "SERVICO";
-  enquadramento: "OP" | "GERAL" | "CONVENIO";
+  enquadramento: "OP" | "GERAL" | "CONVENIO" | "RECURSOS_EXTRA";
   convenioNumero?: string | null;
   convenioAno?: number | null;
   emendaParlamentar?: boolean;
   parlamentarNome?: string | null;
+  recursoExtraAgencia?: string | null;
+  recursoExtraConta?: string | null;
   categoriaId?: string | null;
   itemCatalogoNome?: string | null;
   itemNomeLivre?: string | null;
@@ -48,6 +64,11 @@ export function validarItemDfd(
     }
     if (it.emendaParlamentar && !it.parlamentarNome?.trim()) {
       return "Informe o nome do parlamentar autor da emenda.";
+    }
+  }
+  if (it.enquadramento === "RECURSOS_EXTRA") {
+    if (!it.recursoExtraAgencia?.trim() || !it.recursoExtraConta?.trim()) {
+      return "Informe a agência e a conta bancária de origem do recurso arrecadado pela unidade.";
     }
   }
   if (!it.categoriaId) {

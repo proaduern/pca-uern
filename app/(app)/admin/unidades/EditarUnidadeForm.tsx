@@ -39,12 +39,12 @@ export default function EditarUnidadeForm({ unidade }: { unidade: UnidadeParaEdi
         setErro(null);
         const formData = new FormData(e.currentTarget);
         startTransition(async () => {
-          try {
-            await atualizarUnidadeAction(unidade.id, formData);
-            setAberto(false);
-          } catch (err) {
-            setErro(err instanceof Error ? err.message : "Erro inesperado.");
+          const resultado = await atualizarUnidadeAction(unidade.id, formData);
+          if (resultado.erro) {
+            setErro(resultado.erro);
+            return;
           }
+          setAberto(false);
         });
       }}
       className="mt-2 w-64 space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3"

@@ -28,7 +28,7 @@ export default function PainelEntregaDetalhe({
   itemNome: string;
   unidadeNome: string | null;
   categoriaNome: string;
-  enquadramento: "OP" | "GERAL" | "CONVENIO";
+  enquadramento: "OP" | "GERAL" | "CONVENIO" | "RECURSOS_EXTRA";
   viaEstoque: boolean;
   valorAdjudicado: number;
   quantidadeItemOriginal: number;
