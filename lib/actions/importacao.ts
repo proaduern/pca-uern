@@ -310,6 +310,25 @@ export async function importarDfdsPcaAction(formData: FormData): Promise<Resulta
     }
   }
 
+  // Número sequencial do DFD dentro da unidade/ano (ver Dfd.numero) — cache em
+  // memória pra não bater no banco a cada DFD criado neste import; seeded a
+  // partir do maior número já existente para a unidade na primeira vez.
+  const numeroCache = new Map<string, number>();
+  async function proximoNumeroDfd(unidadeId: string): Promise<number> {
+    let atual = numeroCache.get(unidadeId);
+    if (atual == null) {
+      const ultimo = await prisma.dfd.findFirst({
+        where: { unidadeId, ano: anoPca },
+        orderBy: { numero: "desc" },
+        select: { numero: true },
+      });
+      atual = ultimo?.numero ?? 0;
+    }
+    atual += 1;
+    numeroCache.set(unidadeId, atual);
+    return atual;
+  }
+
   const tipificacaoCache = new Map<string, string>();
   async function garantirTipificacaoId(nome: string | null): Promise<string | null> {
     if (!nome) return null;
@@ -528,6 +547,7 @@ export async function importarDfdsPcaAction(formData: FormData): Promise<Resulta
         data: {
           unidadeId: grupo.unidadeId,
           ano: anoPca,
+          numero: await proximoNumeroDfd(grupo.unidadeId),
           descricaoSumaria,
           tipificacaoId,
           prioridadeId,
@@ -592,6 +612,7 @@ export async function importarDfdsPcaAction(formData: FormData): Promise<Resulta
         data: {
           unidadeId: grupo.unidadeId,
           ano: anoPca,
+          numero: await proximoNumeroDfd(grupo.unidadeId),
           descricaoSumaria,
           tipificacaoId,
           prioridadeId,
