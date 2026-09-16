@@ -2,8 +2,16 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { brl } from "@/lib/formato";
 import { calcularGastos, dfdComprometeOrcamento } from "@/lib/cota";
+import { computarPorCategoria } from "@/lib/relatorio-unidade";
 import { resolverPcaEmAtuacao } from "@/lib/pca-contexto";
 import NovaDemandaBotao from "./NovaDemandaBotao";
+
+const ENQUADRAMENTO_LABEL: Record<string, string> = {
+  geral: "Geral",
+  op: "OP",
+  convenio: "Convênio",
+  recursosExtra: "Recursos Extra",
+};
 
 const STATUS_LABEL: Record<string, string> = {
   RASCUNHO: "Rascunho",
@@ -24,7 +32,7 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
     resolverPcaEmAtuacao({ id: unidadeId, tipo: "UNIDADE" }),
     prisma.dfd.findMany({
       where: { unidadeId },
-      include: { itens: true },
+      include: { itens: { include: { categoria: true } } },
       orderBy: { createdAt: "desc" },
     }),
     prisma.solicitacaoCatalogo.findMany({
@@ -38,11 +46,15 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
   // ativo e a unidade ainda não escolheu em qual está atuando.
   const pcaAtivo = contextoPca.status === "resolvido" ? contextoPca.pca : null;
 
-  const itensComprometidos = dfds
-    .filter((d) => dfdComprometeOrcamento(d.status))
-    .flatMap((d) => d.itens)
-    .map((it) => ({ enquadramento: it.enquadramento, valorTotal: Number(it.valorTotal) }));
+  const itensDosDfdsComprometidos = dfds.filter((d) => dfdComprometeOrcamento(d.status)).flatMap((d) => d.itens);
+  const itensComprometidos = itensDosDfdsComprometidos.map((it) => ({
+    enquadramento: it.enquadramento,
+    valorTotal: Number(it.valorTotal),
+  }));
   const gastos = calcularGastos(itensComprometidos);
+  const porCategoria = computarPorCategoria(
+    itensDosDfdsComprometidos.map((it) => ({ categoriaNome: it.categoria.nome, valorTotal: Number(it.valorTotal) })),
+  );
 
   return (
     <div className="space-y-6">
@@ -86,6 +98,50 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
           Nenhum PCA ativo no momento. Aguarde a liberação da PROAD.
         </div>
       )}
+
+      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-900">Cômputo das demandas por enquadramento</h2>
+          <div className="flex gap-3">
+            <a href="/relatorio-itens/pdf" className="text-xs text-slate-600 underline hover:text-slate-900">
+              Relatório geral de itens (PDF)
+            </a>
+            <a href="/relatorio-itens/xlsx" className="text-xs text-slate-600 underline hover:text-slate-900">
+              XLSX
+            </a>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          {(["geral", "op", "convenio", "recursosExtra"] as const).map((chave) => (
+            <div key={chave} className="rounded-xl bg-slate-50 p-3">
+              <p className="text-xs text-slate-500">{ENQUADRAMENTO_LABEL[chave]}</p>
+              <p className="text-sm font-semibold text-slate-900">{brl(gastos[chave])}</p>
+            </div>
+          ))}
+          <div className="rounded-xl bg-slate-900 p-3">
+            <p className="text-xs text-slate-300">Total geral</p>
+            <p className="text-sm font-semibold text-white">
+              {brl(gastos.total + gastos.convenio + gastos.recursosExtra)}
+            </p>
+          </div>
+        </div>
+
+        {porCategoria.length > 0 && (
+          <div className="mt-4">
+            <h3 className="mb-2 text-xs font-semibold text-slate-700">
+              Cômputo por categoria (quais pesam mais no orçamento)
+            </h3>
+            <div className="space-y-1">
+              {porCategoria.map((c) => (
+                <div key={c.categoria} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">{c.categoria}</span>
+                  <span className="font-medium text-slate-900">{brl(c.total)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="rounded-2xl border border-slate-100 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 p-4">
