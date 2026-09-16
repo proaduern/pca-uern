@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computarPorCategoria, totalDosItens } from "../relatorio-unidade";
+import { agruparPorCategoria, computarPorCategoria, totalDosItens } from "../relatorio-unidade";
 
 describe("totalDosItens", () => {
   it("soma o valor total de uma lista de itens", () => {
@@ -26,5 +26,26 @@ describe("computarPorCategoria", () => {
 
   it("lista vazia dá lista vazia", () => {
     expect(computarPorCategoria([])).toEqual([]);
+  });
+});
+
+describe("agruparPorCategoria", () => {
+  it("agrupa itens por categoria em ordem alfabética, com subtotal por grupo", () => {
+    const resultado = agruparPorCategoria([
+      { categoriaNome: "Material de Expediente", nome: "Caneta", quantidade: 2, valorUnit: 5, valorTotal: 10 },
+      { categoriaNome: "Livros", nome: "Livro A", quantidade: 1, valorUnit: 100, valorTotal: 100 },
+      { categoriaNome: "Material de Expediente", nome: "Papel", quantidade: 1, valorUnit: 40, valorTotal: 40 },
+    ]);
+    expect(resultado).toHaveLength(2);
+    expect(resultado[0].categoriaNome).toBe("Livros");
+    expect(resultado[0].subtotal).toBe(100);
+    expect(resultado[0].itens).toHaveLength(1);
+    expect(resultado[1].categoriaNome).toBe("Material de Expediente");
+    expect(resultado[1].subtotal).toBe(50);
+    expect(resultado[1].itens).toHaveLength(2);
+  });
+
+  it("lista vazia dá lista vazia", () => {
+    expect(agruparPorCategoria([])).toEqual([]);
   });
 });

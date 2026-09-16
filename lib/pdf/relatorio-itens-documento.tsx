@@ -1,6 +1,6 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { brl } from "@/lib/formato";
-import { totalDosItens, type ItemParaRelatorio } from "@/lib/relatorio-unidade";
+import { agruparPorCategoria, totalDosItens, type ItemParaRelatorio } from "@/lib/relatorio-unidade";
 
 const s = StyleSheet.create({
   page: { padding: 40, fontSize: 10, fontFamily: "Helvetica", color: "#1e293b" },
@@ -14,6 +14,8 @@ const s = StyleSheet.create({
   colQtd: { width: "10%", textAlign: "right" },
   colValorUnit: { width: "15%", textAlign: "right" },
   colValorTotal: { width: "15%", textAlign: "right" },
+  categoriaHeader: { backgroundColor: "#e2e8f0", padding: 4, fontSize: 9, fontWeight: 700 },
+  subtotalLinha: { flexDirection: "row", backgroundColor: "#f8fafc", fontWeight: 700 },
   totalLinha: { flexDirection: "row", backgroundColor: "#f1f5f9", fontWeight: 700 },
 });
 
@@ -25,6 +27,7 @@ export function RelatorioItensDocumento({
   itens: ItemParaRelatorio[];
 }) {
   const total = totalDosItens(itens);
+  const grupos = agruparPorCategoria(itens);
 
   return (
     <Document>
@@ -39,13 +42,27 @@ export function RelatorioItensDocumento({
             <Text style={[s.tabelaCelula, s.colValorUnit]}>Valor unitário</Text>
             <Text style={[s.tabelaCelula, s.colValorTotal]}>Valor total</Text>
           </View>
-          {itens.map((it, i) => (
-            <View key={i} style={s.tabelaLinha}>
-              <Text style={[s.tabelaCelula, s.colCategoria]}>{it.categoriaNome}</Text>
-              <Text style={[s.tabelaCelula, s.colItem]}>{it.nome}</Text>
-              <Text style={[s.tabelaCelula, s.colQtd]}>{it.quantidade ?? "—"}</Text>
-              <Text style={[s.tabelaCelula, s.colValorUnit]}>{it.valorUnit != null ? brl(it.valorUnit) : "—"}</Text>
-              <Text style={[s.tabelaCelula, s.colValorTotal]}>{brl(it.valorTotal)}</Text>
+          {grupos.map((grupo) => (
+            <View key={grupo.categoriaNome}>
+              <Text style={s.categoriaHeader}>{grupo.categoriaNome}</Text>
+              {grupo.itens.map((it, i) => (
+                <View key={i} style={s.tabelaLinha}>
+                  <Text style={[s.tabelaCelula, s.colCategoria]}></Text>
+                  <Text style={[s.tabelaCelula, s.colItem]}>{it.nome}</Text>
+                  <Text style={[s.tabelaCelula, s.colQtd]}>{it.quantidade ?? "—"}</Text>
+                  <Text style={[s.tabelaCelula, s.colValorUnit]}>
+                    {it.valorUnit != null ? brl(it.valorUnit) : "—"}
+                  </Text>
+                  <Text style={[s.tabelaCelula, s.colValorTotal]}>{brl(it.valorTotal)}</Text>
+                </View>
+              ))}
+              <View style={s.subtotalLinha}>
+                <Text style={[s.tabelaCelula, s.colCategoria]}></Text>
+                <Text style={[s.tabelaCelula, s.colItem]}></Text>
+                <Text style={[s.tabelaCelula, s.colQtd]}></Text>
+                <Text style={[s.tabelaCelula, s.colValorUnit]}>Subtotal</Text>
+                <Text style={[s.tabelaCelula, s.colValorTotal]}>{brl(grupo.subtotal)}</Text>
+              </View>
             </View>
           ))}
           <View style={s.totalLinha}>

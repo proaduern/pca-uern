@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { totalDosItens, type ItemParaRelatorio } from "@/lib/relatorio-unidade";
+import { agruparPorCategoria, totalDosItens, type ItemParaRelatorio } from "@/lib/relatorio-unidade";
 
 export async function gerarXlsxRelatorioItens(unidadeNome: string, itens: ItemParaRelatorio[]): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
@@ -14,14 +14,21 @@ export async function gerarXlsxRelatorioItens(unidadeNome: string, itens: ItemPa
   ];
   sheet.getRow(1).font = { bold: true };
 
-  for (const it of itens) {
-    sheet.addRow({
-      categoria: it.categoriaNome,
-      item: it.nome,
-      quantidade: it.quantidade ?? "",
-      valorUnit: it.valorUnit ?? "",
-      valorTotal: it.valorTotal,
-    });
+  for (const grupo of agruparPorCategoria(itens)) {
+    const linhaCategoria = sheet.addRow({ categoria: grupo.categoriaNome });
+    linhaCategoria.font = { bold: true };
+
+    for (const it of grupo.itens) {
+      sheet.addRow({
+        item: it.nome,
+        quantidade: it.quantidade ?? "",
+        valorUnit: it.valorUnit ?? "",
+        valorTotal: it.valorTotal,
+      });
+    }
+
+    const linhaSubtotal = sheet.addRow({ item: "Subtotal", valorTotal: grupo.subtotal });
+    linhaSubtotal.font = { italic: true };
   }
 
   const linhaTotal = sheet.addRow({ item: "Total", valorTotal: totalDosItens(itens) });
