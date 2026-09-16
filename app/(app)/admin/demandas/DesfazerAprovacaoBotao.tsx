@@ -14,11 +14,8 @@ export default function DesfazerAprovacaoBotao({ dfdId }: { dfdId: string }) {
         onClick={() => {
           setErro(null);
           startTransition(async () => {
-            try {
-              await desfazerAprovacaoDfdAction(dfdId);
-            } catch (e) {
-              setErro(e instanceof Error ? e.message : "Erro inesperado.");
-            }
+            const resultado = await desfazerAprovacaoDfdAction(dfdId);
+            if (resultado.erro) setErro(resultado.erro);
           });
         }}
         className="rounded-md bg-amber-600 px-2 py-1 text-xs text-white disabled:opacity-60"
