@@ -157,7 +157,7 @@ export interface ItemHomologavel {
   origem: "DFD" | "TECNICO";
   nome: string;
   unidadeNome: string | null;
-  enquadramento: "OP" | "GERAL" | "CONVENIO" | null;
+  enquadramento: "OP" | "GERAL" | "CONVENIO" | "RECURSOS_EXTRA" | null;
   tipo: "MATERIAL" | "SERVICO";
   modoServico: "OBJETO" | "VALOR" | "ITENS";
   categoriaNome: string;

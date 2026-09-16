@@ -4,14 +4,15 @@
  * Regras extraídas do sistema original:
  * - Um DFD compromete orçamento assim que é enviado para aprovação (não
  *   precisa esperar a aprovação da PROAD) — é uma reserva orçamentária.
- * - Itens com enquadramento "Convênio" são recursos externos: não contam
+ * - Itens com enquadramento "Convênio" ou "Recursos Extra" (recursos
+ *   arrecadados pela própria unidade) são recursos externos: não contam
  *   para a cota da unidade nem para o saldo geral do PCA.
  * - A cota "OP" só existe para unidades elegíveis (ex.: unidades
  *   universitárias); as demais só têm cota "Geral".
  */
 
 export type StatusDfd = "RASCUNHO" | "AGUARDANDO_APROVACAO" | "APROVADO" | "REPROVADO";
-export type Enquadramento = "OP" | "GERAL" | "CONVENIO";
+export type Enquadramento = "OP" | "GERAL" | "CONVENIO" | "RECURSOS_EXTRA";
 
 export function dfdComprometeOrcamento(status: StatusDfd): boolean {
   return status === "AGUARDANDO_APROVACAO" || status === "APROVADO";
@@ -37,7 +38,8 @@ export interface GastosPorEnquadramento {
   op: number;
   geral: number;
   convenio: number;
-  total: number; // op + geral (convênio é recurso externo, não entra no total interno)
+  recursosExtra: number;
+  total: number; // op + geral (convênio e recursos extra são externos, não entram no total interno)
 }
 
 /**
@@ -48,15 +50,18 @@ export function calcularGastos(itens: ItemParaGasto[]): GastosPorEnquadramento {
   let op = 0;
   let geral = 0;
   let convenio = 0;
+  let recursosExtra = 0;
   for (const it of itens) {
     if (it.enquadramento === "OP") op += it.valorTotal;
     else if (it.enquadramento === "CONVENIO") convenio += it.valorTotal;
+    else if (it.enquadramento === "RECURSOS_EXTRA") recursosExtra += it.valorTotal;
     else geral += it.valorTotal;
   }
   return {
     op: arredondarCentavos(op),
     geral: arredondarCentavos(geral),
     convenio: arredondarCentavos(convenio),
+    recursosExtra: arredondarCentavos(recursosExtra),
     total: arredondarCentavos(op + geral),
   };
 }
