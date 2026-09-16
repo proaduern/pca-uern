@@ -43,7 +43,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/admin/parametros", label: "Parâmetros" },
   ];
 
-  const linksUnidade = [{ href: "/", label: "Minhas Demandas" }];
+  const linksUnidade = [
+    { href: "/", label: "Minhas Demandas" },
+    { href: "/dados-unidade", label: "Dados da Unidade" },
+  ];
   const linksSetorTecnico = [{ href: "/", label: "Consolidação" }];
   const linksLicitacoes = [{ href: "/", label: "Processos Consolidados" }];
   const linksExecucao = [{ href: "/", label: "Execução" }];

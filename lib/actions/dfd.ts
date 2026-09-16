@@ -231,11 +231,11 @@ async function processarAdicaoItem(
     valorTotal = valorUnit * (quantidade ?? 1);
   } else {
     valorTotal = Number(valorLivreRaw || 0);
-    // Regra do sistema original: material de valor livre da categoria "Livros"
-    // sempre conta como bem permanente (as demais categorias de valor livre
-    // não têm tipo de bem, por não passarem pelo catálogo).
-    if (tipo === "MATERIAL" && categoria.nome === "Livros") {
-      tipoBem = "PERMANENTE";
+    // Material de valor livre não passa por ItemCatalogo (que carregaria seu
+    // próprio tipoBem), então herda o tipo de bem fixado no cadastro da
+    // categoria — ver Categoria.tipoBemPadrao.
+    if (tipo === "MATERIAL") {
+      tipoBem = categoria.tipoBemPadrao;
     }
   }
 

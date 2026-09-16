@@ -60,6 +60,7 @@ npm run build && npm run start -- -p 3001 &
 node smoke-pca.mjs       # fluxo completo: login → DFD → aprovação
 node smoke-import.mjs    # importação em lote de unidades/categorias/catálogo
 node smoke-fase2.mjs     # consolidação por setor técnico (roda smoke-pca.mjs antes)
+node smoke-fase-a2-cadastros.mjs  # responsável da unidade, edição de categoria/catálogo, rubrica, tipo de bem padrão
 ```
 
 ## Importação em lote

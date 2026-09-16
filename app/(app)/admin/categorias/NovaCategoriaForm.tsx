@@ -15,6 +15,7 @@ export default function NovaCategoriaForm() {
   // anual ou "fora do PCA" quando a categoria tem valor livre (material sem
   // catálogo, ou serviço em modo diferente de "objeto") — igual ao original.
   const mostraExtras = semItem || (tipo === "SERVICO" && modoServico !== "OBJETO");
+  const precisaTipoBemPadrao = tipo === "MATERIAL" && semItem;
 
   return (
     <form
@@ -42,6 +43,16 @@ export default function NovaCategoriaForm() {
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-700">Nome</label>
           <input name="nome" required className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-700">
+            Classificação / Rubrica Geral (opcional)
+          </label>
+          <input
+            name="classificacaoRubrica"
+            placeholder="ex.: 3.3.9.0.30 Material de Consumo"
+            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+          />
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-700">Tipo</label>
@@ -89,6 +100,25 @@ export default function NovaCategoriaForm() {
             <label htmlFor="semItem" className="text-sm text-slate-700">
               Material sem catálogo (valor livre)
             </label>
+          </div>
+        )}
+        {precisaTipoBemPadrao && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-700">
+              Tipo de bem (não tem catálogo pra escolher por item)
+            </label>
+            <select
+              name="tipoBemPadrao"
+              required
+              defaultValue=""
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="" disabled>
+                Selecione
+              </option>
+              <option value="PERMANENTE">Permanente (Patrimônio)</option>
+              <option value="CONSUMO">Consumo (Almoxarifado)</option>
+            </select>
           </div>
         )}
       </div>

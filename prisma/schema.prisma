@@ -33,6 +33,11 @@ model Unidade {
   cotaTipo        CotaTipo @default(FECHADA)
   verCotaGeralPCA Boolean  @default(false)
   ativa           Boolean  @default(true)
+
+  responsavelNome      String?
+  responsavelMatricula String?
+  responsavelTelefone  String?
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -255,6 +260,17 @@ model Categoria {
   saldoAnualGlobal Decimal?      @db.Decimal(16, 2)
   ignoraPCA        Boolean       @default(false)
   ativa            Boolean       @default(true)
+
+  // Classificação orçamentária (ex.: "3.3.9.0.30 Material de Consumo"),
+  // só para identificação nos relatórios — não afeta nenhuma regra de negócio.
+  classificacaoRubrica String?
+
+  // Só se aplica a categorias de material sem catálogo (semItem=true): como
+  // o item não vem de um ItemCatalogo (que já carrega seu próprio tipoBem),
+  // a categoria precisa fixar se é bem permanente ou de consumo, para que o
+  // roteamento de execução/entrega (Patrimônio x Almoxarifado) saiba prever
+  // isso mesmo antes de a demanda ter itens — ver lib/actions/dfd.ts.
+  tipoBemPadrao TipoBem?
   setorTecnicoId   String?
   setorTecnico     SetorTecnico? @relation(fields: [setorTecnicoId], references: [id])
   createdAt        DateTime      @default(now())

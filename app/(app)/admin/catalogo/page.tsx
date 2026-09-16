@@ -6,6 +6,7 @@ import FormularioSimples from "../FormularioSimples";
 import ImportarPlanilhaForm from "../ImportarPlanilhaForm";
 import BotaoExcluir from "../BotaoExcluir";
 import RestricaoItemForm from "./RestricaoItemForm";
+import EditarItemCatalogoForm from "./EditarItemCatalogoForm";
 import { exigirAdminNaPagina } from "@/lib/auth";
 
 export default async function CatalogoPage() {
@@ -34,7 +35,7 @@ export default async function CatalogoPage() {
             options: categorias.map((c) => ({ value: c.id, label: c.nome })),
           },
           { name: "item", label: "Nome do item", required: true },
-          { name: "valor", label: "Valor unitário (R$)", type: "number", required: true },
+          { name: "valor", label: "Valor unitário (R$)", type: "number", step: "0.01", required: true },
           {
             name: "tipoBem",
             label: "Tipo de bem",
@@ -82,7 +83,17 @@ export default async function CatalogoPage() {
                     unidades={unidades}
                   />
                 </td>
-                <td className="px-4 py-2">
+                <td className="px-4 py-2 space-y-1">
+                  <EditarItemCatalogoForm
+                    item={{
+                      id: it.id,
+                      categoriaId: it.categoriaId,
+                      item: it.item,
+                      valor: Number(it.valor),
+                      tipoBem: it.tipoBem,
+                    }}
+                    categorias={categorias}
+                  />
                   <BotaoExcluir action={excluirItemCatalogoAction} id={it.id} />
                 </td>
               </tr>
