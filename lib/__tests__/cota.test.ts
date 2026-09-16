@@ -32,21 +32,23 @@ describe("dfdComprometeOrcamento", () => {
 });
 
 describe("calcularGastos", () => {
-  it("separa gastos por enquadramento e soma total sem o convênio", () => {
+  it("separa gastos por enquadramento e soma total sem o convênio nem recursos extra", () => {
     const g = calcularGastos([
       { enquadramento: "OP", valorTotal: 100 },
       { enquadramento: "GERAL", valorTotal: 50 },
       { enquadramento: "CONVENIO", valorTotal: 9999 },
+      { enquadramento: "RECURSOS_EXTRA", valorTotal: 500 },
     ]);
     expect(g.op).toBe(100);
     expect(g.geral).toBe(50);
     expect(g.convenio).toBe(9999);
+    expect(g.recursosExtra).toBe(500);
     expect(g.total).toBe(150);
   });
 
   it("lista vazia dá tudo zero", () => {
     const g = calcularGastos([]);
-    expect(g).toEqual({ op: 0, geral: 0, convenio: 0, total: 0 });
+    expect(g).toEqual({ op: 0, geral: 0, convenio: 0, recursosExtra: 0, total: 0 });
   });
 });
 

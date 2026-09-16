@@ -72,7 +72,7 @@ interface GrupoMaterialProp {
   nome: string;
   quantidadeTotal: number;
   quantidadeOP: number;
-  itens: { id: string; unidadeNome: string | null; enquadramento: "OP" | "GERAL" | "CONVENIO" | null; quantidade: number }[];
+  itens: { id: string; unidadeNome: string | null; enquadramento: "OP" | "GERAL" | "CONVENIO" | "RECURSOS_EXTRA" | null; quantidade: number }[];
 }
 
 interface GrupoServicoValorProp {

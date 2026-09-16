@@ -14,6 +14,7 @@ import {
   saldoUnidadeOP,
 } from "@/lib/cota";
 import {
+  validarDataDentroDoAno,
   validarDescricaoSumaria,
   validarItemDfd,
   validarJustificativa,
@@ -141,7 +142,10 @@ export async function criarRascunhoDfdAction(): Promise<ResultadoCriarDfd> {
   return { dfdId: dfd.id };
 }
 
-function validarDadosGerais(formData: FormData): { erro: string } | { dados: Parameters<typeof prisma.dfd.update>[0]["data"] } {
+function validarDadosGerais(
+  formData: FormData,
+  ano: number,
+): { erro: string } | { dados: Parameters<typeof prisma.dfd.update>[0]["data"] } {
   const descricaoSumaria = String(formData.get("descricaoSumaria") ?? "").trim();
   const tipificacaoId = String(formData.get("tipificacaoId") ?? "") || null;
   const prioridadeId = String(formData.get("prioridadeId") ?? "");
@@ -160,6 +164,12 @@ function validarDadosGerais(formData: FormData): { erro: string } | { dados: Par
   if (!prioridadeId) return { erro: "Selecione a prioridade." };
   if (!tipoDemanda) return { erro: "Selecione a natureza da demanda." };
   if (!data) return { erro: "Informe a data." };
+  // A trava de ano só vale para a data pretendida de entrega — a data de
+  // renovação de contrato não tem essa restrição.
+  if (tipoDemanda !== "RENOVACAO") {
+    const erroData = validarDataDentroDoAno(data, ano);
+    if (erroData) return { erro: erroData };
+  }
 
   return {
     dados: {
@@ -174,8 +184,8 @@ function validarDadosGerais(formData: FormData): { erro: string } | { dados: Par
   };
 }
 
-async function processarAtualizacaoDadosGerais(dfdId: string, formData: FormData): Promise<ResultadoAcao> {
-  const resultado = validarDadosGerais(formData);
+async function processarAtualizacaoDadosGerais(dfdId: string, ano: number, formData: FormData): Promise<ResultadoAcao> {
+  const resultado = validarDadosGerais(formData, ano);
   if ("erro" in resultado) return { erro: resultado.erro };
   await prisma.dfd.update({ where: { id: dfdId }, data: resultado.dados });
   return {};
@@ -185,7 +195,7 @@ export async function atualizarDadosGeraisDfdAction(dfdId: string, formData: For
   const sessao = await exigirUnidade();
   const resultadoDfd = await obterDfdDaUnidade(dfdId, sessao.id);
   if ("erro" in resultadoDfd) return { erro: resultadoDfd.erro };
-  const resultado = await processarAtualizacaoDadosGerais(dfdId, formData);
+  const resultado = await processarAtualizacaoDadosGerais(dfdId, resultadoDfd.dfd.ano, formData);
   if (resultado.erro) return resultado;
   revalidatePath(`/dfd/${dfdId}`);
   return {};
@@ -194,7 +204,7 @@ export async function atualizarDadosGeraisDfdAction(dfdId: string, formData: For
 export async function adminAtualizarDadosGeraisDfdAction(dfdId: string, formData: FormData): Promise<ResultadoAcao> {
   await exigirAdmin();
   const dfd = await prisma.dfd.findUniqueOrThrow({ where: { id: dfdId } });
-  const resultado = await processarAtualizacaoDadosGerais(dfdId, formData);
+  const resultado = await processarAtualizacaoDadosGerais(dfdId, dfd.ano, formData);
   if (resultado.erro) return resultado;
   await reverterAprovacaoSeNecessario(dfd);
   revalidatePath(`/dfd/${dfdId}`);
@@ -211,12 +221,15 @@ async function processarAdicaoItem(
   const enquadramento = String(formData.get("enquadramento") ?? "GERAL") as
     | "OP"
     | "GERAL"
-    | "CONVENIO";
+    | "CONVENIO"
+    | "RECURSOS_EXTRA";
   const convenioNumero = String(formData.get("convenioNumero") ?? "").trim() || null;
   const convenioAnoRaw = String(formData.get("convenioAno") ?? "").trim();
   const convenioAno = convenioAnoRaw ? Number(convenioAnoRaw) : null;
   const emendaParlamentar = formData.get("emendaParlamentar") === "on";
   const parlamentarNome = String(formData.get("parlamentarNome") ?? "").trim() || null;
+  const recursoExtraAgencia = String(formData.get("recursoExtraAgencia") ?? "").trim() || null;
+  const recursoExtraConta = String(formData.get("recursoExtraConta") ?? "").trim() || null;
   const categoriaId = String(formData.get("categoriaId") ?? "") || null;
   const itemCatalogoId = String(formData.get("itemCatalogoId") ?? "") || null;
   const itemNomeLivreInput = String(formData.get("itemNomeLivre") ?? "").trim() || null;
@@ -275,6 +288,8 @@ async function processarAdicaoItem(
       convenioAno,
       emendaParlamentar,
       parlamentarNome,
+      recursoExtraAgencia,
+      recursoExtraConta,
       categoriaId,
       itemCatalogoNome,
       itemNomeLivre,
@@ -287,7 +302,9 @@ async function processarAdicaoItem(
   );
   if (erro) return { erro };
 
-  if (enquadramento !== "CONVENIO") {
+  // Convênio e Recursos Extra são recursos externos à unidade: não disputam
+  // cota OP/Geral nem o subsaldo do PCA (ver lib/cota.ts).
+  if (enquadramento !== "CONVENIO" && enquadramento !== "RECURSOS_EXTRA") {
     const pca = await prisma.pca.findUniqueOrThrow({ where: { ano: dfd.ano } });
     const jaNoDfd = calcularGastos(
       dfd.itens.map((it) => ({ enquadramento: it.enquadramento, valorTotal: Number(it.valorTotal) })),
@@ -358,6 +375,8 @@ async function processarAdicaoItem(
       convenioAno,
       emendaParlamentar,
       parlamentarNome,
+      recursoExtraAgencia,
+      recursoExtraConta,
       categoriaId,
       itemCatalogoNome,
       itemNomeLivre,

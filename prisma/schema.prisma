@@ -402,6 +402,7 @@ enum Enquadramento {
   OP
   GERAL
   CONVENIO
+  RECURSOS_EXTRA
 }
 
 model ItemDfd {
@@ -416,6 +417,11 @@ model ItemDfd {
   convenioAno       Int?
   emendaParlamentar Boolean @default(false)
   parlamentarNome   String?
+
+  // Recursos arrecadados pela própria Unidade (evento/projeto) — assim como
+  // Convênio, não se sujeita aos limites do PCA (ver lib/cota.ts).
+  recursoExtraAgencia String?
+  recursoExtraConta   String?
 
   categoriaId      String
   categoria        Categoria @relation(fields: [categoriaId], references: [id])

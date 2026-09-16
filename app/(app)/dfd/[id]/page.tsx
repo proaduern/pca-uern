@@ -88,6 +88,7 @@ export default async function DfdDetalhePage({
       <DadosGeraisForm
         dfd={{
           id: dfd.id,
+          ano: dfd.ano,
           descricaoSumaria: dfd.descricaoSumaria,
           tipificacaoId: dfd.tipificacaoId,
           prioridadeId: dfd.prioridadeId,
@@ -117,7 +118,14 @@ export default async function DfdDetalhePage({
                   Enquadramento: {it.enquadramento}
                   {it.quantidade ? ` · Qtd: ${it.quantidade}` : ""}
                 </p>
-                <p className="mt-1 text-xs italic text-slate-500">{it.correlacao}</p>
+                {it.enquadramento === "RECURSOS_EXTRA" && (
+                  <p className="text-xs text-slate-500">
+                    Agência: {it.recursoExtraAgencia} · Conta: {it.recursoExtraConta}
+                  </p>
+                )}
+                <p className="mt-1 whitespace-pre-wrap font-mono text-xs italic text-slate-500">
+                  {it.correlacao}
+                </p>
               </div>
               <div className="text-right">
                 <p className="font-semibold text-slate-900">{brl(it.valorTotal)}</p>
