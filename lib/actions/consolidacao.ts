@@ -122,7 +122,7 @@ export async function substituirItemAction(
 
 export async function consolidarCategoriaAction(categoriaId: string, formData: FormData) {
   const sessao = await exigirSetorTecnico();
-  await obterCategoriaDoSetorOuErro(categoriaId, sessao.id);
+  const categoria = await obterCategoriaDoSetorOuErro(categoriaId, sessao.id);
 
   const itensDfdIds = formData.getAll("itemDfdId").map(String);
   const itensTecnicosIds = formData.getAll("itemTecnicoId").map(String);
@@ -179,19 +179,44 @@ export async function consolidarCategoriaAction(categoriaId: string, formData: F
   }
 
   await prisma.$transaction(async (tx) => {
-    const consolidacao = await tx.consolidacaoTecnica.create({
-      data: {
-        categoriaId,
-        setorTecnicoId: sessao.id,
-        pcaAno: pcaAtivo.ano,
-        processoSEI,
-        idDocumentoETP,
-        dataETP: new Date(dataETP),
-        prioridade,
-        tipoContratacao,
-        dataEsperadaConclusao: new Date(dataEsperadaConclusao),
-      },
-    });
+    // Categorias que agrupam (consolidarPorObjeto = false, o padrão) nunca
+    // devem acumular duas consolidações abertas no mesmo ano — senão o PCA
+    // Consolidado mostraria duas linhas da mesma categoria em vez de uma só
+    // soma. Se já existe uma consolidação desta categoria/ano que ainda não
+    // recebeu código PNCP (ou seja, ainda não foi enviada ao PNCP), os novos
+    // itens se juntam a ela. Categorias "por objeto" (obras, serviços por
+    // objeto) e consolidações já com código PNCP sempre viram uma nova linha.
+    const consolidacaoAberta = categoria.consolidarPorObjeto
+      ? null
+      : await tx.consolidacaoTecnica.findFirst({
+          where: { categoriaId, pcaAno: pcaAtivo.ano, codigoPca: null },
+        });
+
+    const consolidacao = consolidacaoAberta
+      ? await tx.consolidacaoTecnica.update({
+          where: { id: consolidacaoAberta.id },
+          data: {
+            processoSEI,
+            idDocumentoETP,
+            dataETP: new Date(dataETP),
+            prioridade,
+            tipoContratacao,
+            dataEsperadaConclusao: new Date(dataEsperadaConclusao),
+          },
+        })
+      : await tx.consolidacaoTecnica.create({
+          data: {
+            categoriaId,
+            setorTecnicoId: sessao.id,
+            pcaAno: pcaAtivo.ano,
+            processoSEI,
+            idDocumentoETP,
+            dataETP: new Date(dataETP),
+            prioridade,
+            tipoContratacao,
+            dataEsperadaConclusao: new Date(dataEsperadaConclusao),
+          },
+        });
 
     if (itensDfd.length) {
       await tx.itemDfd.updateMany({
