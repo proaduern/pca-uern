@@ -5,23 +5,34 @@ import VoltarParaAdminBotao from "./VoltarParaAdminBotao";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const sessao = await obterSessao();
   if (!sessao) redirect("/login");
   const sessaoReal = await obterSessaoReal();
   // "Atuando como": a sessão real é da PROAD, mas a sessão efetiva (a que
   // vale pra tudo) é outra — ver obterSessao()/iniciarAtuarComo em lib/auth.
-  const atuandoComo = sessaoReal?.tipo === "ADMIN" && sessao.tipo !== "ADMIN" ? sessaoReal : null;
+  const atuandoComo =
+    sessaoReal?.tipo === "ADMIN" && sessao.tipo !== "ADMIN" ? sessaoReal : null;
   // Enquanto a PROAD está "atuando como" outra sessão, não força a troca de
   // senha temporária dessa sessão — evita alterar sem querer a senha de uma
   // unidade/setor/licitação real só por estar navegando como ela.
-  if (sessao.tipo !== "ADMIN" && sessao.senhaTemporaria && !atuandoComo) redirect("/trocar-senha");
+  if (sessao.tipo !== "ADMIN" && sessao.senhaTemporaria && !atuandoComo)
+    redirect("/trocar-senha");
 
   // Com mais de um PCA ativo ao mesmo tempo (ex.: o do ano corrente ainda em
   // execução e o do ano seguinte já em coleta), a unidade/setor técnico
   // precisa dizer em qual está atuando antes de ver demandas ou lançar novas.
-  let contextoPca: Awaited<ReturnType<typeof resolverPcaEmAtuacao>> | null = null;
-  if (sessao.tipo === "UNIDADE" || sessao.tipo === "SETOR_INTERNO" || sessao.tipo === "SETOR_TECNICO") {
+  let contextoPca: Awaited<ReturnType<typeof resolverPcaEmAtuacao>> | null =
+    null;
+  if (
+    sessao.tipo === "UNIDADE" ||
+    sessao.tipo === "SETOR_INTERNO" ||
+    sessao.tipo === "SETOR_TECNICO"
+  ) {
     contextoPca = await resolverPcaEmAtuacao(sessao);
     if (contextoPca.status === "precisa_escolher") redirect("/selecionar-pca");
   }
@@ -40,6 +51,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/admin/categorias", label: "Categorias" },
     { href: "/admin/catalogo", label: "Catálogo" },
     { href: "/admin/solicitacoes", label: "Solicitações de Catálogo" },
+    {
+      href: "/admin/solicitacoes-cota-geral",
+      label: "Solicitações de Cota Geral (OP)",
+    },
     { href: "/admin/parametros", label: "Parâmetros" },
   ];
 
@@ -83,7 +98,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {atuandoComo && (
         <div className="flex flex-wrap items-center justify-between gap-2 bg-amber-500 px-4 py-2 text-sm text-white">
           <span>
-            Atuando como: <b>{sessao.nome}</b> ({rotuloPerfil}) — sessão real: {atuandoComo.nome}
+            Atuando como: <b>{sessao.nome}</b> ({rotuloPerfil}) — sessão real:{" "}
+            {atuandoComo.nome}
           </span>
           <VoltarParaAdminBotao />
         </div>
@@ -93,7 +109,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         tipo={sessao.tipo}
         pcaAtuacao={
           contextoPca?.status === "resolvido"
-            ? { ano: contextoPca.pca.ano, podeTrocar: contextoPca.totalAtivos > 1 }
+            ? {
+                ano: contextoPca.pca.ano,
+                podeTrocar: contextoPca.totalAtivos > 1,
+              }
             : null
         }
       />

@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/prisma";
-import { criarItemCatalogoAction, excluirItemCatalogoAction } from "@/lib/actions/admin";
+import {
+  criarItemCatalogoAction,
+  excluirItemCatalogoAction,
+} from "@/lib/actions/admin";
 import { importarItensCatalogoAction } from "@/lib/actions/importacao";
 import { brl } from "@/lib/formato";
 import FormularioSimples from "../FormularioSimples";
@@ -7,6 +10,7 @@ import ImportarPlanilhaForm from "../ImportarPlanilhaForm";
 import BotaoExcluir from "../BotaoExcluir";
 import RestricaoItemForm from "./RestricaoItemForm";
 import EditarItemCatalogoForm from "./EditarItemCatalogoForm";
+import LiberarItemCotaGeralOPToggle from "./LiberarItemCotaGeralOPToggle";
 import { exigirAdminNaPagina } from "@/lib/auth";
 
 export default async function CatalogoPage() {
@@ -16,13 +20,21 @@ export default async function CatalogoPage() {
       include: { categoria: true, unidadesRestritas: { select: { id: true } } },
       orderBy: [{ categoria: { nome: "asc" } }, { item: "asc" }],
     }),
-    prisma.categoria.findMany({ where: { semItem: false }, orderBy: { nome: "asc" } }),
-    prisma.unidade.findMany({ where: { ativa: true }, orderBy: { nome: "asc" } }),
+    prisma.categoria.findMany({
+      where: { semItem: false },
+      orderBy: { nome: "asc" },
+    }),
+    prisma.unidade.findMany({
+      where: { ativa: true },
+      orderBy: { nome: "asc" },
+    }),
   ]);
 
   return (
     <div className="space-y-6">
-      <h1 className="text-lg font-semibold text-slate-900">Catálogo de itens</h1>
+      <h1 className="text-lg font-semibold text-slate-900">
+        Catálogo de itens
+      </h1>
 
       <FormularioSimples
         action={criarItemCatalogoAction}
@@ -35,7 +47,13 @@ export default async function CatalogoPage() {
             options: categorias.map((c) => ({ value: c.id, label: c.nome })),
           },
           { name: "item", label: "Nome do item", required: true },
-          { name: "valor", label: "Valor unitário (R$)", type: "number", step: "0.01", required: true },
+          {
+            name: "valor",
+            label: "Valor unitário (R$)",
+            type: "number",
+            step: "0.01",
+            required: true,
+          },
           {
             name: "tipoBem",
             label: "Tipo de bem",
@@ -50,7 +68,12 @@ export default async function CatalogoPage() {
       <ImportarPlanilhaForm
         action={importarItensCatalogoAction}
         titulo="Importar itens de catálogo em lote (planilha)"
-        colunas={["categoria (nome exato já cadastrado)", "item", "valor", "tipoBem (PERMANENTE/CONSUMO)"]}
+        colunas={[
+          "categoria (nome exato já cadastrado)",
+          "item",
+          "valor",
+          "tipoBem (PERMANENTE/CONSUMO)",
+        ]}
         modeloHref="/modelos/catalogo.csv"
       />
 
@@ -62,6 +85,7 @@ export default async function CatalogoPage() {
               <th className="px-4 py-2 font-medium">Item</th>
               <th className="px-4 py-2 font-medium">Valor</th>
               <th className="px-4 py-2 font-medium">Tipo</th>
+              <th className="px-4 py-2 font-medium">Cota Geral p/ unid. OP</th>
               <th className="px-4 py-2 font-medium">Visibilidade</th>
               <th className="px-4 py-2 font-medium">Ações</th>
             </tr>
@@ -69,11 +93,19 @@ export default async function CatalogoPage() {
           <tbody className="divide-y divide-slate-100">
             {itens.map((it) => (
               <tr key={it.id}>
-                <td className="px-4 py-2 text-slate-600">{it.categoria.nome}</td>
+                <td className="px-4 py-2 text-slate-600">
+                  {it.categoria.nome}
+                </td>
                 <td className="px-4 py-2 text-slate-900">{it.item}</td>
                 <td className="px-4 py-2 text-slate-600">{brl(it.valor)}</td>
                 <td className="px-4 py-2 text-slate-600">
                   {it.tipoBem === "CONSUMO" ? "Consumo" : "Permanente"}
+                </td>
+                <td className="px-4 py-2">
+                  <LiberarItemCotaGeralOPToggle
+                    itemId={it.id}
+                    valorInicial={it.liberadoCotaGeralParaOP}
+                  />
                 </td>
                 <td className="px-4 py-2">
                   <RestricaoItemForm

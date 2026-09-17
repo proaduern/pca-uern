@@ -6,6 +6,7 @@ import {
   dfdComprometeOrcamento,
   exigeCotaFixa,
   janelaAberta,
+  precisaAutorizacaoCotaGeralOP,
   saldoPCA,
   saldoPCAGeralParaAlocar,
   saldoPCAOPParaAlocar,
@@ -186,5 +187,32 @@ describe("arredondarCentavos (regressão: erro de ponto flutuante bloqueava fech
       { enquadramento: "OP", valorTotal: 449.5 },
     ]);
     expect(g.op).toBe(1000);
+  });
+});
+
+describe("precisaAutorizacaoCotaGeralOP", () => {
+  it("unidade não elegível a OP nunca precisa de autorização", () => {
+    expect(precisaAutorizacaoCotaGeralOP(false, "GERAL", false, false)).toBe(false);
+  });
+
+  it("unidade elegível a OP em enquadramento OP não precisa (a trava é só sobre Cota Geral)", () => {
+    expect(precisaAutorizacaoCotaGeralOP(true, "OP", false, false)).toBe(false);
+  });
+
+  it("convênio e recursos extra nunca precisam (recursos externos, fora da trava)", () => {
+    expect(precisaAutorizacaoCotaGeralOP(true, "CONVENIO", false, false)).toBe(false);
+    expect(precisaAutorizacaoCotaGeralOP(true, "RECURSOS_EXTRA", false, false)).toBe(false);
+  });
+
+  it("unidade elegível a OP em Cota Geral, categoria liberada (ex.: Climatização): não precisa", () => {
+    expect(precisaAutorizacaoCotaGeralOP(true, "GERAL", true, false)).toBe(false);
+  });
+
+  it("unidade elegível a OP em Cota Geral, item liberado (ex.: carteiras de Mobília): não precisa", () => {
+    expect(precisaAutorizacaoCotaGeralOP(true, "GERAL", false, true)).toBe(false);
+  });
+
+  it("unidade elegível a OP em Cota Geral, categoria/item fora da liberação: precisa de autorização", () => {
+    expect(precisaAutorizacaoCotaGeralOP(true, "GERAL", false, false)).toBe(true);
   });
 });

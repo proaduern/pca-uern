@@ -26,8 +26,24 @@ const STATUS_SOLICITACAO_LABEL: Record<string, string> = {
   REJEITADO: "Rejeitada",
 };
 
-export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: string }) {
-  const [unidade, contextoPca, dfds, solicitacoesCatalogo] = await Promise.all([
+const STATUS_SOLICITACAO_COTA_GERAL_LABEL: Record<string, string> = {
+  PENDENTE: "Em análise",
+  ACEITO: "Autorizada — incluída no DFD",
+  REJEITADO: "Rejeitada",
+};
+
+export default async function UnidadeDfdListPage({
+  unidadeId,
+}: {
+  unidadeId: string;
+}) {
+  const [
+    unidade,
+    contextoPca,
+    dfds,
+    solicitacoesCatalogo,
+    solicitacoesCotaGeral,
+  ] = await Promise.all([
     prisma.unidade.findUniqueOrThrow({ where: { id: unidadeId } }),
     resolverPcaEmAtuacao({ id: unidadeId, tipo: "UNIDADE" }),
     prisma.dfd.findMany({
@@ -40,25 +56,37 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
       include: { categoriaFinal: true },
       orderBy: { createdAt: "desc" },
     }),
+    prisma.solicitacaoAutorizacaoCotaGeral.findMany({
+      where: { unidadeId },
+      include: { categoria: true, itemCatalogo: true },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   // AppLayout já redireciona pra /selecionar-pca quando há mais de um PCA
   // ativo e a unidade ainda não escolheu em qual está atuando.
   const pcaAtivo = contextoPca.status === "resolvido" ? contextoPca.pca : null;
 
-  const itensDosDfdsComprometidos = dfds.filter((d) => dfdComprometeOrcamento(d.status)).flatMap((d) => d.itens);
+  const itensDosDfdsComprometidos = dfds
+    .filter((d) => dfdComprometeOrcamento(d.status))
+    .flatMap((d) => d.itens);
   const itensComprometidos = itensDosDfdsComprometidos.map((it) => ({
     enquadramento: it.enquadramento,
     valorTotal: Number(it.valorTotal),
   }));
   const gastos = calcularGastos(itensComprometidos);
   const porCategoria = computarPorCategoria(
-    itensDosDfdsComprometidos.map((it) => ({ categoriaNome: it.categoria.nome, valorTotal: Number(it.valorTotal) })),
+    itensDosDfdsComprometidos.map((it) => ({
+      categoriaNome: it.categoria.nome,
+      valorTotal: Number(it.valorTotal),
+    })),
   );
 
   return (
     <div className="space-y-6">
-      <h1 className="text-lg font-semibold text-slate-900">Painel da Unidade — {unidade.nome}</h1>
+      <h1 className="text-lg font-semibold text-slate-900">
+        Painel da Unidade — {unidade.nome}
+      </h1>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {unidade.elegivelCotaOP ? (
@@ -83,13 +111,17 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
               <p className="text-xl font-semibold text-slate-900">
                 {brl(Number(unidade.cotaGeral) - gastos.geral)}
               </p>
-              <p className="text-xs text-slate-400">de {brl(unidade.cotaGeral)}</p>
+              <p className="text-xs text-slate-400">
+                de {brl(unidade.cotaGeral)}
+              </p>
             </div>
           )
         )}
         <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
           <p className="text-xs text-slate-500">PCA ativo</p>
-          <p className="text-xl font-semibold text-slate-900">{pcaAtivo?.ano ?? "—"}</p>
+          <p className="text-xl font-semibold text-slate-900">
+            {pcaAtivo?.ano ?? "—"}
+          </p>
         </div>
       </div>
 
@@ -101,23 +133,37 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
 
       <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-900">Cômputo das demandas por enquadramento</h2>
+          <h2 className="text-sm font-semibold text-slate-900">
+            Cômputo das demandas por enquadramento
+          </h2>
           <div className="flex gap-3">
-            <a href="/relatorio-itens/pdf" className="text-xs text-slate-600 underline hover:text-slate-900">
+            <a
+              href="/relatorio-itens/pdf"
+              className="text-xs text-slate-600 underline hover:text-slate-900"
+            >
               Relatório geral de itens (PDF)
             </a>
-            <a href="/relatorio-itens/xlsx" className="text-xs text-slate-600 underline hover:text-slate-900">
+            <a
+              href="/relatorio-itens/xlsx"
+              className="text-xs text-slate-600 underline hover:text-slate-900"
+            >
               XLSX
             </a>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {(["geral", "op", "convenio", "recursosExtra"] as const).map((chave) => (
-            <div key={chave} className="rounded-xl bg-slate-50 p-3">
-              <p className="text-xs text-slate-500">{ENQUADRAMENTO_LABEL[chave]}</p>
-              <p className="text-sm font-semibold text-slate-900">{brl(gastos[chave])}</p>
-            </div>
-          ))}
+          {(["geral", "op", "convenio", "recursosExtra"] as const).map(
+            (chave) => (
+              <div key={chave} className="rounded-xl bg-slate-50 p-3">
+                <p className="text-xs text-slate-500">
+                  {ENQUADRAMENTO_LABEL[chave]}
+                </p>
+                <p className="text-sm font-semibold text-slate-900">
+                  {brl(gastos[chave])}
+                </p>
+              </div>
+            ),
+          )}
           <div className="rounded-xl bg-slate-900 p-3">
             <p className="text-xs text-slate-300">Total geral</p>
             <p className="text-sm font-semibold text-white">
@@ -133,9 +179,14 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
             </h3>
             <div className="space-y-1">
               {porCategoria.map((c) => (
-                <div key={c.categoria} className="flex items-center justify-between text-sm">
+                <div
+                  key={c.categoria}
+                  className="flex items-center justify-between text-sm"
+                >
                   <span className="text-slate-600">{c.categoria}</span>
-                  <span className="font-medium text-slate-900">{brl(c.total)}</span>
+                  <span className="font-medium text-slate-900">
+                    {brl(c.total)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -163,18 +214,27 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
           </thead>
           <tbody className="divide-y divide-slate-100">
             {dfds.map((d) => {
-              const total = d.itens.reduce((s, it) => s + Number(it.valorTotal), 0);
+              const total = d.itens.reduce(
+                (s, it) => s + Number(it.valorTotal),
+                0,
+              );
               return (
                 <tr key={d.id}>
                   <td className="px-4 py-2 text-slate-900">
-                    {d.descricaoSumaria || <span className="text-slate-400">(sem descrição)</span>}
+                    {d.descricaoSumaria || (
+                      <span className="text-slate-400">(sem descrição)</span>
+                    )}
                     {d.status === "REPROVADO" && (
-                      <div className="text-xs text-red-600">Motivo: {d.motivoReprovacao}</div>
+                      <div className="text-xs text-red-600">
+                        Motivo: {d.motivoReprovacao}
+                      </div>
                     )}
                     {d.setorInterno && (
                       <div className="text-xs text-slate-400">
                         Via setor interno: {d.setorInterno.nome}
-                        {d.status === "RASCUNHO" && d.enviadoParaUnidadeEm && " · aguardando sua liberação"}
+                        {d.status === "RASCUNHO" &&
+                          d.enviadoParaUnidadeEm &&
+                          " · aguardando sua liberação"}
                       </div>
                     )}
                   </td>
@@ -187,8 +247,13 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
                     </span>
                   </td>
                   <td className="px-4 py-2">
-                    <Link href={`/dfd/${d.id}`} className="text-xs text-slate-700 underline">
-                      {d.status === "RASCUNHO" || d.status === "REPROVADO" ? "Continuar" : "Ver"}
+                    <Link
+                      href={`/dfd/${d.id}`}
+                      className="text-xs text-slate-700 underline"
+                    >
+                      {d.status === "RASCUNHO" || d.status === "REPROVADO"
+                        ? "Continuar"
+                        : "Ver"}
                     </Link>
                   </td>
                 </tr>
@@ -196,7 +261,10 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
             })}
             {dfds.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
+                <td
+                  colSpan={6}
+                  className="px-4 py-6 text-center text-slate-400"
+                >
                   Nenhum DFD lançado ainda.
                 </td>
               </tr>
@@ -225,7 +293,9 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
               {solicitacoesCatalogo.map((s) => (
                 <tr key={s.id}>
                   <td className="px-4 py-2 text-slate-900">{s.nomeResumido}</td>
-                  <td className="px-4 py-2 text-slate-600">{brl(s.valorEstimado)}</td>
+                  <td className="px-4 py-2 text-slate-600">
+                    {brl(s.valorEstimado)}
+                  </td>
                   <td className="px-4 py-2">
                     <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700">
                       {STATUS_SOLICITACAO_LABEL[s.status]}
@@ -237,6 +307,49 @@ export default async function UnidadeDfdListPage({ unidadeId }: { unidadeId: str
                       : s.status === "REJEITADO"
                         ? s.motivoRejeicao || "—"
                         : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {solicitacoesCotaGeral.length > 0 && (
+        <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <div className="border-b border-slate-100 p-4">
+            <h2 className="text-sm font-semibold text-slate-900">
+              Minhas Solicitações de Autorização de Cota Geral
+            </h2>
+          </div>
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-left text-slate-500">
+              <tr>
+                <th className="px-4 py-2 font-medium">Item</th>
+                <th className="px-4 py-2 font-medium">Valor</th>
+                <th className="px-4 py-2 font-medium">Status</th>
+                <th className="px-4 py-2 font-medium">Observação</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {solicitacoesCotaGeral.map((s) => (
+                <tr key={s.id}>
+                  <td className="px-4 py-2 text-slate-900">
+                    {s.itemCatalogo?.item ?? s.itemNomeLivre ?? "—"}
+                    <div className="text-[11px] text-slate-400">
+                      {s.categoria.nome}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2 text-slate-600">
+                    {brl(s.valorTotal)}
+                  </td>
+                  <td className="px-4 py-2">
+                    <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700">
+                      {STATUS_SOLICITACAO_COTA_GERAL_LABEL[s.status]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-slate-600">
+                    {s.status === "REJEITADO" ? s.motivoRejeicao || "—" : "—"}
                   </td>
                 </tr>
               ))}

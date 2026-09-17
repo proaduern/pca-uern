@@ -9,6 +9,7 @@ import AtribuirSetorForm from "./AtribuirSetorForm";
 import RestricaoCategoriaForm from "./RestricaoCategoriaForm";
 import RenomearCategoriaForm from "./RenomearCategoriaForm";
 import ConsolidarPorObjetoToggle from "./ConsolidarPorObjetoToggle";
+import LiberarCotaGeralOPToggle from "./LiberarCotaGeralOPToggle";
 import EditarCategoriaForm from "./EditarCategoriaForm";
 import { exigirAdminNaPagina } from "@/lib/auth";
 
@@ -19,16 +20,23 @@ export default async function CategoriasPage() {
       include: { unidadesRestritas: { select: { id: true } } },
       orderBy: { nome: "asc" },
     }),
-    prisma.setorTecnico.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } }),
-    prisma.unidade.findMany({ where: { ativa: true }, orderBy: { nome: "asc" } }),
+    prisma.setorTecnico.findMany({
+      where: { ativo: true },
+      orderBy: { nome: "asc" },
+    }),
+    prisma.unidade.findMany({
+      where: { ativa: true },
+      orderBy: { nome: "asc" },
+    }),
   ]);
 
   return (
     <div className="space-y-6">
       <h1 className="text-lg font-semibold text-slate-900">Categorias</h1>
       <p className="text-sm text-slate-500">
-        &quot;Sem item&quot; = categoria de material sem catálogo (demandante informa só o valor,
-        ex.: obras). Categorias de serviço não usam catálogo, exceto no modo &quot;itens&quot;.
+        &quot;Sem item&quot; = categoria de material sem catálogo (demandante
+        informa só o valor, ex.: obras). Categorias de serviço não usam
+        catálogo, exceto no modo &quot;itens&quot;.
       </p>
 
       <NovaCategoriaForm />
@@ -58,6 +66,7 @@ export default async function CategoriasPage() {
               <th className="px-4 py-2 font-medium">Rubrica</th>
               <th className="px-4 py-2 font-medium">Teto anual</th>
               <th className="px-4 py-2 font-medium">Consolidação no PCA</th>
+              <th className="px-4 py-2 font-medium">Cota Geral p/ unid. OP</th>
               <th className="px-4 py-2 font-medium">Flags</th>
               <th className="px-4 py-2 font-medium">Setor técnico</th>
               <th className="px-4 py-2 font-medium">Visibilidade</th>
@@ -70,7 +79,10 @@ export default async function CategoriasPage() {
                 <td className="px-4 py-2 text-slate-900">
                   {c.nome}
                   <div className="mt-1">
-                    <RenomearCategoriaForm categoriaId={c.id} nomeAtual={c.nome} />
+                    <RenomearCategoriaForm
+                      categoriaId={c.id}
+                      nomeAtual={c.nome}
+                    />
                   </div>
                   <EditarCategoriaForm
                     categoria={{
@@ -81,26 +93,41 @@ export default async function CategoriasPage() {
                       fluxoContinuo: c.fluxoContinuo,
                       dependeContrato: c.dependeContrato,
                       ignoraPCA: c.ignoraPCA,
-                      saldoAnualGlobal: c.saldoAnualGlobal ? Number(c.saldoAnualGlobal) : null,
+                      saldoAnualGlobal: c.saldoAnualGlobal
+                        ? Number(c.saldoAnualGlobal)
+                        : null,
                       classificacaoRubrica: c.classificacaoRubrica,
                       tipoBemPadrao: c.tipoBemPadrao,
                     }}
                   />
                 </td>
                 <td className="px-4 py-2 text-slate-600">
-                  {c.tipo === "MATERIAL" ? "Material" : `Serviço (${c.modoServico})`}
+                  {c.tipo === "MATERIAL"
+                    ? "Material"
+                    : `Serviço (${c.modoServico})`}
                   {c.tipoBemPadrao && (
                     <div className="text-[11px] text-slate-400">
                       {c.tipoBemPadrao === "CONSUMO" ? "Consumo" : "Permanente"}
                     </div>
                   )}
                 </td>
-                <td className="px-4 py-2 text-slate-600">{c.classificacaoRubrica ?? "—"}</td>
+                <td className="px-4 py-2 text-slate-600">
+                  {c.classificacaoRubrica ?? "—"}
+                </td>
                 <td className="px-4 py-2 text-slate-600">
                   {c.saldoAnualGlobal ? brl(c.saldoAnualGlobal) : "—"}
                 </td>
                 <td className="px-4 py-2">
-                  <ConsolidarPorObjetoToggle categoriaId={c.id} valorInicial={c.consolidarPorObjeto} />
+                  <ConsolidarPorObjetoToggle
+                    categoriaId={c.id}
+                    valorInicial={c.consolidarPorObjeto}
+                  />
+                </td>
+                <td className="px-4 py-2">
+                  <LiberarCotaGeralOPToggle
+                    categoriaId={c.id}
+                    valorInicial={c.liberadaCotaGeralParaOP}
+                  />
                 </td>
                 <td className="px-4 py-2 text-slate-600">
                   {[
@@ -112,7 +139,11 @@ export default async function CategoriasPage() {
                     .join(", ") || "—"}
                 </td>
                 <td className="px-4 py-2">
-                  <AtribuirSetorForm categoriaId={c.id} setorTecnicoId={c.setorTecnicoId} setores={setores} />
+                  <AtribuirSetorForm
+                    categoriaId={c.id}
+                    setorTecnicoId={c.setorTecnicoId}
+                    setores={setores}
+                  />
                 </td>
                 <td className="px-4 py-2">
                   <RestricaoCategoriaForm

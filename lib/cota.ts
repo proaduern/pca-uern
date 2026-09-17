@@ -11,7 +11,11 @@
  *   universitárias); as demais só têm cota "Geral".
  */
 
-export type StatusDfd = "RASCUNHO" | "AGUARDANDO_APROVACAO" | "APROVADO" | "REPROVADO";
+export type StatusDfd =
+  | "RASCUNHO"
+  | "AGUARDANDO_APROVACAO"
+  | "APROVADO"
+  | "REPROVADO";
 export type Enquadramento = "OP" | "GERAL" | "CONVENIO" | "RECURSOS_EXTRA";
 
 export function dfdComprometeOrcamento(status: StatusDfd): boolean {
@@ -54,7 +58,8 @@ export function calcularGastos(itens: ItemParaGasto[]): GastosPorEnquadramento {
   for (const it of itens) {
     if (it.enquadramento === "OP") op += it.valorTotal;
     else if (it.enquadramento === "CONVENIO") convenio += it.valorTotal;
-    else if (it.enquadramento === "RECURSOS_EXTRA") recursosExtra += it.valorTotal;
+    else if (it.enquadramento === "RECURSOS_EXTRA")
+      recursosExtra += it.valorTotal;
     else geral += it.valorTotal;
   }
   return {
@@ -70,7 +75,10 @@ export function saldoUnidadeOP(cotaOP: number, gastoOP: number): number {
   return arredondarCentavos(cotaOP - gastoOP);
 }
 
-export function saldoUnidadeGeral(cotaGeral: number, gastoGeral: number): number {
+export function saldoUnidadeGeral(
+  cotaGeral: number,
+  gastoGeral: number,
+): number {
   return arredondarCentavos(cotaGeral - gastoGeral);
 }
 
@@ -158,7 +166,9 @@ export function saldoPCAOPParaAlocar(
   unidades: UnidadeParaAlocacao[],
   excludeUnidadeId?: string | null,
 ): number {
-  return arredondarCentavos(pcaCotaOP - totalCotaOPAlocada(unidades, excludeUnidadeId));
+  return arredondarCentavos(
+    pcaCotaOP - totalCotaOPAlocada(unidades, excludeUnidadeId),
+  );
 }
 
 export function saldoPCAGeralParaAlocar(
@@ -167,7 +177,9 @@ export function saldoPCAGeralParaAlocar(
   excludeUnidadeId?: string | null,
 ): number {
   return arredondarCentavos(
-    pca.cotaGeral - pca.cotaOP - totalCotaGeralFechadaAlocada(unidades, excludeUnidadeId),
+    pca.cotaGeral -
+      pca.cotaOP -
+      totalCotaGeralFechadaAlocada(unidades, excludeUnidadeId),
   );
 }
 
@@ -187,6 +199,31 @@ export function derivarCotaTipo(
 }
 
 /** Só unidades com alguma cota "fixa" (OP elegível, ou Geral fechada) disputam o subsaldo do PCA. */
-export function exigeCotaFixa(elegivelCotaOP: boolean, cotaTipo: CotaTipo): boolean {
+export function exigeCotaFixa(
+  elegivelCotaOP: boolean,
+  cotaTipo: CotaTipo,
+): boolean {
   return elegivelCotaOP || cotaTipo === "FECHADA";
+}
+
+/**
+ * Unidades elegíveis à Cota OP só podem usar Cota Geral (sem autorização
+ * especial da PROAD) nas categorias/itens liberados no cadastro (ex.:
+ * Climatização inteira, ou itens específicos como as carteiras de Mobília —
+ * ver Categoria.liberadaCotaGeralParaOP / ItemCatalogo.liberadoCotaGeralParaOP).
+ * Unidades não elegíveis a OP nunca precisam dessa autorização: só têm Cota
+ * Geral mesmo, não há "exceção" a controlar.
+ */
+export function precisaAutorizacaoCotaGeralOP(
+  unidadeElegivelOP: boolean,
+  enquadramento: Enquadramento,
+  categoriaLiberada: boolean,
+  itemLiberado: boolean,
+): boolean {
+  return (
+    unidadeElegivelOP &&
+    enquadramento === "GERAL" &&
+    !categoriaLiberada &&
+    !itemLiberado
+  );
 }

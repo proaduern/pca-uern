@@ -33,7 +33,15 @@ async function validarAlocacaoCota(opts: {
   cotaGeralAnterior: number;
   excludeUnidadeId: string | null;
 }): Promise<string | null> {
-  const { elegivelCotaOP, cotaOP, cotaGeral, cotaTipo, cotaOPAnterior, cotaGeralAnterior, excludeUnidadeId } = opts;
+  const {
+    elegivelCotaOP,
+    cotaOP,
+    cotaGeral,
+    cotaTipo,
+    cotaOPAnterior,
+    cotaGeralAnterior,
+    excludeUnidadeId,
+  } = opts;
   if (!exigeCotaFixa(elegivelCotaOP, cotaTipo)) return null;
 
   const aumentandoOP = cotaOP > 0 && cotaOP > cotaOPAnterior;
@@ -43,19 +51,36 @@ async function validarAlocacaoCota(opts: {
   // Pode haver mais de um PCA ativo ao mesmo tempo (o do ano corrente ainda em
   // execução e o do ano seguinte já em coleta) — o teto orçamentário pra cota
   // fixa usa o mais recente, que é o que está de fato recebendo novas demandas.
-  const pca = await prisma.pca.findFirst({ where: { ativo: true }, orderBy: { ano: "desc" } });
+  const pca = await prisma.pca.findFirst({
+    where: { ativo: true },
+    orderBy: { ano: "desc" },
+  });
   if (!pca) {
     return "Cadastre um PCA ativo antes de atribuir cota OP ou cota Geral fechada a uma unidade.";
   }
 
   const unidades = (
     await prisma.unidade.findMany({
-      select: { id: true, elegivelCotaOP: true, cotaOP: true, cotaGeral: true, cotaTipo: true },
+      select: {
+        id: true,
+        elegivelCotaOP: true,
+        cotaOP: true,
+        cotaGeral: true,
+        cotaTipo: true,
+      },
     })
-  ).map((u) => ({ ...u, cotaOP: Number(u.cotaOP), cotaGeral: Number(u.cotaGeral) }));
+  ).map((u) => ({
+    ...u,
+    cotaOP: Number(u.cotaOP),
+    cotaGeral: Number(u.cotaGeral),
+  }));
 
   if (aumentandoOP) {
-    const disponivel = saldoPCAOPParaAlocar(Number(pca.cotaOP), unidades, excludeUnidadeId);
+    const disponivel = saldoPCAOPParaAlocar(
+      Number(pca.cotaOP),
+      unidades,
+      excludeUnidadeId,
+    );
     if (cotaOP > disponivel) {
       return `Cota OP informada (${brl(cotaOP)}) excede o subsaldo OP disponível no PCA (${brl(disponivel)} disponível, considerando o que esta unidade já tinha).`;
     }
@@ -73,14 +98,19 @@ async function validarAlocacaoCota(opts: {
   return null;
 }
 
-export async function criarUnidadeAction(formData: FormData): Promise<ResultadoAcao> {
+export async function criarUnidadeAction(
+  formData: FormData,
+): Promise<ResultadoAcao> {
   await exigirAdmin();
   const nome = String(formData.get("nome") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
   const elegivelCotaOP = formData.get("elegivelCotaOP") === "on";
   const cotaOP = Number(formData.get("cotaOP") ?? 0);
   const cotaGeral = Number(formData.get("cotaGeral") ?? 0);
-  const cotaTipoManual = (String(formData.get("cotaTipo") ?? "") || "FECHADA") as CotaTipo;
+  const cotaTipoManual = (String(formData.get("cotaTipo") ?? "") ||
+    "FECHADA") as CotaTipo;
   const cotaTipo = derivarCotaTipo(elegivelCotaOP, cotaGeral, cotaTipoManual);
   const verCotaGeralPCA = formData.get("verCotaGeralPCA") === "on";
   const senhaInicial = String(formData.get("senhaInicial") ?? "");
@@ -120,7 +150,10 @@ export async function criarUnidadeAction(formData: FormData): Promise<ResultadoA
       },
     });
   } catch (erro) {
-    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+    if (
+      erro instanceof Prisma.PrismaClientKnownRequestError &&
+      erro.code === "P2002"
+    ) {
       return { erro: "Já existe uma unidade cadastrada com este e-mail." };
     }
     throw erro;
@@ -130,22 +163,33 @@ export async function criarUnidadeAction(formData: FormData): Promise<ResultadoA
   return {};
 }
 
-export async function atualizarUnidadeAction(unidadeId: string, formData: FormData): Promise<ResultadoAcao> {
+export async function atualizarUnidadeAction(
+  unidadeId: string,
+  formData: FormData,
+): Promise<ResultadoAcao> {
   await exigirAdmin();
-  const unidadeExistente = await prisma.unidade.findUniqueOrThrow({ where: { id: unidadeId } });
+  const unidadeExistente = await prisma.unidade.findUniqueOrThrow({
+    where: { id: unidadeId },
+  });
 
   const nome = String(formData.get("nome") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
   const elegivelCotaOP = formData.get("elegivelCotaOP") === "on";
   const cotaOP = Number(formData.get("cotaOP") ?? 0);
   const cotaGeral = Number(formData.get("cotaGeral") ?? 0);
-  const cotaTipoManual = (String(formData.get("cotaTipo") ?? "") || "FECHADA") as CotaTipo;
+  const cotaTipoManual = (String(formData.get("cotaTipo") ?? "") ||
+    "FECHADA") as CotaTipo;
   const cotaTipo = derivarCotaTipo(elegivelCotaOP, cotaGeral, cotaTipoManual);
   const verCotaGeralPCA = formData.get("verCotaGeralPCA") === "on";
   const novaSenha = String(formData.get("novaSenha") ?? "");
-  const responsavelNome = String(formData.get("responsavelNome") ?? "").trim() || null;
-  const responsavelMatricula = String(formData.get("responsavelMatricula") ?? "").trim() || null;
-  const responsavelTelefone = String(formData.get("responsavelTelefone") ?? "").trim() || null;
+  const responsavelNome =
+    String(formData.get("responsavelNome") ?? "").trim() || null;
+  const responsavelMatricula =
+    String(formData.get("responsavelMatricula") ?? "").trim() || null;
+  const responsavelTelefone =
+    String(formData.get("responsavelTelefone") ?? "").trim() || null;
 
   if (!nome || !email) return { erro: "Preencha nome e email." };
   if (!email.endsWith("@uern.br")) {
@@ -183,7 +227,10 @@ export async function atualizarUnidadeAction(unidadeId: string, formData: FormDa
   try {
     await prisma.unidade.update({ where: { id: unidadeId }, data: dados });
   } catch (erro) {
-    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+    if (
+      erro instanceof Prisma.PrismaClientKnownRequestError &&
+      erro.code === "P2002"
+    ) {
       return { erro: "Já existe uma unidade cadastrada com este e-mail." };
     }
     throw erro;
@@ -193,11 +240,16 @@ export async function atualizarUnidadeAction(unidadeId: string, formData: FormDa
   return {};
 }
 
-export async function excluirUnidadeAction(unidadeId: string): Promise<ResultadoAcao> {
+export async function excluirUnidadeAction(
+  unidadeId: string,
+): Promise<ResultadoAcao> {
   await exigirAdmin();
   const emUso = await prisma.dfd.count({ where: { unidadeId } });
   if (emUso > 0) {
-    await prisma.unidade.update({ where: { id: unidadeId }, data: { ativa: false } });
+    await prisma.unidade.update({
+      where: { id: unidadeId },
+      data: { ativa: false },
+    });
   } else {
     await prisma.unidade.delete({ where: { id: unidadeId } });
   }
@@ -205,10 +257,14 @@ export async function excluirUnidadeAction(unidadeId: string): Promise<Resultado
   return {};
 }
 
-export async function redefinirSenhaUnidadeAction(unidadeId: string, formData: FormData): Promise<ResultadoAcao> {
+export async function redefinirSenhaUnidadeAction(
+  unidadeId: string,
+  formData: FormData,
+): Promise<ResultadoAcao> {
   await exigirAdmin();
   const novaSenha = String(formData.get("novaSenha") ?? "");
-  if (novaSenha.length < 8) return { erro: "A senha precisa ter pelo menos 8 caracteres." };
+  if (novaSenha.length < 8)
+    return { erro: "A senha precisa ter pelo menos 8 caracteres." };
   const senhaHash = await gerarHashSenha(novaSenha);
   await prisma.unidade.update({
     where: { id: unidadeId },
@@ -226,13 +282,25 @@ async function dadosAcessoVinculavel(formData: FormData) {
   const vinculado = formData.get("vinculado") === "on";
   if (vinculado) {
     const unidadeId = String(formData.get("unidadeId") ?? "");
-    if (!unidadeId) throw new Error("Selecione a unidade demandante a vincular.");
-    return { vinculado: true as const, unidadeId, email: null, senhaHash: null };
+    if (!unidadeId)
+      throw new Error("Selecione a unidade demandante a vincular.");
+    return {
+      vinculado: true as const,
+      unidadeId,
+      email: null,
+      senhaHash: null,
+    };
   }
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
   const senhaInicial = String(formData.get("senhaInicial") ?? "");
-  if (!email || !senhaInicial) throw new Error("Preencha email e senha inicial (ou marque o vínculo com uma unidade).");
-  if (!email.endsWith("@uern.br")) throw new Error("O email precisa ser do domínio @uern.br.");
+  if (!email || !senhaInicial)
+    throw new Error(
+      "Preencha email e senha inicial (ou marque o vínculo com uma unidade).",
+    );
+  if (!email.endsWith("@uern.br"))
+    throw new Error("O email precisa ser do domínio @uern.br.");
   const senhaHash = await gerarHashSenha(senhaInicial);
   return { vinculado: false as const, unidadeId: null, email, senhaHash };
 }
@@ -258,21 +326,32 @@ export async function excluirSetorTecnicoAction(setorTecnicoId: string) {
     prisma.itemTecnico.count({ where: { criadoPorId: setorTecnicoId } }),
   ]);
   if (categorias + consolidacoes + itensTecnicos > 0) {
-    await prisma.setorTecnico.update({ where: { id: setorTecnicoId }, data: { ativo: false } });
+    await prisma.setorTecnico.update({
+      where: { id: setorTecnicoId },
+      data: { ativo: false },
+    });
   } else {
     await prisma.setorTecnico.delete({ where: { id: setorTecnicoId } });
   }
   revalidatePath("/admin/setores-tecnicos");
 }
 
-export async function redefinirSenhaSetorTecnicoAction(setorTecnicoId: string, formData: FormData) {
+export async function redefinirSenhaSetorTecnicoAction(
+  setorTecnicoId: string,
+  formData: FormData,
+) {
   await exigirAdmin();
-  const setor = await prisma.setorTecnico.findUniqueOrThrow({ where: { id: setorTecnicoId } });
+  const setor = await prisma.setorTecnico.findUniqueOrThrow({
+    where: { id: setorTecnicoId },
+  });
   if (setor.vinculado) {
-    throw new Error("Este acesso é vinculado a uma unidade — redefina a senha da unidade demandante.");
+    throw new Error(
+      "Este acesso é vinculado a uma unidade — redefina a senha da unidade demandante.",
+    );
   }
   const novaSenha = String(formData.get("novaSenha") ?? "");
-  if (novaSenha.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+  if (novaSenha.length < 8)
+    throw new Error("A senha precisa ter pelo menos 8 caracteres.");
   const senhaHash = await gerarHashSenha(novaSenha);
   await prisma.setorTecnico.update({
     where: { id: setorTecnicoId },
@@ -286,7 +365,10 @@ export async function atribuirSetorTecnicoCategoriaAction(
   setorTecnicoId: string | null,
 ) {
   await exigirAdmin();
-  await prisma.categoria.update({ where: { id: categoriaId }, data: { setorTecnicoId } });
+  await prisma.categoria.update({
+    where: { id: categoriaId },
+    data: { setorTecnicoId },
+  });
   revalidatePath("/admin/categorias");
 }
 
@@ -313,14 +395,22 @@ export async function excluirLicitacoesAction(licitacoesId: string) {
   revalidatePath("/admin/licitacoes");
 }
 
-export async function redefinirSenhaLicitacoesAction(licitacoesId: string, formData: FormData) {
+export async function redefinirSenhaLicitacoesAction(
+  licitacoesId: string,
+  formData: FormData,
+) {
   await exigirAdmin();
-  const lic = await prisma.licitacoes.findUniqueOrThrow({ where: { id: licitacoesId } });
+  const lic = await prisma.licitacoes.findUniqueOrThrow({
+    where: { id: licitacoesId },
+  });
   if (lic.vinculado) {
-    throw new Error("Este acesso é vinculado a uma unidade — redefina a senha da unidade demandante.");
+    throw new Error(
+      "Este acesso é vinculado a uma unidade — redefina a senha da unidade demandante.",
+    );
   }
   const novaSenha = String(formData.get("novaSenha") ?? "");
-  if (novaSenha.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+  if (novaSenha.length < 8)
+    throw new Error("A senha precisa ter pelo menos 8 caracteres.");
   const senhaHash = await gerarHashSenha(novaSenha);
   await prisma.licitacoes.update({
     where: { id: licitacoesId },
@@ -333,7 +423,10 @@ export async function redefinirSenhaLicitacoesAction(licitacoesId: string, formD
 // Código PCA (PNCP) por consolidação
 // ---------------------------------------------------------------------------
 
-export async function salvarCodigoPcaAction(consolidacaoId: string, codigo: string) {
+export async function salvarCodigoPcaAction(
+  consolidacaoId: string,
+  codigo: string,
+) {
   await exigirAdmin();
   await prisma.consolidacaoTecnica.update({
     where: { id: consolidacaoId },
@@ -342,13 +435,44 @@ export async function salvarCodigoPcaAction(consolidacaoId: string, codigo: stri
   revalidatePath("/admin/pca");
 }
 
-export async function salvarConsolidarPorObjetoAction(categoriaId: string, consolidarPorObjeto: boolean) {
+export async function salvarConsolidarPorObjetoAction(
+  categoriaId: string,
+  consolidarPorObjeto: boolean,
+) {
   await exigirAdmin();
   await prisma.categoria.update({
     where: { id: categoriaId },
     data: { consolidarPorObjeto },
   });
   revalidatePath("/admin/categorias");
+}
+
+// ---------------------------------------------------------------------------
+// Liberação de Cota Geral para unidades elegíveis à Cota OP
+// ---------------------------------------------------------------------------
+
+export async function salvarLiberadaCotaGeralOPAction(
+  categoriaId: string,
+  liberada: boolean,
+) {
+  await exigirAdmin();
+  await prisma.categoria.update({
+    where: { id: categoriaId },
+    data: { liberadaCotaGeralParaOP: liberada },
+  });
+  revalidatePath("/admin/categorias");
+}
+
+export async function salvarLiberadoCotaGeralOPAction(
+  itemId: string,
+  liberado: boolean,
+) {
+  await exigirAdmin();
+  await prisma.itemCatalogo.update({
+    where: { id: itemId },
+    data: { liberadoCotaGeralParaOP: liberado },
+  });
+  revalidatePath("/admin/catalogo");
 }
 
 // ---------------------------------------------------------------------------
@@ -372,7 +496,12 @@ export async function criarOuAtualizarPcaAction(formData: FormData) {
 
   await prisma.pca.upsert({
     where: { ano },
-    update: { cotaGeral, cotaOP, dataAbertura: new Date(dataAbertura), dataFechamento: new Date(dataFechamento) },
+    update: {
+      cotaGeral,
+      cotaOP,
+      dataAbertura: new Date(dataAbertura),
+      dataFechamento: new Date(dataFechamento),
+    },
     create: {
       ano,
       cotaGeral,
@@ -407,7 +536,10 @@ export async function desativarPcaAction(ano: number) {
 
 export async function toggleAberturaExtraAction(ano: number, ligado: boolean) {
   await exigirAdmin();
-  await prisma.pca.update({ where: { ano }, data: { aberturaExtraGeral: ligado } });
+  await prisma.pca.update({
+    where: { ano },
+    data: { aberturaExtraGeral: ligado },
+  });
   revalidatePath("/admin/pca");
 }
 
@@ -415,13 +547,19 @@ export async function toggleConcluidoAction(ano: number, concluido: boolean) {
   await exigirAdmin();
 
   if (concluido) {
-    const consolidacoes = await prisma.consolidacaoTecnica.findMany({ where: { pcaAno: ano } });
+    const consolidacoes = await prisma.consolidacaoTecnica.findMany({
+      where: { pcaAno: ano },
+    });
     if (consolidacoes.length === 0) {
-      throw new Error("Nenhuma categoria consolidada neste PCA ainda — não é possível concluir.");
+      throw new Error(
+        "Nenhuma categoria consolidada neste PCA ainda — não é possível concluir.",
+      );
     }
     const pendentes = consolidacoes.filter((c) => !c.codigoPca);
     if (pendentes.length > 0) {
-      throw new Error(`Faltam ${pendentes.length} código(s) PCA (PNCP) para poder concluir.`);
+      throw new Error(
+        `Faltam ${pendentes.length} código(s) PCA (PNCP) para poder concluir.`,
+      );
     }
   }
 
@@ -468,7 +606,10 @@ function lerTipoBemPadrao(
   semItem: boolean,
 ): { erro: string } | { tipoBemPadrao: "CONSUMO" | "PERMANENTE" | null } {
   if (tipo !== "MATERIAL" || !semItem) return { tipoBemPadrao: null };
-  const tipoBemPadrao = String(formData.get("tipoBemPadrao") ?? "") as "CONSUMO" | "PERMANENTE" | "";
+  const tipoBemPadrao = String(formData.get("tipoBemPadrao") ?? "") as
+    | "CONSUMO"
+    | "PERMANENTE"
+    | "";
   if (!tipoBemPadrao) {
     return {
       erro: "Categorias de material sem catálogo precisam indicar se são bem permanente ou de consumo.",
@@ -477,16 +618,19 @@ function lerTipoBemPadrao(
   return { tipoBemPadrao };
 }
 
-export async function criarCategoriaAction(formData: FormData): Promise<ResultadoAcao> {
+export async function criarCategoriaAction(
+  formData: FormData,
+): Promise<ResultadoAcao> {
   await exigirAdmin();
   const nome = String(formData.get("nome") ?? "").trim();
-  const tipo = (String(formData.get("tipo") ?? "") || "MATERIAL") as "MATERIAL" | "SERVICO";
+  const tipo = (String(formData.get("tipo") ?? "") || "MATERIAL") as
+    | "MATERIAL"
+    | "SERVICO";
   const semItem = formData.get("semItem") === "on";
-  const modoServico = (String(formData.get("modoServico") ?? "") || "OBJETO") as
-    | "OBJETO"
-    | "VALOR"
-    | "ITENS";
-  const classificacaoRubrica = String(formData.get("classificacaoRubrica") ?? "").trim() || null;
+  const modoServico = (String(formData.get("modoServico") ?? "") ||
+    "OBJETO") as "OBJETO" | "VALOR" | "ITENS";
+  const classificacaoRubrica =
+    String(formData.get("classificacaoRubrica") ?? "").trim() || null;
 
   if (!nome) return { erro: "Informe o nome da categoria." };
   const resultadoTipoBem = lerTipoBemPadrao(formData, tipo, semItem);
@@ -497,12 +641,19 @@ export async function criarCategoriaAction(formData: FormData): Promise<Resultad
   // quando a categoria tem valor livre (material sem catálogo, ou serviço em
   // modo diferente de "objeto") — igual ao sistema original, que nem exibe
   // esses campos fora desse caso e sempre grava os valores-padrão abaixo.
-  const precisaExtras = semItem || (tipo === "SERVICO" && modoServico !== "OBJETO");
+  const precisaExtras =
+    semItem || (tipo === "SERVICO" && modoServico !== "OBJETO");
   const fluxoContinuo = precisaExtras && formData.get("fluxoContinuo") === "on";
-  const dependeContrato = precisaExtras ? formData.get("dependeContrato") === "on" : true;
+  const dependeContrato = precisaExtras
+    ? formData.get("dependeContrato") === "on"
+    : true;
   const ignoraPCA = precisaExtras && formData.get("ignoraPCA") === "on";
-  const saldoAnualGlobalRaw = precisaExtras ? String(formData.get("saldoAnualGlobal") ?? "").trim() : "";
-  const saldoAnualGlobal = saldoAnualGlobalRaw ? Number(saldoAnualGlobalRaw) : null;
+  const saldoAnualGlobalRaw = precisaExtras
+    ? String(formData.get("saldoAnualGlobal") ?? "").trim()
+    : "";
+  const saldoAnualGlobal = saldoAnualGlobalRaw
+    ? Number(saldoAnualGlobalRaw)
+    : null;
 
   try {
     await prisma.categoria.create({
@@ -520,7 +671,10 @@ export async function criarCategoriaAction(formData: FormData): Promise<Resultad
       },
     });
   } catch (erro) {
-    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+    if (
+      erro instanceof Prisma.PrismaClientKnownRequestError &&
+      erro.code === "P2002"
+    ) {
       return { erro: "Já existe uma categoria cadastrada com este nome." };
     }
     throw erro;
@@ -537,36 +691,51 @@ export async function criarCategoriaAction(formData: FormData): Promise<Resultad
  * daqui pra frente: DFDs e itens de catálogo já lançados guardam seus
  * próprios valores (nome, valor, tipoBem) e não são recalculados.
  */
-export async function atualizarCategoriaAction(categoriaId: string, formData: FormData): Promise<ResultadoAcao> {
+export async function atualizarCategoriaAction(
+  categoriaId: string,
+  formData: FormData,
+): Promise<ResultadoAcao> {
   await exigirAdmin();
-  const categoriaExistente = await prisma.categoria.findUniqueOrThrow({ where: { id: categoriaId } });
+  const categoriaExistente = await prisma.categoria.findUniqueOrThrow({
+    where: { id: categoriaId },
+  });
 
-  const tipo = (String(formData.get("tipo") ?? "") || "MATERIAL") as "MATERIAL" | "SERVICO";
+  const tipo = (String(formData.get("tipo") ?? "") || "MATERIAL") as
+    | "MATERIAL"
+    | "SERVICO";
   const semItem = formData.get("semItem") === "on";
-  const modoServico = (String(formData.get("modoServico") ?? "") || "OBJETO") as
-    | "OBJETO"
-    | "VALOR"
-    | "ITENS";
-  const classificacaoRubrica = String(formData.get("classificacaoRubrica") ?? "").trim() || null;
+  const modoServico = (String(formData.get("modoServico") ?? "") ||
+    "OBJETO") as "OBJETO" | "VALOR" | "ITENS";
+  const classificacaoRubrica =
+    String(formData.get("classificacaoRubrica") ?? "").trim() || null;
   const resultadoTipoBem = lerTipoBemPadrao(formData, tipo, semItem);
   if ("erro" in resultadoTipoBem) return { erro: resultadoTipoBem.erro };
   const { tipoBemPadrao } = resultadoTipoBem;
 
   if (semItem && !categoriaExistente.semItem) {
-    const temCatalogo = await prisma.itemCatalogo.count({ where: { categoriaId } });
+    const temCatalogo = await prisma.itemCatalogo.count({
+      where: { categoriaId },
+    });
     if (temCatalogo > 0) {
       return {
-        erro: "Esta categoria tem itens de catálogo cadastrados; exclua-os antes de torná-la \"sem catálogo\".",
+        erro: 'Esta categoria tem itens de catálogo cadastrados; exclua-os antes de torná-la "sem catálogo".',
       };
     }
   }
 
-  const precisaExtras = semItem || (tipo === "SERVICO" && modoServico !== "OBJETO");
+  const precisaExtras =
+    semItem || (tipo === "SERVICO" && modoServico !== "OBJETO");
   const fluxoContinuo = precisaExtras && formData.get("fluxoContinuo") === "on";
-  const dependeContrato = precisaExtras ? formData.get("dependeContrato") === "on" : true;
+  const dependeContrato = precisaExtras
+    ? formData.get("dependeContrato") === "on"
+    : true;
   const ignoraPCA = precisaExtras && formData.get("ignoraPCA") === "on";
-  const saldoAnualGlobalRaw = precisaExtras ? String(formData.get("saldoAnualGlobal") ?? "").trim() : "";
-  const saldoAnualGlobal = saldoAnualGlobalRaw ? Number(saldoAnualGlobalRaw) : null;
+  const saldoAnualGlobalRaw = precisaExtras
+    ? String(formData.get("saldoAnualGlobal") ?? "").trim()
+    : "";
+  const saldoAnualGlobal = saldoAnualGlobalRaw
+    ? Number(saldoAnualGlobalRaw)
+    : null;
 
   await prisma.categoria.update({
     where: { id: categoriaId },
@@ -596,29 +765,52 @@ export async function atualizarCategoriaAction(categoriaId: string, formData: Fo
  * relacional (aqui tudo referencia o id da categoria, não o nome, então
  * o "recadastro em cascata" do legado não é necessário).
  */
-export async function renomearOuMesclarCategoriaAction(categoriaId: string, formData: FormData): Promise<ResultadoAcao> {
+export async function renomearOuMesclarCategoriaAction(
+  categoriaId: string,
+  formData: FormData,
+): Promise<ResultadoAcao> {
   await exigirAdmin();
   const novoNome = String(formData.get("novoNome") ?? "").trim();
   if (!novoNome) return { erro: "Informe o novo nome da categoria." };
 
-  const existente = await prisma.categoria.findUnique({ where: { nome: novoNome } });
+  const existente = await prisma.categoria.findUnique({
+    where: { nome: novoNome },
+  });
 
   if (!existente || existente.id === categoriaId) {
-    await prisma.categoria.update({ where: { id: categoriaId }, data: { nome: novoNome } });
+    await prisma.categoria.update({
+      where: { id: categoriaId },
+      data: { nome: novoNome },
+    });
     revalidatePath("/admin/categorias");
     return {};
   }
 
   try {
     await prisma.$transaction([
-      prisma.itemCatalogo.updateMany({ where: { categoriaId }, data: { categoriaId: existente.id } }),
-      prisma.itemDfd.updateMany({ where: { categoriaId }, data: { categoriaId: existente.id } }),
-      prisma.itemTecnico.updateMany({ where: { categoriaId }, data: { categoriaId: existente.id } }),
-      prisma.consolidacaoTecnica.updateMany({ where: { categoriaId }, data: { categoriaId: existente.id } }),
+      prisma.itemCatalogo.updateMany({
+        where: { categoriaId },
+        data: { categoriaId: existente.id },
+      }),
+      prisma.itemDfd.updateMany({
+        where: { categoriaId },
+        data: { categoriaId: existente.id },
+      }),
+      prisma.itemTecnico.updateMany({
+        where: { categoriaId },
+        data: { categoriaId: existente.id },
+      }),
+      prisma.consolidacaoTecnica.updateMany({
+        where: { categoriaId },
+        data: { categoriaId: existente.id },
+      }),
       prisma.categoria.delete({ where: { id: categoriaId } }),
     ]);
   } catch (erro) {
-    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+    if (
+      erro instanceof Prisma.PrismaClientKnownRequestError &&
+      erro.code === "P2002"
+    ) {
       return {
         erro:
           "Não é possível mesclar: há um item de catálogo com o mesmo nome nas duas categorias. " +
@@ -631,49 +823,72 @@ export async function renomearOuMesclarCategoriaAction(categoriaId: string, form
   return {};
 }
 
-export async function definirRestricaoCategoriaAction(categoriaId: string, formData: FormData): Promise<ResultadoAcao> {
+export async function definirRestricaoCategoriaAction(
+  categoriaId: string,
+  formData: FormData,
+): Promise<ResultadoAcao> {
   await exigirAdmin();
-  const modo = (String(formData.get("modo") ?? "") || "TODAS") as "TODAS" | "SOMENTE" | "EXCETO";
+  const modo = (String(formData.get("modo") ?? "") || "TODAS") as
+    | "TODAS"
+    | "SOMENTE"
+    | "EXCETO";
   const unidadeIds = formData.getAll("unidadeId").map(String);
   await prisma.categoria.update({
     where: { id: categoriaId },
     data: {
       restricaoModo: modo,
-      unidadesRestritas: { set: modo === "TODAS" ? [] : unidadeIds.map((id) => ({ id })) },
+      unidadesRestritas: {
+        set: modo === "TODAS" ? [] : unidadeIds.map((id) => ({ id })),
+      },
     },
   });
   revalidatePath("/admin/categorias");
   return {};
 }
 
-export async function definirRestricaoItemCatalogoAction(itemId: string, formData: FormData): Promise<ResultadoAcao> {
+export async function definirRestricaoItemCatalogoAction(
+  itemId: string,
+  formData: FormData,
+): Promise<ResultadoAcao> {
   await exigirAdmin();
   const modoRaw = String(formData.get("modo") ?? "HERDA");
-  const modo = modoRaw === "HERDA" ? null : (modoRaw as "TODAS" | "SOMENTE" | "EXCETO");
+  const modo =
+    modoRaw === "HERDA" ? null : (modoRaw as "TODAS" | "SOMENTE" | "EXCETO");
   const unidadeIds = formData.getAll("unidadeId").map(String);
   await prisma.itemCatalogo.update({
     where: { id: itemId },
     data: {
       restricaoModo: modo,
-      unidadesRestritas: { set: modo === "SOMENTE" || modo === "EXCETO" ? unidadeIds.map((id) => ({ id })) : [] },
+      unidadesRestritas: {
+        set:
+          modo === "SOMENTE" || modo === "EXCETO"
+            ? unidadeIds.map((id) => ({ id }))
+            : [],
+      },
     },
   });
   revalidatePath("/admin/catalogo");
   return {};
 }
 
-export async function excluirCategoriaAction(categoriaId: string): Promise<ResultadoAcao> {
+export async function excluirCategoriaAction(
+  categoriaId: string,
+): Promise<ResultadoAcao> {
   await exigirAdmin();
   const emUso = await prisma.itemDfd.count({ where: { categoriaId } });
   if (emUso > 0) {
-    return { erro: "Esta categoria está em uso em algum DFD e não pode ser excluída." };
+    return {
+      erro: "Esta categoria está em uso em algum DFD e não pode ser excluída.",
+    };
   }
   await prisma.categoria.delete({ where: { id: categoriaId } });
   revalidatePath("/admin/categorias");
   return {};
 }
 
-export async function criarItemCatalogoAction(formData: FormData): Promise<ResultadoAcao> {
+export async function criarItemCatalogoAction(
+  formData: FormData,
+): Promise<ResultadoAcao> {
   await exigirAdmin();
   const categoriaId = String(formData.get("categoriaId") ?? "");
   const item = String(formData.get("item") ?? "").trim();
@@ -683,13 +898,20 @@ export async function criarItemCatalogoAction(formData: FormData): Promise<Resul
     | "PERMANENTE";
 
   if (!categoriaId || !item || !(valor > 0)) {
-    return { erro: "Preencha categoria, nome do item e um valor maior que zero." };
+    return {
+      erro: "Preencha categoria, nome do item e um valor maior que zero.",
+    };
   }
 
   try {
-    await prisma.itemCatalogo.create({ data: { categoriaId, item, valor, tipoBem } });
+    await prisma.itemCatalogo.create({
+      data: { categoriaId, item, valor, tipoBem },
+    });
   } catch (erro) {
-    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+    if (
+      erro instanceof Prisma.PrismaClientKnownRequestError &&
+      erro.code === "P2002"
+    ) {
       return { erro: "Já existe um item com este nome nesta categoria." };
     }
     throw erro;
@@ -701,7 +923,10 @@ export async function criarItemCatalogoAction(formData: FormData): Promise<Resul
 /** Só vale daqui pra frente: ItemDfd guarda seu próprio nome/valor/tipoBem
  * já no momento em que o demandante escolhe o item, então editar o catálogo
  * depois não altera nada já lançado. */
-export async function atualizarItemCatalogoAction(itemId: string, formData: FormData): Promise<ResultadoAcao> {
+export async function atualizarItemCatalogoAction(
+  itemId: string,
+  formData: FormData,
+): Promise<ResultadoAcao> {
   await exigirAdmin();
   const categoriaId = String(formData.get("categoriaId") ?? "");
   const item = String(formData.get("item") ?? "").trim();
@@ -711,7 +936,9 @@ export async function atualizarItemCatalogoAction(itemId: string, formData: Form
     | "PERMANENTE";
 
   if (!categoriaId || !item || !(valor > 0)) {
-    return { erro: "Preencha categoria, nome do item e um valor maior que zero." };
+    return {
+      erro: "Preencha categoria, nome do item e um valor maior que zero.",
+    };
   }
 
   try {
@@ -720,7 +947,10 @@ export async function atualizarItemCatalogoAction(itemId: string, formData: Form
       data: { categoriaId, item, valor, tipoBem },
     });
   } catch (erro) {
-    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+    if (
+      erro instanceof Prisma.PrismaClientKnownRequestError &&
+      erro.code === "P2002"
+    ) {
       return { erro: "Já existe um item com este nome nesta categoria." };
     }
     throw erro;
@@ -729,7 +959,9 @@ export async function atualizarItemCatalogoAction(itemId: string, formData: Form
   return {};
 }
 
-export async function excluirItemCatalogoAction(itemId: string): Promise<ResultadoAcao> {
+export async function excluirItemCatalogoAction(
+  itemId: string,
+): Promise<ResultadoAcao> {
   await exigirAdmin();
   await prisma.itemCatalogo.delete({ where: { id: itemId } });
   revalidatePath("/admin/catalogo");
@@ -785,13 +1017,21 @@ export async function aprovarDfdAction(dfdId: string): Promise<ResultadoAcao> {
   }
   await prisma.dfd.update({
     where: { id: dfdId },
-    data: { status: "APROVADO", aprovadoEm: new Date(), reprovadoEm: null, motivoReprovacao: null },
+    data: {
+      status: "APROVADO",
+      aprovadoEm: new Date(),
+      reprovadoEm: null,
+      motivoReprovacao: null,
+    },
   });
   revalidatePath("/");
   return {};
 }
 
-export async function reprovarDfdAction(dfdId: string, formData: FormData): Promise<ResultadoAcao> {
+export async function reprovarDfdAction(
+  dfdId: string,
+  formData: FormData,
+): Promise<ResultadoAcao> {
   await exigirAdmin();
   const motivo = String(formData.get("motivo") ?? "").trim();
   if (!motivo) return { erro: "Informe o motivo da reprovação." };
@@ -801,24 +1041,37 @@ export async function reprovarDfdAction(dfdId: string, formData: FormData): Prom
   }
   await prisma.dfd.update({
     where: { id: dfdId },
-    data: { status: "REPROVADO", reprovadoEm: new Date(), motivoReprovacao: motivo },
+    data: {
+      status: "REPROVADO",
+      reprovadoEm: new Date(),
+      motivoReprovacao: motivo,
+    },
   });
   revalidatePath("/");
   return {};
 }
 
-export async function aprovarSelecionadosAction(dfdIds: string[]): Promise<ResultadoAcao> {
+export async function aprovarSelecionadosAction(
+  dfdIds: string[],
+): Promise<ResultadoAcao> {
   await exigirAdmin();
   if (dfdIds.length === 0) return { erro: "Selecione ao menos um DFD." };
   await prisma.dfd.updateMany({
     where: { id: { in: dfdIds }, status: "AGUARDANDO_APROVACAO" },
-    data: { status: "APROVADO", aprovadoEm: new Date(), reprovadoEm: null, motivoReprovacao: null },
+    data: {
+      status: "APROVADO",
+      aprovadoEm: new Date(),
+      reprovadoEm: null,
+      motivoReprovacao: null,
+    },
   });
   revalidatePath("/");
   return {};
 }
 
-export async function desfazerAprovacaoDfdAction(dfdId: string): Promise<ResultadoAcao> {
+export async function desfazerAprovacaoDfdAction(
+  dfdId: string,
+): Promise<ResultadoAcao> {
   await exigirAdmin();
   const dfd = await prisma.dfd.findUniqueOrThrow({ where: { id: dfdId } });
   if (dfd.status !== "APROVADO") {
@@ -840,7 +1093,10 @@ export async function criarAcessoExecucaoAction(formData: FormData) {
   await exigirAdmin();
   const nome = String(formData.get("nome") ?? "").trim();
   if (!nome) throw new Error("Informe o nome da unidade.");
-  const subperfil = String(formData.get("subperfil") ?? "") as "OBRAS" | "SERVICOS" | "MATERIAIS_PATRIMONIO";
+  const subperfil = String(formData.get("subperfil") ?? "") as
+    | "OBRAS"
+    | "SERVICOS"
+    | "MATERIAIS_PATRIMONIO";
   if (!["OBRAS", "SERVICOS", "MATERIAIS_PATRIMONIO"].includes(subperfil)) {
     throw new Error("Selecione o subperfil.");
   }
@@ -859,26 +1115,45 @@ export async function excluirAcessoExecucaoAction(id: string) {
   revalidatePath("/admin/execucao");
 }
 
-export async function redefinirSenhaAcessoExecucaoAction(id: string, formData: FormData) {
+export async function redefinirSenhaAcessoExecucaoAction(
+  id: string,
+  formData: FormData,
+) {
   await exigirAdmin();
-  const acesso = await prisma.acessoExecucao.findUniqueOrThrow({ where: { id } });
+  const acesso = await prisma.acessoExecucao.findUniqueOrThrow({
+    where: { id },
+  });
   if (acesso.vinculado) {
-    throw new Error("Este acesso é vinculado a uma unidade — redefina a senha da unidade demandante.");
+    throw new Error(
+      "Este acesso é vinculado a uma unidade — redefina a senha da unidade demandante.",
+    );
   }
   const novaSenha = String(formData.get("novaSenha") ?? "");
-  if (novaSenha.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+  if (novaSenha.length < 8)
+    throw new Error("A senha precisa ter pelo menos 8 caracteres.");
   const senhaHash = await gerarHashSenha(novaSenha);
-  await prisma.acessoExecucao.update({ where: { id }, data: { senhaHash, senhaTemporaria: true } });
+  await prisma.acessoExecucao.update({
+    where: { id },
+    data: { senhaHash, senhaTemporaria: true },
+  });
   revalidatePath("/admin/execucao");
 }
 
 /** Exceção de roteamento por categoria: null/"" remove a exceção e volta ao padrão calculado por nome. */
-export async function definirExcecaoExecucaoAction(categoriaId: string, subperfil: string) {
+export async function definirExcecaoExecucaoAction(
+  categoriaId: string,
+  subperfil: string,
+) {
   await exigirAdmin();
-  const valor = ["OBRAS", "SERVICOS", "MATERIAIS_PATRIMONIO"].includes(subperfil)
+  const valor = ["OBRAS", "SERVICOS", "MATERIAIS_PATRIMONIO"].includes(
+    subperfil,
+  )
     ? (subperfil as "OBRAS" | "SERVICOS" | "MATERIAIS_PATRIMONIO")
     : null;
-  await prisma.categoria.update({ where: { id: categoriaId }, data: { subperfilExecucaoOverride: valor } });
+  await prisma.categoria.update({
+    where: { id: categoriaId },
+    data: { subperfilExecucaoOverride: valor },
+  });
   revalidatePath("/admin/execucao");
 }
 
@@ -890,7 +1165,9 @@ export async function criarAcessoEntregaAction(formData: FormData) {
   await exigirAdmin();
   const nome = String(formData.get("nome") ?? "").trim();
   if (!nome) throw new Error("Informe o nome da unidade.");
-  const subperfil = String(formData.get("subperfil") ?? "") as "PATRIMONIO" | "ALMOXARIFADO";
+  const subperfil = String(formData.get("subperfil") ?? "") as
+    | "PATRIMONIO"
+    | "ALMOXARIFADO";
   if (!["PATRIMONIO", "ALMOXARIFADO"].includes(subperfil)) {
     throw new Error("Selecione o subperfil.");
   }
@@ -909,16 +1186,27 @@ export async function excluirAcessoEntregaAction(id: string) {
   revalidatePath("/admin/entrega");
 }
 
-export async function redefinirSenhaAcessoEntregaAction(id: string, formData: FormData) {
+export async function redefinirSenhaAcessoEntregaAction(
+  id: string,
+  formData: FormData,
+) {
   await exigirAdmin();
-  const acesso = await prisma.acessoEntrega.findUniqueOrThrow({ where: { id } });
+  const acesso = await prisma.acessoEntrega.findUniqueOrThrow({
+    where: { id },
+  });
   if (acesso.vinculado) {
-    throw new Error("Este acesso é vinculado a uma unidade — redefina a senha da unidade demandante.");
+    throw new Error(
+      "Este acesso é vinculado a uma unidade — redefina a senha da unidade demandante.",
+    );
   }
   const novaSenha = String(formData.get("novaSenha") ?? "");
-  if (novaSenha.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+  if (novaSenha.length < 8)
+    throw new Error("A senha precisa ter pelo menos 8 caracteres.");
   const senhaHash = await gerarHashSenha(novaSenha);
-  await prisma.acessoEntrega.update({ where: { id }, data: { senhaHash, senhaTemporaria: true } });
+  await prisma.acessoEntrega.update({
+    where: { id },
+    data: { senhaHash, senhaTemporaria: true },
+  });
   revalidatePath("/admin/entrega");
 }
 
@@ -949,16 +1237,27 @@ export async function excluirAcessoGestorAtaAction(id: string) {
   revalidatePath("/admin/gestor-ata");
 }
 
-export async function redefinirSenhaAcessoGestorAtaAction(id: string, formData: FormData) {
+export async function redefinirSenhaAcessoGestorAtaAction(
+  id: string,
+  formData: FormData,
+) {
   await exigirAdmin();
-  const acesso = await prisma.acessoGestorAta.findUniqueOrThrow({ where: { id } });
+  const acesso = await prisma.acessoGestorAta.findUniqueOrThrow({
+    where: { id },
+  });
   if (acesso.vinculado) {
-    throw new Error("Este acesso é vinculado a uma unidade — redefina a senha da unidade demandante.");
+    throw new Error(
+      "Este acesso é vinculado a uma unidade — redefina a senha da unidade demandante.",
+    );
   }
   const novaSenha = String(formData.get("novaSenha") ?? "");
-  if (novaSenha.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+  if (novaSenha.length < 8)
+    throw new Error("A senha precisa ter pelo menos 8 caracteres.");
   const senhaHash = await gerarHashSenha(novaSenha);
-  await prisma.acessoGestorAta.update({ where: { id }, data: { senhaHash, senhaTemporaria: true } });
+  await prisma.acessoGestorAta.update({
+    where: { id },
+    data: { senhaHash, senhaTemporaria: true },
+  });
   revalidatePath("/admin/gestor-ata");
 }
 
@@ -970,9 +1269,13 @@ export async function redefinirSenhaAcessoGestorAtaAction(id: string, formData: 
  */
 export async function autorizarExecucaoAtaAction(consolidacaoId: string) {
   await exigirAdmin();
-  const consolidacao = await prisma.consolidacaoTecnica.findUniqueOrThrow({ where: { id: consolidacaoId } });
+  const consolidacao = await prisma.consolidacaoTecnica.findUniqueOrThrow({
+    where: { id: consolidacaoId },
+  });
   if (!consolidacao.solicitacaoExecucaoAtaEm || consolidacao.ataAutorizadaEm) {
-    throw new Error("Não há solicitação de execução de ata pendente para este processo.");
+    throw new Error(
+      "Não há solicitação de execução de ata pendente para este processo.",
+    );
   }
 
   await prisma.$transaction([

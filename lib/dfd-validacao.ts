@@ -2,6 +2,7 @@
 
 export const DESCRICAO_SUMARIA_MAX = 100;
 export const JUSTIFICATIVA_MIN = 100;
+export const JUSTIFICATIVA_COTA_GERAL_MIN = 50;
 
 export function validarDescricaoSumaria(valor: string): string | null {
   if (!valor.trim()) return "Informe a descrição sumária da demanda.";
@@ -19,13 +20,25 @@ export function validarJustificativa(valor: string): string | null {
   return null;
 }
 
+/** Justificativa da solicitação de autorização de Cota Geral fora da liberação padrão. */
+export function validarJustificativaCotaGeral(valor: string): string | null {
+  const tamanho = valor.trim().length;
+  if (tamanho < JUSTIFICATIVA_COTA_GERAL_MIN) {
+    return `Justifique o pedido com no mínimo ${JUSTIFICATIVA_COTA_GERAL_MIN} caracteres (atualmente ${tamanho}).`;
+  }
+  return null;
+}
+
 /**
  * A data pretendida de entrega não pode ser de um ano diferente do PCA em
  * que o DFD foi lançado (ex.: um DFD do PCA 2026 pedindo entrega em 2025).
  * Compara pelo ano do texto "YYYY-MM-DD" do <input type="date">, sem passar
  * por `new Date()`, pra não sofrer deslocamento de fuso horário.
  */
-export function validarDataDentroDoAno(data: string, ano: number): string | null {
+export function validarDataDentroDoAno(
+  data: string,
+  ano: number,
+): string | null {
   const anoDaData = Number(data.slice(0, 4));
   if (!anoDaData || anoDaData !== ano) {
     return `A data pretendida de entrega precisa estar dentro do ano do PCA (${ano}).`;
