@@ -53,7 +53,16 @@ export async function logoutAction() {
 }
 
 export async function iniciarAtuarComoAction(
-  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES" | "EXECUCAO" | "ENTREGA" | "GESTOR_ATA",
+  tipo:
+    | "UNIDADE"
+    | "SETOR_TECNICO"
+    | "LICITACOES"
+    | "PESQUISA_PRECOS"
+    | "PLANEJAMENTO"
+    | "AGENTE_CONTRATACAO"
+    | "EXECUCAO"
+    | "ENTREGA"
+    | "GESTOR_ATA",
   id: string,
 ) {
   await iniciarAtuarComo(tipo, id);
@@ -113,6 +122,42 @@ export async function trocarSenhaAction(
       await prisma.unidade.update({ where: { id: lic.unidadeId! }, data: { senhaHash, senhaTemporaria: false } });
     } else {
       await prisma.licitacoes.update({ where: { id: sessao.id }, data: { senhaHash, senhaTemporaria: false } });
+    }
+  } else if (sessao.tipo === "PESQUISA_PRECOS") {
+    const pp = await prisma.pesquisaPrecos.findUniqueOrThrow({ where: { id: sessao.id } });
+    if (pp.vinculado) {
+      const lic = await prisma.licitacoes.findUniqueOrThrow({ where: { id: pp.licitacoesId! } });
+      if (lic.vinculado) {
+        await prisma.unidade.update({ where: { id: lic.unidadeId! }, data: { senhaHash, senhaTemporaria: false } });
+      } else {
+        await prisma.licitacoes.update({ where: { id: lic.id }, data: { senhaHash, senhaTemporaria: false } });
+      }
+    } else {
+      await prisma.pesquisaPrecos.update({ where: { id: sessao.id }, data: { senhaHash, senhaTemporaria: false } });
+    }
+  } else if (sessao.tipo === "PLANEJAMENTO") {
+    const pl = await prisma.planejamento.findUniqueOrThrow({ where: { id: sessao.id } });
+    if (pl.vinculado) {
+      const lic = await prisma.licitacoes.findUniqueOrThrow({ where: { id: pl.licitacoesId! } });
+      if (lic.vinculado) {
+        await prisma.unidade.update({ where: { id: lic.unidadeId! }, data: { senhaHash, senhaTemporaria: false } });
+      } else {
+        await prisma.licitacoes.update({ where: { id: lic.id }, data: { senhaHash, senhaTemporaria: false } });
+      }
+    } else {
+      await prisma.planejamento.update({ where: { id: sessao.id }, data: { senhaHash, senhaTemporaria: false } });
+    }
+  } else if (sessao.tipo === "AGENTE_CONTRATACAO") {
+    const ac = await prisma.agenteContratacao.findUniqueOrThrow({ where: { id: sessao.id } });
+    if (ac.vinculado) {
+      const lic = await prisma.licitacoes.findUniqueOrThrow({ where: { id: ac.licitacoesId! } });
+      if (lic.vinculado) {
+        await prisma.unidade.update({ where: { id: lic.unidadeId! }, data: { senhaHash, senhaTemporaria: false } });
+      } else {
+        await prisma.licitacoes.update({ where: { id: lic.id }, data: { senhaHash, senhaTemporaria: false } });
+      }
+    } else {
+      await prisma.agenteContratacao.update({ where: { id: sessao.id }, data: { senhaHash, senhaTemporaria: false } });
     }
   } else if (sessao.tipo === "EXECUCAO") {
     const exec = await prisma.acessoExecucao.findUniqueOrThrow({ where: { id: sessao.id } });

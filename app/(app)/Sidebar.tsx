@@ -19,6 +19,9 @@ import {
   ShieldCheck,
   Settings,
   UserCog,
+  Search,
+  ClipboardCheck,
+  Gavel,
 } from "lucide-react";
 import type { TipoSessao } from "@/lib/auth";
 
@@ -29,6 +32,9 @@ const ICONE_POR_HREF: Record<string, typeof LayoutDashboard> = {
   "/admin/unidades": Building2,
   "/admin/setores-tecnicos": Users,
   "/admin/licitacoes": Briefcase,
+  "/admin/pesquisa-precos": Search,
+  "/admin/planejamento": ClipboardCheck,
+  "/admin/agentes-contratacao": Gavel,
   "/admin/execucao": FileSpreadsheet,
   "/admin/entrega": PackageCheck,
   "/admin/gestor-ata": BookOpen,
