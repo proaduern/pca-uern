@@ -4,6 +4,7 @@ import {
   validarDescricaoSumaria,
   validarItemDfd,
   validarJustificativa,
+  validarJustificativaCotaGeral,
 } from "../dfd-validacao";
 
 describe("validarDescricaoSumaria", () => {
@@ -24,6 +25,15 @@ describe("validarJustificativa", () => {
   });
   it("aceita exatamente 100 caracteres", () => {
     expect(validarJustificativa("a".repeat(100))).toBeNull();
+  });
+});
+
+describe("validarJustificativaCotaGeral", () => {
+  it("rejeita menos de 50 caracteres", () => {
+    expect(validarJustificativaCotaGeral("a".repeat(49))).not.toBeNull();
+  });
+  it("aceita exatamente 50 caracteres", () => {
+    expect(validarJustificativaCotaGeral("a".repeat(50))).toBeNull();
   });
 });
 

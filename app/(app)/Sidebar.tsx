@@ -16,6 +16,7 @@ import {
   Tags,
   ClipboardList,
   Inbox,
+  ShieldCheck,
   Settings,
   UserCog,
 } from "lucide-react";
@@ -35,6 +36,7 @@ const ICONE_POR_HREF: Record<string, typeof LayoutDashboard> = {
   "/admin/categorias": Tags,
   "/admin/catalogo": ClipboardList,
   "/admin/solicitacoes": Inbox,
+  "/admin/solicitacoes-cota-geral": ShieldCheck,
   "/admin/parametros": Settings,
   "/dados-unidade": UserCog,
 };
@@ -56,7 +58,9 @@ export default function Sidebar({
         </div>
         {links.map((link) => {
           const Icone = ICONE_POR_HREF[link.href] ?? FileText;
-          const ativo = pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href));
+          const ativo =
+            pathname === link.href ||
+            (link.href !== "/" && pathname.startsWith(link.href));
           return (
             <Link
               key={link.href}
@@ -67,7 +71,9 @@ export default function Sidebar({
                   : "text-slate-300 hover:bg-slate-800/60 hover:text-white"
               }`}
             >
-              <Icone className={`h-4 w-4 ${ativo ? "text-white" : "text-slate-400"}`} />
+              <Icone
+                className={`h-4 w-4 ${ativo ? "text-white" : "text-slate-400"}`}
+              />
               <span>{link.label}</span>
             </Link>
           );
@@ -78,7 +84,9 @@ export default function Sidebar({
           <Building2 className="h-3.5 w-3.5 text-blue-400" />
           <span>PROAD / UERN</span>
         </div>
-        <p className="text-[10px] leading-snug text-slate-400">Plano de Contratações Anual</p>
+        <p className="text-[10px] leading-snug text-slate-400">
+          Plano de Contratações Anual
+        </p>
       </div>
     </aside>
   );
