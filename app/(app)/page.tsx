@@ -28,7 +28,7 @@ export default async function HomePage() {
     return <LicitacoesHomePage />;
   }
   if (sessao.tipo === "PESQUISA_PRECOS") {
-    return <PesquisaPrecosHomePage pesquisaPrecosId={sessao.id} />;
+    return <PesquisaPrecosHomePage />;
   }
   if (sessao.tipo === "PLANEJAMENTO") {
     return <PlanejamentoHomePage planejamentoId={sessao.id} />;
