@@ -794,6 +794,7 @@ model ConsolidacaoTecnica {
   analiseRiscos           AnaliseRiscos?
   pesquisaDePrecos        PesquisaDePrecos?
   termoReferencia         TermoReferencia?
+  minutaEdital            MinutaEdital?
 
   @@index([pcaAno, categoriaId])
 }
@@ -925,7 +926,7 @@ model PesquisaDePrecos {
 
   metodologia String // fontes consultadas, critério de composição do preço estimado, tratamento de valores inexequíveis/excessivos etc.
 
-  arquivoPdfNome String?
+  arquivoPdfNome  String?
   arquivoPdfTexto String?
 
   status               StatusDocumentoTecnico @default(RASCUNHO)
@@ -976,6 +977,40 @@ model TermoReferencia {
   exigenciasHabilitacao     String
   adequacaoOrcamentaria     String
   garantiaExecucao          String
+
+  status               StatusDocumentoTecnico @default(RASCUNHO)
+  responsavelNome      String?
+  responsavelMatricula String?
+  finalizadoEm         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Minuta de Edital (elaborada pelo Agente de Contratação) — um por
+// ConsolidacaoTecnica. Só pode ser iniciada com o Termo de Referência já
+// finalizado (ver lib/actions/minuta-edital.ts): as seções que já existem
+// no ETP e no TR (objeto, requisitos da contratação, critérios de
+// julgamento/seleção, exigências de habilitação, sanções previstas no
+// modelo de gestão) não são redigitadas aqui — o PDF da minuta as puxa
+// direto de lá. Só os campos realmente próprios da minuta de edital
+// (Lei 14.133/2021, modelo padrão AGU) ficam nesta tabela.
+// ---------------------------------------------------------------------------
+
+model MinutaEdital {
+  id                    String              @id @default(cuid())
+  consolidacaoTecnicaId String              @unique
+  consolidacaoTecnica   ConsolidacaoTecnica @relation(fields: [consolidacaoTecnicaId], references: [id], onDelete: Cascade)
+
+  condicoesParticipacao   String
+  credenciamento          String
+  apresentacaoProposta    String
+  julgamentoPropostas     String
+  documentosHabilitacao   String
+  recursosAdministrativos String
+  sancoesAdministrativas  String
+  disposicoesGerais       String
 
   status               StatusDocumentoTecnico @default(RASCUNHO)
   responsavelNome      String?
