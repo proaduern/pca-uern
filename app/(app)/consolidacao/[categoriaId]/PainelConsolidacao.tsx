@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { brl, formatarData } from "@/lib/formato";
 import {
@@ -38,7 +39,14 @@ interface ConsolidacaoHistorico {
   dataEsperadaConclusao: string;
   codigoPca: string | null;
   totalItens: number;
+  statusEtp: "RASCUNHO" | "FINALIZADO" | null;
+  statusRiscos: "RASCUNHO" | "FINALIZADO" | null;
 }
+
+const STATUS_DOCUMENTO_LABEL: Record<"RASCUNHO" | "FINALIZADO", string> = {
+  RASCUNHO: "Rascunho",
+  FINALIZADO: "Finalizado",
+};
 
 const PRIORIDADE_LABEL: Record<string, string> = { ALTA: "Alta", MEDIA: "Média", BAIXA: "Baixa" };
 const TIPO_CONTRATACAO_LABEL: Record<string, string> = {
@@ -388,7 +396,8 @@ export default function PainelConsolidacao({
                   <th className="py-1 pr-2 font-medium">Tipo</th>
                   <th className="py-1 pr-2 font-medium">Conclusão Esperada</th>
                   <th className="py-1 pr-2 font-medium">Código PCA</th>
-                  <th className="py-1 font-medium">Itens</th>
+                  <th className="py-1 pr-2 font-medium">Itens</th>
+                  <th className="py-1 font-medium">Documentos</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -401,7 +410,17 @@ export default function PainelConsolidacao({
                     <td className="py-1.5 pr-2 text-slate-600">{TIPO_CONTRATACAO_LABEL[c.tipoContratacao]}</td>
                     <td className="py-1.5 pr-2 text-slate-600">{formatarData(c.dataEsperadaConclusao)}</td>
                     <td className="py-1.5 pr-2 text-slate-600">{c.codigoPca ?? "—"}</td>
-                    <td className="py-1.5 text-slate-600">{c.totalItens}</td>
+                    <td className="py-1.5 pr-2 text-slate-600">{c.totalItens}</td>
+                    <td className="py-1.5 text-xs">
+                      <div className="flex flex-col gap-0.5">
+                        <Link href={`/consolidacao/${categoriaId}/etp/${c.id}`} className="text-slate-600 underline">
+                          ETP {c.statusEtp ? `(${STATUS_DOCUMENTO_LABEL[c.statusEtp]})` : "— elaborar"}
+                        </Link>
+                        <Link href={`/consolidacao/${categoriaId}/riscos/${c.id}`} className="text-slate-600 underline">
+                          Riscos {c.statusRiscos ? `(${STATUS_DOCUMENTO_LABEL[c.statusRiscos]})` : "— elaborar"}
+                        </Link>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
