@@ -131,14 +131,13 @@ export async function consolidarCategoriaAction(categoriaId: string, formData: F
   }
 
   const processoSEI = String(formData.get("processoSEI") ?? "").trim();
-  const idDocumentoETP = String(formData.get("idDocumentoETP") ?? "").trim();
   const dataETP = String(formData.get("dataETP") ?? "");
   const prioridade = String(formData.get("prioridade") ?? "") as "ALTA" | "MEDIA" | "BAIXA";
   const tipoContratacao = String(formData.get("tipoContratacao") ?? "") as "NORMAL" | "ATA";
   const dataEsperadaConclusao = String(formData.get("dataEsperadaConclusao") ?? "");
 
-  if (!processoSEI || !idDocumentoETP || !dataETP || !dataEsperadaConclusao) {
-    throw new Error("Preencha processo SEI, ID do documento ETP, data do ETP e data esperada de conclusão.");
+  if (!processoSEI || !dataETP || !dataEsperadaConclusao) {
+    throw new Error("Preencha processo SEI, data do ETP e data esperada de conclusão.");
   }
   if (!["ALTA", "MEDIA", "BAIXA"].includes(prioridade)) throw new Error("Selecione a prioridade.");
   if (!["NORMAL", "ATA"].includes(tipoContratacao)) throw new Error("Selecione o tipo de contratação.");
@@ -197,7 +196,6 @@ export async function consolidarCategoriaAction(categoriaId: string, formData: F
           where: { id: consolidacaoAberta.id },
           data: {
             processoSEI,
-            idDocumentoETP,
             dataETP: new Date(dataETP),
             prioridade,
             tipoContratacao,
@@ -210,7 +208,6 @@ export async function consolidarCategoriaAction(categoriaId: string, formData: F
             setorTecnicoId: sessao.id,
             pcaAno: pcaAtivo.ano,
             processoSEI,
-            idDocumentoETP,
             dataETP: new Date(dataETP),
             prioridade,
             tipoContratacao,

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/auth";
 import RiscosForm from "./RiscosForm";
-import IniciarDocumentoBotao from "../../IniciarDocumentoBotao";
+import IniciarDocumentoBotao from "../../../../IniciarDocumentoBotao";
 import { criarAnaliseRiscosAction } from "@/lib/actions/etp-riscos";
 
 export default async function RiscosPage({

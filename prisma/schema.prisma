@@ -129,6 +129,70 @@ model Licitacoes {
 
   statusLicitacao        StatusLicitacao[]
   consolidacoesRevisadas ConsolidacaoTecnica[]
+
+  pesquisasPrecosVinculadas    PesquisaPrecos[]
+  planejamentosVinculados      Planejamento[]
+  agentesContratacaoVinculados AgenteContratacao[]
+}
+
+// Login do subsetor de Pesquisa de Preços — vinculado à Diretoria de
+// Licitações e Contratos (mesmo esquema de vínculo do SetorTecnico, mas
+// ligado a Licitacoes em vez de Unidade). Representa um servidor
+// responsável, não um setor genérico, daí matrícula/função no próprio
+// registro de acesso.
+model PesquisaPrecos {
+  id              String      @id @default(cuid())
+  nome            String
+  matricula       String
+  funcao          String
+  vinculado       Boolean     @default(false)
+  licitacoesId    String?
+  licitacoes      Licitacoes? @relation(fields: [licitacoesId], references: [id])
+  email           String?     @unique
+  senhaHash       String?
+  senhaTemporaria Boolean     @default(true)
+  ativo           Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+// Login do subsetor de Planejamento (elabora o Termo de Referência) —
+// mesmo esquema de vínculo do PesquisaPrecos.
+model Planejamento {
+  id              String      @id @default(cuid())
+  nome            String
+  matricula       String
+  funcao          String
+  vinculado       Boolean     @default(false)
+  licitacoesId    String?
+  licitacoes      Licitacoes? @relation(fields: [licitacoesId], references: [id])
+  email           String?     @unique
+  senhaHash       String?
+  senhaTemporaria Boolean     @default(true)
+  ativo           Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+// Login do Agente de Contratação — elabora a Minuta de Edital e, mais
+// adiante, conduz o certame de processos a ele designados. Mesmo esquema de
+// vínculo do PesquisaPrecos/Planejamento.
+model AgenteContratacao {
+  id              String      @id @default(cuid())
+  nome            String
+  matricula       String
+  funcao          String
+  vinculado       Boolean     @default(false)
+  licitacoesId    String?
+  licitacoes      Licitacoes? @relation(fields: [licitacoesId], references: [id])
+  email           String?     @unique
+  senhaHash       String?
+  senhaTemporaria Boolean     @default(true)
+  ativo           Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  consolidacoesDesignadas ConsolidacaoTecnica[]
 }
 
 // Login da Unidade de Execução de Compras e Contratações. Mesmo esquema de
@@ -690,7 +754,6 @@ model ConsolidacaoTecnica {
   pca            Pca          @relation(fields: [pcaAno], references: [ano])
 
   processoSEI           String
-  idDocumentoETP        String
   dataETP               DateTime               @db.Date
   prioridade            PrioridadeConsolidacao
   tipoContratacao       TipoContratacao
@@ -728,8 +791,21 @@ model ConsolidacaoTecnica {
 
   processosExecucao ProcessoExecucao[]
 
+  // Referência real ao ETP elaborado no sistema pelo Setor Técnico — não
+  // existe mais um campo de texto livre com um "ID do documento" digitado à
+  // mão na consolidação (ver Fase E6).
   estudoTecnicoPreliminar EstudoTecnicoPreliminar?
   analiseRiscos           AnaliseRiscos?
+  pesquisaDePrecos        PesquisaDePrecos?
+  termoReferencia         TermoReferencia?
+  minutaEdital            MinutaEdital?
+
+  // Agente de Contratação designado por Licitações para conduzir o certame
+  // deste processo — enquanto designado, ele também pode registrar os
+  // resultados de homologação item a item (ver lib/actions/licitacoes.ts),
+  // além de elaborar a Minuta de Edital (que não depende desta designação).
+  agenteContratacaoDesignadoId String?
+  agenteContratacaoDesignado   AgenteContratacao? @relation(fields: [agenteContratacaoDesignadoId], references: [id])
 
   @@index([pcaAno, categoriaId])
 }
@@ -843,6 +919,121 @@ model RiscoItem {
   responsavel         String
 
   @@index([analiseRiscosId])
+}
+
+// ---------------------------------------------------------------------------
+// Pesquisa de Preços (elaborada pelo subsetor PesquisaPrecos, vinculado a
+// Licitações) — um por ConsolidacaoTecnica. O PDF enviado pelo servidor é
+// lido e o texto extraído fica guardado como referência/auditoria; os
+// valores pesquisados de cada item são digitados e confirmados pelo próprio
+// servidor (nunca preenchidos automaticamente), a lista de itens vem dos
+// mesmos itensDfd/itensTecnicos da ConsolidacaoTecnica (mesmo padrão do ETP).
+// ---------------------------------------------------------------------------
+
+model PesquisaDePrecos {
+  id                    String              @id @default(cuid())
+  consolidacaoTecnicaId String              @unique
+  consolidacaoTecnica   ConsolidacaoTecnica @relation(fields: [consolidacaoTecnicaId], references: [id], onDelete: Cascade)
+
+  metodologia String // fontes consultadas, critério de composição do preço estimado, tratamento de valores inexequíveis/excessivos etc.
+
+  arquivoPdfNome  String?
+  arquivoPdfTexto String?
+
+  status               StatusDocumentoTecnico @default(RASCUNHO)
+  responsavelNome      String?
+  responsavelMatricula String?
+  finalizadoEm         DateTime?
+
+  itens PesquisaPrecoItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PesquisaPrecoItem {
+  id                 String           @id @default(cuid())
+  pesquisaDePrecosId String
+  pesquisaDePrecos   PesquisaDePrecos @relation(fields: [pesquisaDePrecosId], references: [id], onDelete: Cascade)
+
+  ordem                   Int
+  item                    String
+  quantidade              Decimal  @db.Decimal(14, 2)
+  valorUnitarioPesquisado Decimal  @default(0) @db.Decimal(14, 2)
+  // Mediana das cotações levantadas (Painel de Preços/Banco de Preços etc.) —
+  // referência adicional de auditoria, separada do valor efetivamente
+  // confirmado pelo servidor em valorUnitarioPesquisado.
+  medianaPesquisada       Decimal? @db.Decimal(14, 2)
+  fontesConsultadas       String
+
+  @@index([pesquisaDePrecosId])
+}
+
+// ---------------------------------------------------------------------------
+// Termo de Referência (elaborado pelo subsetor Planejamento) — um por
+// ConsolidacaoTecnica. Só pode ser iniciado com o ETP e a Pesquisa de Preços
+// já finalizados (ver lib/actions/termo-referencia.ts): as seções que já
+// existem nesses dois documentos (objeto, necessidade da contratação,
+// descrição da solução, estimativa de valor) não são redigitadas aqui — o
+// PDF do TR as puxa direto de lá. Só os campos realmente próprios do TR
+// (Lei 14.133/2021 art. 6º XXIII, modelo padrão AGU) ficam nesta tabela.
+// ---------------------------------------------------------------------------
+
+model TermoReferencia {
+  id                    String              @id @default(cuid())
+  consolidacaoTecnicaId String              @unique
+  consolidacaoTecnica   ConsolidacaoTecnica @relation(fields: [consolidacaoTecnicaId], references: [id], onDelete: Cascade)
+
+  requisitosContratacao     String
+  modeloExecucaoObjeto      String
+  modeloGestaoContrato      String
+  criteriosMedicaoPagamento String
+  formaSelecaoFornecedor    String
+  exigenciasHabilitacao     String
+  adequacaoOrcamentaria     String
+  garantiaExecucao          String
+
+  status               StatusDocumentoTecnico @default(RASCUNHO)
+  responsavelNome      String?
+  responsavelMatricula String?
+  finalizadoEm         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Minuta de Edital (elaborada pelo Agente de Contratação) — um por
+// ConsolidacaoTecnica. Só pode ser iniciada com o Termo de Referência já
+// finalizado (ver lib/actions/minuta-edital.ts): as seções que já existem
+// no ETP e no TR (objeto, requisitos da contratação, critérios de
+// julgamento/seleção, exigências de habilitação, sanções previstas no
+// modelo de gestão) não são redigitadas aqui — o PDF da minuta as puxa
+// direto de lá. Só os campos realmente próprios da minuta de edital
+// (Lei 14.133/2021, modelo padrão AGU) ficam nesta tabela.
+// ---------------------------------------------------------------------------
+
+model MinutaEdital {
+  id                    String              @id @default(cuid())
+  consolidacaoTecnicaId String              @unique
+  consolidacaoTecnica   ConsolidacaoTecnica @relation(fields: [consolidacaoTecnicaId], references: [id], onDelete: Cascade)
+
+  condicoesParticipacao   String
+  credenciamento          String
+  apresentacaoProposta    String
+  julgamentoPropostas     String
+  documentosHabilitacao   String
+  recursosAdministrativos String
+  sancoesAdministrativas  String
+  disposicoesGerais       String
+
+  status               StatusDocumentoTecnico @default(RASCUNHO)
+  responsavelNome      String?
+  responsavelMatricula String?
+  finalizadoEm         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ---------------------------------------------------------------------------

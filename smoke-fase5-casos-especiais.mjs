@@ -214,7 +214,6 @@ await passo("Setor Técnico consolida o item de Ata (tipoContratacao ATA)", asyn
   await linhaAta.locator('input[type="checkbox"]').check();
 
   await page.fill('input[name="processoSEI"]', PROCESSO_SEI_ATA);
-  await page.fill('input[name="idDocumentoETP"]', "7777777");
   await page.fill('input[name="dataETP"]', `${ANO}-01-01`);
   await page.selectOption('select[name="prioridade"]', "ALTA");
   await page.selectOption('select[name="tipoContratacao"]', "ATA");
@@ -230,7 +229,6 @@ await passo("Setor Técnico consolida o item de Estoque sozinho (deixa o item de
   await linhaEstoque.locator('input[type="checkbox"]').check();
 
   await page.fill('input[name="processoSEI"]', `00000.${SUF}/2080-01`);
-  await page.fill('input[name="idDocumentoETP"]', "7777778");
   await page.fill('input[name="dataETP"]', `${ANO}-01-01`);
   await page.selectOption('select[name="prioridade"]', "MEDIA");
   await page.selectOption('select[name="tipoContratacao"]', "NORMAL");

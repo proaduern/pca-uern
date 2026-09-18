@@ -32,7 +32,6 @@ interface ItemCatalogoOpcao {
 interface ConsolidacaoHistorico {
   id: string;
   processoSEI: string;
-  idDocumentoETP: string;
   dataETP: string;
   prioridade: string;
   tipoContratacao: string;
@@ -310,14 +309,6 @@ export default function PainelConsolidacao({
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-700">ID do documento ETP (SEI)</label>
-                    <input
-                      name="idDocumentoETP"
-                      required
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
                     <label className="mb-1 block text-xs font-medium text-slate-700">Data de criação do ETP</label>
                     <input
                       name="dataETP"
@@ -390,7 +381,6 @@ export default function PainelConsolidacao({
               <thead className="text-left text-slate-500">
                 <tr>
                   <th className="py-1 pr-2 font-medium">Processo SEI</th>
-                  <th className="py-1 pr-2 font-medium">ETP</th>
                   <th className="py-1 pr-2 font-medium">Data ETP</th>
                   <th className="py-1 pr-2 font-medium">Prioridade</th>
                   <th className="py-1 pr-2 font-medium">Tipo</th>
@@ -404,7 +394,6 @@ export default function PainelConsolidacao({
                 {historico.map((c) => (
                   <tr key={c.id}>
                     <td className="py-1.5 pr-2 text-slate-900">{c.processoSEI}</td>
-                    <td className="py-1.5 pr-2 text-slate-600">{c.idDocumentoETP}</td>
                     <td className="py-1.5 pr-2 text-slate-600">{formatarData(c.dataETP)}</td>
                     <td className="py-1.5 pr-2 text-slate-600">{PRIORIDADE_LABEL[c.prioridade]}</td>
                     <td className="py-1.5 pr-2 text-slate-600">{TIPO_CONTRATACAO_LABEL[c.tipoContratacao]}</td>

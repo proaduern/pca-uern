@@ -125,7 +125,6 @@ await passo("selecionar os 2 itens pendentes e tentar consolidar com prazo inval
   for (let i = 0; i < total; i++) await checkboxes.nth(i).check();
 
   await page.fill('input[name="processoSEI"]', "00000.000000/2026-00");
-  await page.fill('input[name="idDocumentoETP"]', "1234567");
   await page.fill('input[name="dataETP"]', "2026-01-01");
   await page.selectOption('select[name="prioridade"]', "ALTA");
   await page.selectOption('select[name="tipoContratacao"]', "NORMAL");
