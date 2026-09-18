@@ -222,7 +222,6 @@ await passo("login Setor Técnico e consolidar categoria", async () => {
   for (let i = 0; i < total; i++) await checkboxes.nth(i).check();
 
   await page.fill('input[name="processoSEI"]', `00000.000000/${ANO}-00`);
-  await page.fill('input[name="idDocumentoETP"]', "1234567");
   await page.fill('input[name="dataETP"]', "2030-01-01");
   await page.selectOption('select[name="prioridade"]', "ALTA");
   await page.selectOption('select[name="tipoContratacao"]', "NORMAL");

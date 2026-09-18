@@ -89,7 +89,6 @@ export default async function ConsolidacaoCategoriaPage({
       historico={historico.map((c) => ({
         id: c.id,
         processoSEI: c.processoSEI,
-        idDocumentoETP: c.idDocumentoETP,
         dataETP: c.dataETP.toISOString(),
         prioridade: c.prioridade,
         tipoContratacao: c.tipoContratacao,

@@ -27,6 +27,7 @@ export default async function LicitacaoDetalhePage({
       categoria: true,
       setorTecnico: true,
       agenteContratacaoDesignado: true,
+      estudoTecnicoPreliminar: { select: { status: true } },
       statusLicitacao: { orderBy: { createdAt: "desc" } },
       itensDfd: { include: { dfd: { include: { unidade: true } }, categoria: true } },
       itensTecnicos: { include: { categoria: true } },
@@ -102,7 +103,7 @@ export default async function LicitacaoDetalhePage({
       agentesContratacao={agentesContratacao.map((a) => ({ id: a.id, nome: a.nome }))}
       categoriaNome={consolidacao.categoria.nome}
       processoSEI={consolidacao.processoSEI}
-      idDocumentoETP={consolidacao.idDocumentoETP}
+      statusEtp={consolidacao.estudoTecnicoPreliminar?.status ?? null}
       dataETP={consolidacao.dataETP.toISOString()}
       prioridade={consolidacao.prioridade}
       tipoContratacao={consolidacao.tipoContratacao}

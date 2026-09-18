@@ -754,7 +754,6 @@ model ConsolidacaoTecnica {
   pca            Pca          @relation(fields: [pcaAno], references: [ano])
 
   processoSEI           String
-  idDocumentoETP        String
   dataETP               DateTime               @db.Date
   prioridade            PrioridadeConsolidacao
   tipoContratacao       TipoContratacao
@@ -792,6 +791,9 @@ model ConsolidacaoTecnica {
 
   processosExecucao ProcessoExecucao[]
 
+  // Referência real ao ETP elaborado no sistema pelo Setor Técnico — não
+  // existe mais um campo de texto livre com um "ID do documento" digitado à
+  // mão na consolidação (ver Fase E6).
   estudoTecnicoPreliminar EstudoTecnicoPreliminar?
   analiseRiscos           AnaliseRiscos?
   pesquisaDePrecos        PesquisaDePrecos?
