@@ -34,7 +34,7 @@ export default async function HomePage() {
     return <PlanejamentoHomePage />;
   }
   if (sessao.tipo === "AGENTE_CONTRATACAO") {
-    return <AgenteContratacaoHomePage agenteContratacaoId={sessao.id} />;
+    return <AgenteContratacaoHomePage />;
   }
   if (sessao.tipo === "EXECUCAO") {
     return <ExecucaoHomePage acessoExecucaoId={sessao.id} />;
