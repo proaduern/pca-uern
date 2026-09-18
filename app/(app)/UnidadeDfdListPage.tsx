@@ -196,9 +196,15 @@ export default async function UnidadeDfdListPage({
 
       <div className="rounded-2xl border border-slate-100 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 p-4">
-          <h2 className="text-sm font-semibold text-slate-900">
-            Meus Documentos de Formalização de Demanda (DFD)
-          </h2>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">
+              Meus Documentos de Formalização de Demanda (DFD)
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Depois de aprovado, clique em &quot;Acompanhar&quot; para ver a fase atual de cada item —
+              planejamento, licitação, execução e entrega — e a linha do tempo completa do pedido.
+            </p>
+          </div>
           {pcaAtivo && <NovaDemandaBotao />}
         </div>
         <table className="w-full text-sm">
@@ -249,11 +255,13 @@ export default async function UnidadeDfdListPage({
                   <td className="px-4 py-2">
                     <Link
                       href={`/dfd/${d.id}`}
-                      className="text-xs text-slate-700 underline"
+                      className="text-xs font-medium text-slate-700 underline"
                     >
                       {d.status === "RASCUNHO" || d.status === "REPROVADO"
                         ? "Continuar"
-                        : "Ver"}
+                        : d.status === "APROVADO"
+                          ? "Acompanhar"
+                          : "Ver"}
                     </Link>
                   </td>
                 </tr>
