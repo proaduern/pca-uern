@@ -956,8 +956,12 @@ model PesquisaPrecoItem {
 
   ordem                   Int
   item                    String
-  quantidade              Decimal @db.Decimal(14, 2)
-  valorUnitarioPesquisado Decimal @default(0) @db.Decimal(14, 2)
+  quantidade              Decimal  @db.Decimal(14, 2)
+  valorUnitarioPesquisado Decimal  @default(0) @db.Decimal(14, 2)
+  // Mediana das cotações levantadas (Painel de Preços/Banco de Preços etc.) —
+  // referência adicional de auditoria, separada do valor efetivamente
+  // confirmado pelo servidor em valorUnitarioPesquisado.
+  medianaPesquisada       Decimal? @db.Decimal(14, 2)
   fontesConsultadas       String
 
   @@index([pesquisaDePrecosId])

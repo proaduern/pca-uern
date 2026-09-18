@@ -17,10 +17,11 @@ const s = StyleSheet.create({
   tabelaHeader: { flexDirection: "row", backgroundColor: "#f1f5f9", borderBottomWidth: 1, borderColor: "#cbd5e1" },
   tabelaLinha: { flexDirection: "row", borderBottomWidth: 1, borderColor: "#e2e8f0" },
   tabelaCelula: { padding: 4, fontSize: 9 },
-  colItem: { width: "46%" },
-  colQtd: { width: "14%", textAlign: "right" },
-  colValorUnit: { width: "20%", textAlign: "right" },
-  colValorTotal: { width: "20%", textAlign: "right" },
+  colItem: { width: "34%" },
+  colQtd: { width: "12%", textAlign: "right" },
+  colValorUnit: { width: "18%", textAlign: "right" },
+  colMediana: { width: "18%", textAlign: "right" },
+  colValorTotal: { width: "18%", textAlign: "right" },
   totalLinha: { flexDirection: "row", backgroundColor: "#f1f5f9", fontWeight: 700 },
 });
 
@@ -53,6 +54,7 @@ export function PesquisaPrecosDocumento({ pesquisa }: { pesquisa: PesquisaPrecos
             <Text style={[s.tabelaCelula, s.colItem]}>Item</Text>
             <Text style={[s.tabelaCelula, s.colQtd]}>Qtd.</Text>
             <Text style={[s.tabelaCelula, s.colValorUnit]}>Valor unit. pesquisado</Text>
+            <Text style={[s.tabelaCelula, s.colMediana]}>Mediana pesquisada</Text>
             <Text style={[s.tabelaCelula, s.colValorTotal]}>Valor total</Text>
           </View>
           {pesquisa.itens.map((it, i) => (
@@ -60,13 +62,17 @@ export function PesquisaPrecosDocumento({ pesquisa }: { pesquisa: PesquisaPrecos
               <Text style={[s.tabelaCelula, s.colItem]}>{it.item}</Text>
               <Text style={[s.tabelaCelula, s.colQtd]}>{it.quantidade}</Text>
               <Text style={[s.tabelaCelula, s.colValorUnit]}>{brl(it.valorUnitarioPesquisado)}</Text>
+              <Text style={[s.tabelaCelula, s.colMediana]}>
+                {it.medianaPesquisada === null ? "—" : brl(it.medianaPesquisada)}
+              </Text>
               <Text style={[s.tabelaCelula, s.colValorTotal]}>{brl(it.quantidade * it.valorUnitarioPesquisado)}</Text>
             </View>
           ))}
           <View style={s.totalLinha}>
             <Text style={[s.tabelaCelula, s.colItem]}></Text>
             <Text style={[s.tabelaCelula, s.colQtd]}></Text>
-            <Text style={[s.tabelaCelula, s.colValorUnit]}>Total estimado</Text>
+            <Text style={[s.tabelaCelula, s.colValorUnit]}></Text>
+            <Text style={[s.tabelaCelula, s.colMediana]}>Total estimado</Text>
             <Text style={[s.tabelaCelula, s.colValorTotal]}>{brl(total)}</Text>
           </View>
         </View>

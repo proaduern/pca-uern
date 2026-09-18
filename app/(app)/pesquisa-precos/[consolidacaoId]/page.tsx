@@ -52,6 +52,7 @@ export default async function PesquisaPrecosDetalhePage({
               item: it.item,
               quantidade: Number(it.quantidade),
               valorUnitarioPesquisado: Number(it.valorUnitarioPesquisado),
+              medianaPesquisada: it.medianaPesquisada === null ? null : Number(it.medianaPesquisada),
               fontesConsultadas: it.fontesConsultadas,
             })),
           }}

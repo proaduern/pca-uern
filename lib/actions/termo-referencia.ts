@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { exigirPlanejamento } from "@/lib/auth";
 import { validarTermoReferenciaParaFinalizar, type DadosTermoReferencia } from "@/lib/termo-referencia";
+import { avancarStatusLicitacaoSeNecessario } from "./avancar-status";
 import type { ResultadoAcao } from "./tipos";
 
 function parseTermoReferenciaFormData(formData: FormData): DadosTermoReferencia {
@@ -119,6 +120,9 @@ export async function finalizarTermoReferenciaAction(
     data: { ...dados, responsavelNome, responsavelMatricula, status: "FINALIZADO", finalizadoEm: new Date() },
   });
 
+  await avancarStatusLicitacaoSeNecessario(resultado.tr.consolidacaoTecnicaId, "TERMO_REFERENCIA", responsavelNome);
+
   revalidatePath(`/planejamento/${resultado.tr.consolidacaoTecnicaId}`);
+  revalidatePath(`/licitacoes/${resultado.tr.consolidacaoTecnicaId}`);
   return {};
 }

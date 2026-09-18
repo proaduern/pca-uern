@@ -14,6 +14,7 @@ import {
   type ItemHomologavel,
   type StatusLicitacaoValor,
 } from "@/lib/licitacao";
+import { avancarStatusLicitacaoSeNecessario } from "./avancar-status";
 
 async function obterConsolidacaoOuErro(consolidacaoId: string) {
   const consolidacao = await prisma.consolidacaoTecnica.findUnique({ where: { id: consolidacaoId } });
@@ -111,6 +112,19 @@ async function itensPendentesHomologacao(consolidacaoId: string): Promise<ItemHo
       }),
     ),
   ];
+}
+
+/** Ao lançar um resultado de homologação, se não sobrar nenhum item pendente
+ * e o status ainda estiver em HOMOLOGADO, avança automaticamente para
+ * ASSINATURA_CONTRATO — a designação do certame como homologado continua
+ * um ato deliberado de Licitações (registrarStatusLicitacaoAction), só o
+ * próximo passo depois de encerrado o lançamento item a item é automático. */
+async function avancarStatusAposHomologacaoCompleta(consolidacaoId: string): Promise<void> {
+  const statusAtual = await statusAtualDaConsolidacao(consolidacaoId);
+  if (statusAtual !== "HOMOLOGADO") return;
+  const pendentes = await itensPendentesHomologacao(consolidacaoId);
+  if (pendentes.length > 0) return;
+  await avancarStatusLicitacaoSeNecessario(consolidacaoId, "ASSINATURA_CONTRATO");
 }
 
 /** Aplica o mesmo resultado (fracassado/deserto/sucesso sem fracionar) a todos os itens de um grupo. */
@@ -307,6 +321,7 @@ export async function registrarHomologacaoGrupoAction(consolidacaoId: string, fo
 
   if (resultado === "fracassado" || resultado === "deserto") {
     await aplicarResultadoUniforme(grupo.itens, resultado === "fracassado" ? "FRACASSADO" : "DESERTO", null);
+    await avancarStatusAposHomologacaoCompleta(consolidacaoId);
     revalidatePath(`/licitacoes/${consolidacaoId}`);
     return;
   }
@@ -316,6 +331,7 @@ export async function registrarHomologacaoGrupoAction(consolidacaoId: string, fo
 
   if (resultado === "sucesso_total") {
     await aplicarResultadoUniforme(grupo.itens, "SUCESSO", valorUnitario);
+    await avancarStatusAposHomologacaoCompleta(consolidacaoId);
     revalidatePath(`/licitacoes/${consolidacaoId}`);
     return;
   }
@@ -333,6 +349,7 @@ export async function registrarHomologacaoGrupoAction(consolidacaoId: string, fo
 
   const alocacoes = planejarHomologacaoParcialAutomatica(grupo, quantidadeHomologada);
   await aplicarAlocacoesHomologacao(grupo, alocacoes, valorUnitario);
+  await avancarStatusAposHomologacaoCompleta(consolidacaoId);
   revalidatePath(`/licitacoes/${consolidacaoId}`);
 }
 
@@ -363,6 +380,7 @@ export async function confirmarHomologacaoManualAction(consolidacaoId: string, f
   }
 
   await aplicarAlocacoesHomologacao(grupo, alocacoes, valorUnitario);
+  await avancarStatusAposHomologacaoCompleta(consolidacaoId);
   revalidatePath(`/licitacoes/${consolidacaoId}`);
 }
 
@@ -389,6 +407,7 @@ export async function registrarHomologacaoGrupoServicoValorAction(consolidacaoId
         : prisma.itemTecnico.update({ where: { id: it.id }, data });
     }),
   );
+  await avancarStatusAposHomologacaoCompleta(consolidacaoId);
   revalidatePath(`/licitacoes/${consolidacaoId}`);
 }
 
@@ -415,5 +434,6 @@ export async function registrarHomologacaoServicoAction(consolidacaoId: string, 
   if (item.origem === "DFD") await prisma.itemDfd.update({ where: { id: itemId }, data });
   else await prisma.itemTecnico.update({ where: { id: itemId }, data });
 
+  await avancarStatusAposHomologacaoCompleta(consolidacaoId);
   revalidatePath(`/licitacoes/${consolidacaoId}`);
 }

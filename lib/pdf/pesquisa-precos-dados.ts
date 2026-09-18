@@ -2,6 +2,7 @@ export interface ItemPesquisaPrecoParaPdf {
   item: string;
   quantidade: number;
   valorUnitarioPesquisado: number;
+  medianaPesquisada: number | null;
 }
 
 export interface PesquisaPrecosParaPdf {

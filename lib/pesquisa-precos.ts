@@ -10,6 +10,7 @@ export interface DadosPesquisaPrecoItem {
   item: string;
   quantidade: number;
   valorUnitarioPesquisado: number;
+  medianaPesquisada: number | null;
   fontesConsultadas: string;
 }
 

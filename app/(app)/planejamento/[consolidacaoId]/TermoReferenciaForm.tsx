@@ -103,10 +103,39 @@ export default function TermoReferenciaForm({
             {etp.descricaoSolucaoCompleta}
           </p>
           <p>
-            <span className="font-medium">4. Da Estimativa de Valor da Contratação: </span>
-            Pesquisa de preços com {pesquisa.itens.length} item(ns), valor total estimado de{" "}
-            {brl(totalPesquisa)}. Metodologia: {pesquisa.metodologia}
+            <span className="font-medium">4. Da Estimativa de Valor da Contratação — </span>
+            Metodologia: {pesquisa.metodologia}
           </p>
+        </div>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-left text-slate-500">
+              <tr>
+                <th className="py-1 pr-2 font-medium">Item</th>
+                <th className="py-1 pr-2 font-medium">Qtd.</th>
+                <th className="py-1 pr-2 font-medium">Valor unit. pesquisado</th>
+                <th className="py-1 font-medium">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {pesquisa.itens.map((it, i) => (
+                <tr key={i}>
+                  <td className="py-1.5 pr-2 text-slate-900">{it.item}</td>
+                  <td className="py-1.5 pr-2 text-slate-600">{it.quantidade}</td>
+                  <td className="py-1.5 pr-2 text-slate-600">{brl(it.valorUnitarioPesquisado)}</td>
+                  <td className="py-1.5 text-slate-600">{brl(it.quantidade * it.valorUnitarioPesquisado)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-slate-200 font-semibold text-slate-900">
+                <td className="py-1.5 pr-2" colSpan={3}>
+                  Total estimado
+                </td>
+                <td className="py-1.5">{brl(totalPesquisa)}</td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
         <p className="mt-3 text-xs text-slate-500">
           Estas seções já foram elaboradas no ETP e na Pesquisa de Preços e não são editáveis aqui

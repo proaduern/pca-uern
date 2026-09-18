@@ -6,6 +6,7 @@ function itemCompleto(): DadosPesquisaPrecoItem {
     item: "Ar-condicionado Split 12000 BTUs",
     quantidade: 3,
     valorUnitarioPesquisado: 2500,
+    medianaPesquisada: 2400,
     fontesConsultadas: "Painel de Preços (id 123), cotação com fornecedor X",
   };
 }
