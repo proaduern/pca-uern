@@ -141,12 +141,15 @@ await passo("criar acesso de Licitações", async () => {
   await page.waitForSelector(`text=${LICITACOES_EMAIL}`);
 });
 
-/* ---------- Unidade lança DFD, PROAD aprova, Setor Técnico consolida ---------- */
+/* ---------- Unidade lança DFD, PROAD aprova ---------- */
+
+let dfdUrl = "";
 
 await passo("Unidade lança DFD com item da categoria e envia para aprovação", async () => {
   await loginPrimeiraVez(UNIDADE_EMAIL);
   await page.click('button:has-text("+ Nova Demanda (DFD)")');
   await page.waitForURL(/\/dfd\/.+/);
+  dfdUrl = page.url();
 
   await page.fill('input[name="descricaoSumaria"]', DESCRICAO_DFD);
   await page.selectOption('select[name="prioridadeId"]', { index: 1 });
@@ -172,11 +175,9 @@ await passo("Unidade lança DFD com item da categoria e envia para aprovação",
   await page.waitForURL(`${BASE}/`);
 });
 
-await passo("Unidade ainda não vê a seção de fase de licitação (item não consolidado)", async () => {
-  const corpo = await page.locator("body").innerText();
-  if (corpo.includes("Fase da Licitação dos Meus Itens Consolidados")) {
-    throw new Error("a seção não deveria aparecer antes da consolidação pelo Setor Técnico");
-  }
+await passo("aguardando aprovação, o link da home ainda é 'Ver' (não 'Acompanhar')", async () => {
+  const linha = page.locator("tr", { hasText: DESCRICAO_DFD });
+  await linha.locator('a:has-text("Ver")').waitFor();
 });
 
 await passo("PROAD aprova o DFD", async () => {
@@ -185,6 +186,16 @@ await passo("PROAD aprova o DFD", async () => {
   const linhaDfd = page.locator("tr", { hasText: DESCRICAO_DFD });
   await linhaDfd.locator('button:has-text("Aprovar")').click();
   await page.waitForTimeout(1000);
+});
+
+/* ---------- link reforçado + pipeline em /dfd/[id] ---------- */
+
+await passo("aprovado, o link da home vira 'Acompanhar' e leva ao pipeline do item", async () => {
+  await login(UNIDADE_EMAIL);
+  const linha = page.locator("tr", { hasText: DESCRICAO_DFD });
+  await linha.locator('a:has-text("Acompanhar")').click();
+  await page.waitForURL(dfdUrl);
+  await page.waitForSelector("text=Aguardando Consolidação pelo Setor Técnico");
 });
 
 await passo("Setor Técnico consolida o item pendente", async () => {
@@ -207,26 +218,15 @@ await passo("Setor Técnico consolida o item pendente", async () => {
   await page.waitForSelector("text=Categoria consolidada com sucesso.");
 });
 
-/* ---------- Unidade passa a ver a fase (ainda sem status) ---------- */
-
-let licitacaoUrl = "";
-
-await passo("Unidade vê o item consolidado como 'Aguardando início da licitação'", async () => {
+await passo("Unidade vê o item como 'Consolidado — Aguardando Início da Licitação'", async () => {
   await login(UNIDADE_EMAIL);
-  await page.waitForSelector("text=Fase da Licitação dos Meus Itens Consolidados");
-  const secao = page.locator("div.rounded-2xl", { hasText: "Fase da Licitação dos Meus Itens Consolidados" });
-  await secao.locator(`tr:has-text("${PROCESSO_SEI}")`).waitFor();
-  const linha = secao.locator("tr", { hasText: PROCESSO_SEI });
-  const textoLinha = await linha.innerText();
-  if (!textoLinha.includes("Aguardando início da licitação")) {
-    throw new Error(`esperava 'Aguardando início da licitação', veio: ${textoLinha}`);
-  }
-  if (!textoLinha.includes(CATALOGO_ITEM)) {
-    throw new Error("nome do item não aparece na linha");
-  }
+  await page.goto(dfdUrl);
+  await page.waitForSelector("text=Consolidado — Aguardando Início da Licitação");
 });
 
 /* ---------- Licitações avança o status manualmente até Homologado ---------- */
+
+let licitacaoUrl = "";
 
 async function registrarStatus(status, campos = {}) {
   await page.selectOption('select[name="status"]', status);
@@ -258,11 +258,16 @@ await passo("Licitações avança o status do processo", async () => {
   await page.waitForSelector("text=Registrar Resultados da Homologação");
 });
 
-await passo("Unidade vê a fase atual acompanhar o status registrado por Licitações", async () => {
+await passo("Unidade vê o badge acompanhar o status registrado por Licitações", async () => {
   await login(UNIDADE_EMAIL);
-  const secao = page.locator("div.rounded-2xl", { hasText: "Fase da Licitação dos Meus Itens Consolidados" });
-  const linha = secao.locator("tr", { hasText: PROCESSO_SEI });
-  await linha.locator("text=Certame Homologado").waitFor();
+  await page.goto(dfdUrl);
+  await page.waitForSelector("text=Em Licitação: Certame Homologado");
+});
+
+await passo("a linha do tempo do item mostra os eventos da consolidação e da licitação", async () => {
+  await page.click("text=Ver linha do tempo");
+  await page.waitForSelector("text=Consolidado pelo Setor Técnico");
+  await page.waitForSelector("text=Licitação: Certame Homologado");
 });
 
 /* ---------- Licitações registra o resultado e a Unidade vê o resultado final ---------- */
@@ -279,17 +284,10 @@ await passo("Licitações registra o resultado de homologação do item", async 
   await page.waitForSelector("text=Resultado registrado para o grupo.");
 });
 
-await passo("Unidade vê o resultado final da homologação com o valor adjudicado", async () => {
+await passo("Unidade vê o resultado final da homologação no badge de fase", async () => {
   await login(UNIDADE_EMAIL);
-  const secao = page.locator("div.rounded-2xl", { hasText: "Fase da Licitação dos Meus Itens Consolidados" });
-  const linha = secao.locator("tr", { hasText: PROCESSO_SEI });
-  const textoLinha = await linha.innerText();
-  if (!textoLinha.includes("Homologado com sucesso")) {
-    throw new Error(`esperava resultado 'Homologado com sucesso', veio: ${textoLinha}`);
-  }
-  if (!textoLinha.includes("R$")) {
-    throw new Error("valor adjudicado não aparece na linha");
-  }
+  await page.goto(dfdUrl);
+  await page.waitForSelector("text=Homologado com Êxito — Aguardando Abertura de Processo de Execução");
 });
 
 console.log("--- erros de página capturados ---");
