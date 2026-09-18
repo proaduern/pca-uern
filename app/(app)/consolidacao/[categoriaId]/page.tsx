@@ -39,7 +39,11 @@ export default async function ConsolidacaoCategoriaPage({
     pcaAtivo
       ? prisma.consolidacaoTecnica.findMany({
           where: { categoriaId, pcaAno: pcaAtivo.ano },
-          include: { _count: { select: { itensDfd: true, itensTecnicos: true } } },
+          include: {
+            _count: { select: { itensDfd: true, itensTecnicos: true } },
+            estudoTecnicoPreliminar: { select: { status: true } },
+            analiseRiscos: { select: { status: true } },
+          },
           orderBy: { createdAt: "desc" },
         })
       : Promise.resolve([]),
@@ -92,6 +96,8 @@ export default async function ConsolidacaoCategoriaPage({
         dataEsperadaConclusao: c.dataEsperadaConclusao.toISOString(),
         codigoPca: c.codigoPca,
         totalItens: c._count.itensDfd + c._count.itensTecnicos,
+        statusEtp: c.estudoTecnicoPreliminar?.status ?? null,
+        statusRiscos: c.analiseRiscos?.status ?? null,
       }))}
     />
   );

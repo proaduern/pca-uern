@@ -728,7 +728,121 @@ model ConsolidacaoTecnica {
 
   processosExecucao ProcessoExecucao[]
 
+  estudoTecnicoPreliminar EstudoTecnicoPreliminar?
+  analiseRiscos           AnaliseRiscos?
+
   @@index([pcaAno, categoriaId])
+}
+
+// ---------------------------------------------------------------------------
+// ETP e Análise de Riscos (elaborados pelo Setor Técnico, dentro do sistema)
+// ---------------------------------------------------------------------------
+
+enum StatusDocumentoTecnico {
+  RASCUNHO
+  FINALIZADO
+}
+
+// Estudo Técnico Preliminar (Lei 14.133/2021, art. 18 §1º) — um por
+// ConsolidacaoTecnica. Campos estruturados espelhando as seções do modelo
+// padrão UERN/AGU; a lista de itens objeto da licitação (anexo do ETP no
+// PDF) não é digitada aqui — vem direto dos itens já vinculados à própria
+// ConsolidacaoTecnica (itensDfd/itensTecnicos).
+model EstudoTecnicoPreliminar {
+  id                    String              @id @default(cuid())
+  consolidacaoTecnicaId String              @unique
+  consolidacaoTecnica   ConsolidacaoTecnica @relation(fields: [consolidacaoTecnicaId], references: [id], onDelete: Cascade)
+
+  objeto                String
+  localEntregaPrestacao String
+
+  // Seções do ETP (Lei 14.133/2021 art. 18 §1º) — uma por campo, para que o
+  // PDF e o TR (que puxa daqui) consigam referenciar cada seção isoladamente.
+  necessidadeContratacao           String
+  referenciaPca                    String
+  requisitosContratacao            String
+  estimativaQuantidadesMemoria     String
+  levantamentoMercadoJustificativa String
+  estimativaPreliminarPrecos       String
+  descricaoSolucaoCompleta         String
+  justificativaParcelamento        String
+  resultadosEsperados              String
+  providenciasAdministracao        String
+  contratacoesCorrelatas           String
+  impactosAmbientais               String
+  declaracaoViabilidade            String
+
+  status               StatusDocumentoTecnico @default(RASCUNHO)
+  responsavelNome      String?
+  responsavelMatricula String?
+  finalizadoEm         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum FaseRisco {
+  PLANEJAMENTO
+  SELECAO_FORNECEDOR
+  GESTAO_CONTRATO
+}
+
+enum ProbabilidadeRisco {
+  BAIXA
+  MEDIA
+  ALTA
+}
+
+enum ImpactoRisco {
+  BAIXO
+  MEDIO
+  ALTO
+}
+
+enum NivelAceitacaoRisco {
+  ACEITAVEL
+  ACEITACAO_INTERMEDIARIA
+  INACEITAVEL
+}
+
+// Mapa de Riscos da contratação — um por ConsolidacaoTecnica, com uma linha
+// por risco identificado (RiscoItem). Ao criar, o sistema pré-carrega os 16
+// riscos-padrão do modelo UERN (ver lib/riscos-padrao.ts), editáveis/
+// removíveis pelo Setor Técnico antes de finalizar.
+model AnaliseRiscos {
+  id                    String              @id @default(cuid())
+  consolidacaoTecnicaId String              @unique
+  consolidacaoTecnica   ConsolidacaoTecnica @relation(fields: [consolidacaoTecnicaId], references: [id], onDelete: Cascade)
+
+  status               StatusDocumentoTecnico @default(RASCUNHO)
+  responsavelNome      String?
+  responsavelMatricula String?
+  finalizadoEm         DateTime?
+
+  itens RiscoItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RiscoItem {
+  id              String        @id @default(cuid())
+  analiseRiscosId String
+  analiseRiscos   AnaliseRiscos @relation(fields: [analiseRiscosId], references: [id], onDelete: Cascade)
+
+  ordem Int
+
+  fase                FaseRisco
+  descricao           String
+  danos               String
+  probabilidade       ProbabilidadeRisco
+  impacto             ImpactoRisco
+  nivelAceitacao      NivelAceitacaoRisco
+  acoesPreventivas    String
+  acoesContingenciais String
+  responsavel         String
+
+  @@index([analiseRiscosId])
 }
 
 // ---------------------------------------------------------------------------
