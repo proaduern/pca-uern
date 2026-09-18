@@ -4,7 +4,14 @@ import { brl } from "@/lib/formato";
 import { calcularGastos, dfdComprometeOrcamento } from "@/lib/cota";
 import { computarPorCategoria } from "@/lib/relatorio-unidade";
 import { resolverPcaEmAtuacao } from "@/lib/pca-contexto";
+import { statusLicitacaoLabel } from "@/lib/licitacao";
 import NovaDemandaBotao from "./NovaDemandaBotao";
+
+const RESULTADO_HOMOLOGACAO_LABEL: Record<string, string> = {
+  SUCESSO: "Homologado com sucesso",
+  FRACASSADO: "Fracassado",
+  DESERTO: "Deserto",
+};
 
 const ENQUADRAMENTO_LABEL: Record<string, string> = {
   geral: "Geral",
@@ -48,7 +55,17 @@ export default async function UnidadeDfdListPage({
     resolverPcaEmAtuacao({ id: unidadeId, tipo: "UNIDADE" }),
     prisma.dfd.findMany({
       where: { unidadeId },
-      include: { itens: { include: { categoria: true } }, setorInterno: true },
+      include: {
+        itens: {
+          include: {
+            categoria: true,
+            consolidacaoTecnica: {
+              include: { statusLicitacao: { orderBy: { createdAt: "desc" }, take: 1 } },
+            },
+          },
+        },
+        setorInterno: true,
+      },
       orderBy: { createdAt: "desc" },
     }),
     prisma.solicitacaoCatalogo.findMany({
@@ -75,6 +92,24 @@ export default async function UnidadeDfdListPage({
     valorTotal: Number(it.valorTotal),
   }));
   const gastos = calcularGastos(itensComprometidos);
+
+  const itensEmLicitacao = dfds
+    .flatMap((d) => d.itens.map((it) => ({ ...it, dfdDescricao: d.descricaoSumaria })))
+    .filter((it) => it.consolidacaoTecnica)
+    .map((it) => {
+      const consolidacao = it.consolidacaoTecnica!;
+      const statusAtual = consolidacao.statusLicitacao[0]?.status ?? null;
+      return {
+        id: it.id,
+        nome: it.itemCatalogoNome ?? it.itemNomeLivre ?? "(sem nome)",
+        dfdDescricao: it.dfdDescricao,
+        processoSEI: consolidacao.processoSEI,
+        faseAtual: statusAtual ? statusLicitacaoLabel(statusAtual) : "Aguardando início da licitação",
+        resultadoHomologacao: it.resultadoHomologacao,
+        valorAdjudicado: it.valorAdjudicado != null ? Number(it.valorAdjudicado) : null,
+      };
+    });
+
   const porCategoria = computarPorCategoria(
     itensDosDfdsComprometidos.map((it) => ({
       categoriaNome: it.categoria.nome,
@@ -272,6 +307,50 @@ export default async function UnidadeDfdListPage({
           </tbody>
         </table>
       </div>
+
+      {itensEmLicitacao.length > 0 && (
+        <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <div className="border-b border-slate-100 p-4">
+            <h2 className="text-sm font-semibold text-slate-900">Fase da Licitação dos Meus Itens Consolidados</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Acompanhamento somente leitura — o andamento é conduzido pela Unidade de Licitações.
+            </p>
+          </div>
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-left text-slate-500">
+              <tr>
+                <th className="px-4 py-2 font-medium">Item</th>
+                <th className="px-4 py-2 font-medium">DFD de Origem</th>
+                <th className="px-4 py-2 font-medium">Processo SEI</th>
+                <th className="px-4 py-2 font-medium">Fase Atual</th>
+                <th className="px-4 py-2 font-medium">Resultado</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {itensEmLicitacao.map((it) => (
+                <tr key={it.id}>
+                  <td className="px-4 py-2 text-slate-900">{it.nome}</td>
+                  <td className="px-4 py-2 text-slate-600">{it.dfdDescricao || "(sem descrição)"}</td>
+                  <td className="px-4 py-2 text-slate-600">{it.processoSEI}</td>
+                  <td className="px-4 py-2">
+                    <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700">{it.faseAtual}</span>
+                  </td>
+                  <td className="px-4 py-2 text-slate-600">
+                    {it.resultadoHomologacao ? (
+                      <>
+                        {RESULTADO_HOMOLOGACAO_LABEL[it.resultadoHomologacao]}
+                        {it.valorAdjudicado != null && ` — ${brl(it.valorAdjudicado)}`}
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {solicitacoesCatalogo.length > 0 && (
         <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
