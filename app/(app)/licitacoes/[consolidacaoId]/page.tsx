@@ -18,19 +18,32 @@ export default async function LicitacaoDetalhePage({
 }) {
   const { consolidacaoId } = await params;
   const sessao = await obterSessao();
-  if (!sessao || sessao.tipo !== "LICITACOES") return null;
+  if (!sessao) return null;
+  if (sessao.tipo !== "LICITACOES" && sessao.tipo !== "ADMIN" && sessao.tipo !== "AGENTE_CONTRATACAO") return null;
 
   const consolidacao = await prisma.consolidacaoTecnica.findUnique({
     where: { id: consolidacaoId },
     include: {
       categoria: true,
       setorTecnico: true,
+      agenteContratacaoDesignado: true,
       statusLicitacao: { orderBy: { createdAt: "desc" } },
       itensDfd: { include: { dfd: { include: { unidade: true } }, categoria: true } },
       itensTecnicos: { include: { categoria: true } },
     },
   });
   if (!consolidacao) notFound();
+
+  const podeGerenciarStatus = sessao.tipo === "LICITACOES" || sessao.tipo === "ADMIN";
+  // Um Agente de Contratação só enxerga o processo para o qual foi designado
+  // por Licitações — para conduzir o certame e registrar a homologação.
+  if (sessao.tipo === "AGENTE_CONTRATACAO" && consolidacao.agenteContratacaoDesignadoId !== sessao.id) {
+    return null;
+  }
+
+  const agentesContratacao = podeGerenciarStatus
+    ? await prisma.agenteContratacao.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } })
+    : [];
 
   const todosItens: ItemHomologavel[] = [
     ...consolidacao.itensDfd.map(
@@ -80,6 +93,13 @@ export default async function LicitacaoDetalhePage({
   return (
     <PainelLicitacao
       consolidacaoId={consolidacaoId}
+      podeGerenciarStatus={podeGerenciarStatus}
+      agenteDesignado={
+        consolidacao.agenteContratacaoDesignado
+          ? { id: consolidacao.agenteContratacaoDesignado.id, nome: consolidacao.agenteContratacaoDesignado.nome }
+          : null
+      }
+      agentesContratacao={agentesContratacao.map((a) => ({ id: a.id, nome: a.nome }))}
       categoriaNome={consolidacao.categoria.nome}
       processoSEI={consolidacao.processoSEI}
       idDocumentoETP={consolidacao.idDocumentoETP}

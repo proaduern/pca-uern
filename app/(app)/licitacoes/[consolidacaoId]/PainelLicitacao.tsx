@@ -11,6 +11,7 @@ import {
 } from "@/lib/licitacao";
 import {
   confirmarHomologacaoManualAction,
+  designarAgenteContratacaoAction,
   registrarHomologacaoGrupoAction,
   registrarHomologacaoGrupoServicoValorAction,
   registrarHomologacaoServicoAction,
@@ -90,6 +91,9 @@ interface ServicoObjetoProp {
 
 export default function PainelLicitacao({
   consolidacaoId,
+  podeGerenciarStatus,
+  agenteDesignado,
+  agentesContratacao,
   categoriaNome,
   processoSEI,
   idDocumentoETP,
@@ -108,6 +112,9 @@ export default function PainelLicitacao({
   servicosObjeto,
 }: {
   consolidacaoId: string;
+  podeGerenciarStatus: boolean;
+  agenteDesignado: { id: string; nome: string } | null;
+  agentesContratacao: { id: string; nome: string }[];
   categoriaNome: string;
   processoSEI: string;
   idDocumentoETP: string;
@@ -181,6 +188,49 @@ export default function PainelLicitacao({
               Justificativa da revisão: {revisao.justificativa} ({formatarDataHora(revisao.revisadoEm)})
             </p>
           </>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
+        <h2 className="mb-2 text-sm font-semibold text-slate-900">Agente de Contratação Designado</h2>
+        <p className="mb-3 text-sm text-slate-700">
+          {agenteDesignado ? agenteDesignado.nome : "Nenhum agente designado ainda."}
+        </p>
+        {podeGerenciarStatus && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              executar(() => designarAgenteContratacaoAction(consolidacaoId, formData), "Agente de Contratação designado.");
+            }}
+            className="flex flex-wrap items-end gap-2"
+          >
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700">Designar agente</label>
+              <select
+                name="agenteContratacaoId"
+                required
+                defaultValue={agenteDesignado?.id ?? ""}
+                className="w-full min-w-[16rem] rounded-xl border border-slate-300 px-3 py-2 text-sm"
+              >
+                <option value="" disabled>
+                  Selecione um agente de contratação
+                </option>
+                {agentesContratacao.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="submit"
+              disabled={isPending}
+              className="rounded-xl border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100 disabled:opacity-60"
+            >
+              {agenteDesignado ? "Alterar Designação" : "Designar"}
+            </button>
+          </form>
         )}
       </div>
 
@@ -272,6 +322,7 @@ export default function PainelLicitacao({
         </div>
       )}
 
+      {podeGerenciarStatus && (
       <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
         <h2 className="mb-1 text-sm font-semibold text-slate-900">Revisar Prioridade / Data Esperada de Conclusão</h2>
         <p className="mb-3 text-xs text-slate-500">
@@ -329,27 +380,30 @@ export default function PainelLicitacao({
           </button>
         </form>
       </div>
+      )}
 
-      {statusAtual === "REMETIDO_GESTOR_ATA" ? (
-        <div className="rounded-md bg-slate-100 px-4 py-3 text-sm text-slate-700">
-          Processo remetido ao Gestor de Ata. A partir daqui, cabe à Unidade Gestora de Ata solicitar a
-          autorização de execução à PROAD — assim que autorizada, o processo avança automaticamente para
-          &quot;Encaminhado para Execução&quot;.
-        </div>
-      ) : proximos.length === 0 ? (
-        <div className="rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          Processo concluído — não há próxima etapa disponível.
-        </div>
-      ) : (
-        <ProximoStatusForm
-          // Remonta do zero sempre que o conjunto de opções muda (após cada
-          // avanço de status) — evita carregar seleção de uma lista antiga.
-          key={proximos.map((s) => s.value).join(",")}
-          consolidacaoId={consolidacaoId}
-          proximos={proximos}
-          isPending={isPending}
-          executar={executar}
-        />
+      {podeGerenciarStatus && (
+        statusAtual === "REMETIDO_GESTOR_ATA" ? (
+          <div className="rounded-md bg-slate-100 px-4 py-3 text-sm text-slate-700">
+            Processo remetido ao Gestor de Ata. A partir daqui, cabe à Unidade Gestora de Ata solicitar a
+            autorização de execução à PROAD — assim que autorizada, o processo avança automaticamente para
+            &quot;Encaminhado para Execução&quot;.
+          </div>
+        ) : proximos.length === 0 ? (
+          <div className="rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            Processo concluído — não há próxima etapa disponível.
+          </div>
+        ) : (
+          <ProximoStatusForm
+            // Remonta do zero sempre que o conjunto de opções muda (após cada
+            // avanço de status) — evita carregar seleção de uma lista antiga.
+            key={proximos.map((s) => s.value).join(",")}
+            consolidacaoId={consolidacaoId}
+            proximos={proximos}
+            isPending={isPending}
+            executar={executar}
+          />
+        )
       )}
 
       {historico.length > 0 && (
