@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/auth";
 import { brl } from "@/lib/formato";
 import EtpForm from "./EtpForm";
-import IniciarDocumentoBotao from "../../IniciarDocumentoBotao";
+import IniciarDocumentoBotao from "../../../../IniciarDocumentoBotao";
 import { criarEtpAction } from "@/lib/actions/etp-riscos";
 
 export default async function EtpPage({

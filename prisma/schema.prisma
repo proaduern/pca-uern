@@ -793,6 +793,7 @@ model ConsolidacaoTecnica {
   estudoTecnicoPreliminar EstudoTecnicoPreliminar?
   analiseRiscos           AnaliseRiscos?
   pesquisaDePrecos        PesquisaDePrecos?
+  termoReferencia         TermoReferencia?
 
   @@index([pcaAno, categoriaId])
 }
@@ -950,6 +951,39 @@ model PesquisaPrecoItem {
   fontesConsultadas       String
 
   @@index([pesquisaDePrecosId])
+}
+
+// ---------------------------------------------------------------------------
+// Termo de Referência (elaborado pelo subsetor Planejamento) — um por
+// ConsolidacaoTecnica. Só pode ser iniciado com o ETP e a Pesquisa de Preços
+// já finalizados (ver lib/actions/termo-referencia.ts): as seções que já
+// existem nesses dois documentos (objeto, necessidade da contratação,
+// descrição da solução, estimativa de valor) não são redigitadas aqui — o
+// PDF do TR as puxa direto de lá. Só os campos realmente próprios do TR
+// (Lei 14.133/2021 art. 6º XXIII, modelo padrão AGU) ficam nesta tabela.
+// ---------------------------------------------------------------------------
+
+model TermoReferencia {
+  id                    String              @id @default(cuid())
+  consolidacaoTecnicaId String              @unique
+  consolidacaoTecnica   ConsolidacaoTecnica @relation(fields: [consolidacaoTecnicaId], references: [id], onDelete: Cascade)
+
+  requisitosContratacao     String
+  modeloExecucaoObjeto      String
+  modeloGestaoContrato      String
+  criteriosMedicaoPagamento String
+  formaSelecaoFornecedor    String
+  exigenciasHabilitacao     String
+  adequacaoOrcamentaria     String
+  garantiaExecucao          String
+
+  status               StatusDocumentoTecnico @default(RASCUNHO)
+  responsavelNome      String?
+  responsavelMatricula String?
+  finalizadoEm         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ---------------------------------------------------------------------------
