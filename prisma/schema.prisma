@@ -129,6 +129,68 @@ model Licitacoes {
 
   statusLicitacao        StatusLicitacao[]
   consolidacoesRevisadas ConsolidacaoTecnica[]
+
+  pesquisasPrecosVinculadas    PesquisaPrecos[]
+  planejamentosVinculados      Planejamento[]
+  agentesContratacaoVinculados AgenteContratacao[]
+}
+
+// Login do subsetor de Pesquisa de Preços — vinculado à Diretoria de
+// Licitações e Contratos (mesmo esquema de vínculo do SetorTecnico, mas
+// ligado a Licitacoes em vez de Unidade). Representa um servidor
+// responsável, não um setor genérico, daí matrícula/função no próprio
+// registro de acesso.
+model PesquisaPrecos {
+  id              String      @id @default(cuid())
+  nome            String
+  matricula       String
+  funcao          String
+  vinculado       Boolean     @default(false)
+  licitacoesId    String?
+  licitacoes      Licitacoes? @relation(fields: [licitacoesId], references: [id])
+  email           String?     @unique
+  senhaHash       String?
+  senhaTemporaria Boolean     @default(true)
+  ativo           Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+// Login do subsetor de Planejamento (elabora o Termo de Referência) —
+// mesmo esquema de vínculo do PesquisaPrecos.
+model Planejamento {
+  id              String      @id @default(cuid())
+  nome            String
+  matricula       String
+  funcao          String
+  vinculado       Boolean     @default(false)
+  licitacoesId    String?
+  licitacoes      Licitacoes? @relation(fields: [licitacoesId], references: [id])
+  email           String?     @unique
+  senhaHash       String?
+  senhaTemporaria Boolean     @default(true)
+  ativo           Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+// Login do Agente de Contratação — elabora a Minuta de Edital e, mais
+// adiante, conduz o certame de processos a ele designados. Mesmo esquema de
+// vínculo do PesquisaPrecos/Planejamento.
+model AgenteContratacao {
+  id              String      @id @default(cuid())
+  nome            String
+  matricula       String
+  funcao          String
+  vinculado       Boolean     @default(false)
+  licitacoesId    String?
+  licitacoes      Licitacoes? @relation(fields: [licitacoesId], references: [id])
+  email           String?     @unique
+  senhaHash       String?
+  senhaTemporaria Boolean     @default(true)
+  ativo           Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 }
 
 // Login da Unidade de Execução de Compras e Contratações. Mesmo esquema de

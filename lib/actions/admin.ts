@@ -420,6 +420,123 @@ export async function redefinirSenhaLicitacoesAction(
 }
 
 // ---------------------------------------------------------------------------
+// Subsetores vinculados a Licitações: Pesquisa de Preços, Planejamento,
+// Agente de Contratação — mesmo esquema de vínculo do SetorTecnico/
+// Licitacoes, mas ligados a um login de Licitações em vez de uma unidade, e
+// representando um servidor responsável (nome/matrícula/função).
+// ---------------------------------------------------------------------------
+
+async function dadosAcessoVinculadoLicitacoes(formData: FormData) {
+  const vinculado = formData.get("vinculado") === "on";
+  if (vinculado) {
+    const licitacoesId = String(formData.get("licitacoesId") ?? "");
+    if (!licitacoesId) throw new Error("Selecione o login de Licitações a vincular.");
+    return { vinculado: true as const, licitacoesId, email: null, senhaHash: null };
+  }
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
+  const senhaInicial = String(formData.get("senhaInicial") ?? "");
+  if (!email || !senhaInicial)
+    throw new Error("Preencha email e senha inicial (ou marque o vínculo com um login de Licitações).");
+  if (!email.endsWith("@uern.br")) throw new Error("O email precisa ser do domínio @uern.br.");
+  const senhaHash = await gerarHashSenha(senhaInicial);
+  return { vinculado: false as const, licitacoesId: null, email, senhaHash };
+}
+
+function dadosServidorAcesso(formData: FormData) {
+  const nome = String(formData.get("nome") ?? "").trim();
+  const matricula = String(formData.get("matricula") ?? "").trim();
+  const funcao = String(formData.get("funcao") ?? "").trim();
+  if (!nome || !matricula || !funcao) throw new Error("Informe nome, matrícula e função do servidor.");
+  return { nome, matricula, funcao };
+}
+
+export async function criarPesquisaPrecosAction(formData: FormData) {
+  await exigirAdmin();
+  const servidor = dadosServidorAcesso(formData);
+  const acesso = await dadosAcessoVinculadoLicitacoes(formData);
+  await prisma.pesquisaPrecos.create({ data: { ...servidor, ...acesso, senhaTemporaria: true } });
+  revalidatePath("/admin/pesquisa-precos");
+}
+
+export async function excluirPesquisaPrecosAction(pesquisaPrecosId: string) {
+  await exigirAdmin();
+  await prisma.pesquisaPrecos.delete({ where: { id: pesquisaPrecosId } });
+  revalidatePath("/admin/pesquisa-precos");
+}
+
+export async function redefinirSenhaPesquisaPrecosAction(pesquisaPrecosId: string, formData: FormData) {
+  await exigirAdmin();
+  const pp = await prisma.pesquisaPrecos.findUniqueOrThrow({ where: { id: pesquisaPrecosId } });
+  if (pp.vinculado) {
+    throw new Error("Este acesso é vinculado a um login de Licitações — redefina a senha por lá.");
+  }
+  const novaSenha = String(formData.get("novaSenha") ?? "");
+  if (novaSenha.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+  const senhaHash = await gerarHashSenha(novaSenha);
+  await prisma.pesquisaPrecos.update({ where: { id: pesquisaPrecosId }, data: { senhaHash, senhaTemporaria: true } });
+  revalidatePath("/admin/pesquisa-precos");
+}
+
+export async function criarPlanejamentoAction(formData: FormData) {
+  await exigirAdmin();
+  const servidor = dadosServidorAcesso(formData);
+  const acesso = await dadosAcessoVinculadoLicitacoes(formData);
+  await prisma.planejamento.create({ data: { ...servidor, ...acesso, senhaTemporaria: true } });
+  revalidatePath("/admin/planejamento");
+}
+
+export async function excluirPlanejamentoAction(planejamentoId: string) {
+  await exigirAdmin();
+  await prisma.planejamento.delete({ where: { id: planejamentoId } });
+  revalidatePath("/admin/planejamento");
+}
+
+export async function redefinirSenhaPlanejamentoAction(planejamentoId: string, formData: FormData) {
+  await exigirAdmin();
+  const pl = await prisma.planejamento.findUniqueOrThrow({ where: { id: planejamentoId } });
+  if (pl.vinculado) {
+    throw new Error("Este acesso é vinculado a um login de Licitações — redefina a senha por lá.");
+  }
+  const novaSenha = String(formData.get("novaSenha") ?? "");
+  if (novaSenha.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+  const senhaHash = await gerarHashSenha(novaSenha);
+  await prisma.planejamento.update({ where: { id: planejamentoId }, data: { senhaHash, senhaTemporaria: true } });
+  revalidatePath("/admin/planejamento");
+}
+
+export async function criarAgenteContratacaoAction(formData: FormData) {
+  await exigirAdmin();
+  const servidor = dadosServidorAcesso(formData);
+  const acesso = await dadosAcessoVinculadoLicitacoes(formData);
+  await prisma.agenteContratacao.create({ data: { ...servidor, ...acesso, senhaTemporaria: true } });
+  revalidatePath("/admin/agentes-contratacao");
+}
+
+export async function excluirAgenteContratacaoAction(agenteContratacaoId: string) {
+  await exigirAdmin();
+  await prisma.agenteContratacao.delete({ where: { id: agenteContratacaoId } });
+  revalidatePath("/admin/agentes-contratacao");
+}
+
+export async function redefinirSenhaAgenteContratacaoAction(agenteContratacaoId: string, formData: FormData) {
+  await exigirAdmin();
+  const ac = await prisma.agenteContratacao.findUniqueOrThrow({ where: { id: agenteContratacaoId } });
+  if (ac.vinculado) {
+    throw new Error("Este acesso é vinculado a um login de Licitações — redefina a senha por lá.");
+  }
+  const novaSenha = String(formData.get("novaSenha") ?? "");
+  if (novaSenha.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+  const senhaHash = await gerarHashSenha(novaSenha);
+  await prisma.agenteContratacao.update({
+    where: { id: agenteContratacaoId },
+    data: { senhaHash, senhaTemporaria: true },
+  });
+  revalidatePath("/admin/agentes-contratacao");
+}
+
+// ---------------------------------------------------------------------------
 // Código PCA (PNCP) por consolidação
 // ---------------------------------------------------------------------------
 

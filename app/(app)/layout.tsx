@@ -44,6 +44,9 @@ export default async function AppLayout({
     { href: "/admin/unidades", label: "Unidades" },
     { href: "/admin/setores-tecnicos", label: "Setores Técnicos" },
     { href: "/admin/licitacoes", label: "Licitações" },
+    { href: "/admin/pesquisa-precos", label: "Pesquisa de Preços" },
+    { href: "/admin/planejamento", label: "Planejamento" },
+    { href: "/admin/agentes-contratacao", label: "Agentes de Contratação" },
     { href: "/admin/execucao", label: "Execução" },
     { href: "/admin/entrega", label: "Entrega de Bens" },
     { href: "/admin/gestor-ata", label: "Gestão de Ata" },
@@ -65,6 +68,9 @@ export default async function AppLayout({
   const linksSetorInterno = [{ href: "/", label: "Minhas Demandas" }];
   const linksSetorTecnico = [{ href: "/", label: "Consolidação" }];
   const linksLicitacoes = [{ href: "/", label: "Processos Consolidados" }];
+  const linksPesquisaPrecos = [{ href: "/", label: "Pesquisa de Preços" }];
+  const linksPlanejamento = [{ href: "/", label: "Planejamento" }];
+  const linksAgenteContratacao = [{ href: "/", label: "Agente de Contratação" }];
   const linksExecucao = [{ href: "/", label: "Execução" }];
   const linksEntrega = [{ href: "/", label: "Entrega de Bens" }];
   const linksGestorAta = [{ href: "/", label: "Gestão de Ata" }];
@@ -75,6 +81,9 @@ export default async function AppLayout({
     SETOR_INTERNO: linksSetorInterno,
     SETOR_TECNICO: linksSetorTecnico,
     LICITACOES: linksLicitacoes,
+    PESQUISA_PRECOS: linksPesquisaPrecos,
+    PLANEJAMENTO: linksPlanejamento,
+    AGENTE_CONTRATACAO: linksAgenteContratacao,
     EXECUCAO: linksExecucao,
     ENTREGA: linksEntrega,
     GESTOR_ATA: linksGestorAta,
@@ -87,6 +96,9 @@ export default async function AppLayout({
     SETOR_INTERNO: "Setor interno",
     SETOR_TECNICO: "Setor técnico",
     LICITACOES: "Licitações",
+    PESQUISA_PRECOS: "Pesquisa de Preços",
+    PLANEJAMENTO: "Planejamento",
+    AGENTE_CONTRATACAO: "Agente de Contratação",
     EXECUCAO: "Execução",
     ENTREGA: "Entrega de Bens",
     GESTOR_ATA: "Gestão de Ata",

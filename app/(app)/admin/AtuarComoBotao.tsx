@@ -7,7 +7,16 @@ export default function AtuarComoBotao({
   tipo,
   id,
 }: {
-  tipo: "UNIDADE" | "SETOR_TECNICO" | "LICITACOES" | "EXECUCAO" | "ENTREGA" | "GESTOR_ATA";
+  tipo:
+    | "UNIDADE"
+    | "SETOR_TECNICO"
+    | "LICITACOES"
+    | "PESQUISA_PRECOS"
+    | "PLANEJAMENTO"
+    | "AGENTE_CONTRATACAO"
+    | "EXECUCAO"
+    | "ENTREGA"
+    | "GESTOR_ATA";
   id: string;
 }) {
   const [isPending, startTransition] = useTransition();
