@@ -7,18 +7,25 @@ const STATUS_DOCUMENTO_LABEL: Record<"RASCUNHO" | "FINALIZADO", string> = {
   FINALIZADO: "Finalizado",
 };
 
-export default async function AgenteContratacaoHomePage() {
-  const consolidacoes = await prisma.consolidacaoTecnica.findMany({
-    include: {
-      categoria: true,
-      setorTecnico: true,
-      termoReferencia: true,
-      minutaEdital: true,
-      itensDfd: { select: { valorTotal: true } },
-      itensTecnicos: { select: { valorTotal: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+export default async function AgenteContratacaoHomePage({ agenteContratacaoId }: { agenteContratacaoId: string }) {
+  const [consolidacoes, certamesDesignados] = await Promise.all([
+    prisma.consolidacaoTecnica.findMany({
+      include: {
+        categoria: true,
+        setorTecnico: true,
+        termoReferencia: true,
+        minutaEdital: true,
+        itensDfd: { select: { valorTotal: true } },
+        itensTecnicos: { select: { valorTotal: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.consolidacaoTecnica.findMany({
+      where: { agenteContratacaoDesignadoId: agenteContratacaoId },
+      include: { categoria: true, setorTecnico: true },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
 
   const total = (c: (typeof consolidacoes)[number]) =>
     c.itensDfd.reduce((s, it) => s + Number(it.valorTotal), 0) +
@@ -31,6 +38,39 @@ export default async function AgenteContratacaoHomePage() {
         Elaboração da Minuta de Edital — só pode ser iniciada depois que o Termo de Referência da
         consolidação estiver finalizado.
       </p>
+
+      {certamesDesignados.length > 0 && (
+        <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <h2 className="px-4 pt-3 text-sm font-semibold text-slate-900">Certames Designados a Você</h2>
+          <p className="px-4 pb-2 text-xs text-slate-500">
+            Processos em que você foi designado por Licitações para conduzir o certame e registrar a homologação.
+          </p>
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-left text-slate-500">
+              <tr>
+                <th className="px-4 py-2 font-medium">Categoria</th>
+                <th className="px-4 py-2 font-medium">Setor Técnico</th>
+                <th className="px-4 py-2 font-medium">Processo SEI</th>
+                <th className="px-4 py-2 font-medium"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {certamesDesignados.map((c) => (
+                <tr key={c.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-2 text-slate-900">{c.categoria.nome}</td>
+                  <td className="px-4 py-2 text-slate-600">{c.setorTecnico.nome}</td>
+                  <td className="px-4 py-2 text-slate-600">{c.processoSEI}</td>
+                  <td className="px-4 py-2">
+                    <Link href={`/licitacoes/${c.id}`} className="text-xs text-slate-700 underline">
+                      Abrir
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
         <table className="w-full text-sm">

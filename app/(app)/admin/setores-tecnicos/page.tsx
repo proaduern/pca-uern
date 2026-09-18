@@ -13,7 +13,11 @@ export default async function SetoresTecnicosPage() {
       orderBy: { nome: "asc" },
       include: { categorias: { select: { nome: true } }, unidade: true },
     }),
-    prisma.unidade.findMany({ where: { ativa: true }, orderBy: { nome: "asc" } }),
+    prisma.unidade.findMany({
+      where: { ativa: true },
+      orderBy: { nome: "asc" },
+      select: { id: true, nome: true, email: true },
+    }),
   ]);
 
   return (

@@ -10,7 +10,11 @@ export default async function LicitacoesPage() {
   await exigirAdminNaPagina();
   const [acessos, unidades] = await Promise.all([
     prisma.licitacoes.findMany({ orderBy: { nome: "asc" }, include: { unidade: true } }),
-    prisma.unidade.findMany({ where: { ativa: true }, orderBy: { nome: "asc" } }),
+    prisma.unidade.findMany({
+      where: { ativa: true },
+      orderBy: { nome: "asc" },
+      select: { id: true, nome: true, email: true },
+    }),
   ]);
 
   return (

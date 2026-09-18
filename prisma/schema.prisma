@@ -191,6 +191,8 @@ model AgenteContratacao {
   ativo           Boolean     @default(true)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+
+  consolidacoesDesignadas ConsolidacaoTecnica[]
 }
 
 // Login da Unidade de Execução de Compras e Contratações. Mesmo esquema de
@@ -795,6 +797,13 @@ model ConsolidacaoTecnica {
   pesquisaDePrecos        PesquisaDePrecos?
   termoReferencia         TermoReferencia?
   minutaEdital            MinutaEdital?
+
+  // Agente de Contratação designado por Licitações para conduzir o certame
+  // deste processo — enquanto designado, ele também pode registrar os
+  // resultados de homologação item a item (ver lib/actions/licitacoes.ts),
+  // além de elaborar a Minuta de Edital (que não depende desta designação).
+  agenteContratacaoDesignadoId String?
+  agenteContratacaoDesignado   AgenteContratacao? @relation(fields: [agenteContratacaoDesignadoId], references: [id])
 
   @@index([pcaAno, categoriaId])
 }

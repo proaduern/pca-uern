@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { exigirLicitacoes } from "@/lib/auth";
+import { exigirLicitacoes, obterSessao } from "@/lib/auth";
 import {
   agruparItensParaHomologacao,
   agruparServicosValorPorCategoria,
@@ -19,6 +19,43 @@ async function obterConsolidacaoOuErro(consolidacaoId: string) {
   const consolidacao = await prisma.consolidacaoTecnica.findUnique({ where: { id: consolidacaoId } });
   if (!consolidacao) throw new Error("Processo de consolidação não encontrado.");
   return consolidacao;
+}
+
+/** Registro do resultado de homologação item a item pode ser feito por
+ * Licitações ou pelo Agente de Contratação designado para este processo
+ * específico (ver designarAgenteContratacaoAction) — as demais ações desta
+ * unidade (status do processo, revisão de prioridade/prazo) continuam
+ * restritas só a Licitações. */
+async function exigirAcessoHomologacao(consolidacao: { agenteContratacaoDesignadoId: string | null }) {
+  const sessao = await obterSessao();
+  if (!sessao) throw new Error("Não autenticado.");
+  if (sessao.tipo === "LICITACOES" || sessao.tipo === "ADMIN") return sessao;
+  if (sessao.tipo === "AGENTE_CONTRATACAO" && sessao.id === consolidacao.agenteContratacaoDesignadoId) {
+    return sessao;
+  }
+  throw new Error("Acesso restrito à unidade de licitações ou ao Agente de Contratação designado para este processo.");
+}
+
+/** Licitações designa (ou remove) o Agente de Contratação responsável por
+ * conduzir o certame deste processo — enquanto designado, ele também passa
+ * a poder registrar os resultados de homologação item a item. */
+export async function designarAgenteContratacaoAction(consolidacaoId: string, formData: FormData) {
+  await exigirLicitacoes();
+  await obterConsolidacaoOuErro(consolidacaoId);
+
+  const agenteContratacaoId = String(formData.get("agenteContratacaoId") ?? "").trim() || null;
+  if (agenteContratacaoId) {
+    const agente = await prisma.agenteContratacao.findUnique({ where: { id: agenteContratacaoId } });
+    if (!agente || !agente.ativo) throw new Error("Agente de Contratação inválido ou inativo.");
+  }
+
+  await prisma.consolidacaoTecnica.update({
+    where: { id: consolidacaoId },
+    data: { agenteContratacaoDesignadoId: agenteContratacaoId },
+  });
+
+  revalidatePath(`/licitacoes/${consolidacaoId}`);
+  revalidatePath("/");
 }
 
 async function statusAtualDaConsolidacao(consolidacaoId: string): Promise<StatusLicitacaoValor | null> {
@@ -254,8 +291,8 @@ export async function salvarRevisaoLicitacaoAction(consolidacaoId: string, formD
 // ---------------------------------------------------------------------------
 
 export async function registrarHomologacaoGrupoAction(consolidacaoId: string, formData: FormData) {
-  await exigirLicitacoes();
-  await obterConsolidacaoOuErro(consolidacaoId);
+  const consolidacao = await obterConsolidacaoOuErro(consolidacaoId);
+  await exigirAcessoHomologacao(consolidacao);
 
   const nomeGrupo = String(formData.get("nomeGrupo") ?? "");
   const resultado = String(formData.get("resultado") ?? "") as
@@ -300,8 +337,8 @@ export async function registrarHomologacaoGrupoAction(consolidacaoId: string, fo
 }
 
 export async function confirmarHomologacaoManualAction(consolidacaoId: string, formData: FormData) {
-  await exigirLicitacoes();
-  await obterConsolidacaoOuErro(consolidacaoId);
+  const consolidacao = await obterConsolidacaoOuErro(consolidacaoId);
+  await exigirAcessoHomologacao(consolidacao);
 
   const nomeGrupo = String(formData.get("nomeGrupo") ?? "");
   const valorUnitario = Number(formData.get("valorUnitario") ?? 0);
@@ -330,8 +367,8 @@ export async function confirmarHomologacaoManualAction(consolidacaoId: string, f
 }
 
 export async function registrarHomologacaoGrupoServicoValorAction(consolidacaoId: string, formData: FormData) {
-  await exigirLicitacoes();
-  await obterConsolidacaoOuErro(consolidacaoId);
+  const consolidacao = await obterConsolidacaoOuErro(consolidacaoId);
+  await exigirAcessoHomologacao(consolidacao);
 
   const nomeGrupo = String(formData.get("nomeGrupo") ?? "");
   const resultado = String(formData.get("resultado") ?? "") as "sucesso" | "fracassado" | "deserto";
@@ -356,8 +393,8 @@ export async function registrarHomologacaoGrupoServicoValorAction(consolidacaoId
 }
 
 export async function registrarHomologacaoServicoAction(consolidacaoId: string, itemId: string, formData: FormData) {
-  await exigirLicitacoes();
-  await obterConsolidacaoOuErro(consolidacaoId);
+  const consolidacao = await obterConsolidacaoOuErro(consolidacaoId);
+  await exigirAcessoHomologacao(consolidacao);
 
   const resultado = String(formData.get("resultado") ?? "") as "sucesso" | "fracassado" | "deserto";
   let valorAdjudicado: number | null = null;
