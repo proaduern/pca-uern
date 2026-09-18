@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { exigirAgenteContratacao } from "@/lib/auth";
 import { validarMinutaEditalParaFinalizar, type DadosMinutaEdital } from "@/lib/minuta-edital";
+import { avancarStatusLicitacaoSeNecessario } from "./avancar-status";
 import type { ResultadoAcao } from "./tipos";
 
 function parseMinutaEditalFormData(formData: FormData): DadosMinutaEdital {
@@ -116,6 +117,9 @@ export async function finalizarMinutaEditalAction(
     data: { ...dados, responsavelNome, responsavelMatricula, status: "FINALIZADO", finalizadoEm: new Date() },
   });
 
+  await avancarStatusLicitacaoSeNecessario(resultado.minuta.consolidacaoTecnicaId, "MINUTAS", responsavelNome);
+
   revalidatePath(`/agente-contratacao/${resultado.minuta.consolidacaoTecnicaId}`);
+  revalidatePath(`/licitacoes/${resultado.minuta.consolidacaoTecnicaId}`);
   return {};
 }

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirPesquisaPrecos } from "@/lib/auth";
 import { extrairTextoPdf } from "@/lib/pdf-extrair-texto";
 import { validarPesquisaPrecosParaFinalizar, type DadosPesquisaPrecoItem } from "@/lib/pesquisa-precos";
+import { avancarStatusLicitacaoSeNecessario } from "./avancar-status";
 import type { ResultadoAcao } from "./tipos";
 
 export interface ResultadoIniciarPesquisaPrecos extends ResultadoAcao {
@@ -88,6 +89,7 @@ async function obterPesquisaEditavelOuErro(pesquisaDePrecosId: string) {
 
 interface ItemEditavel {
   valorUnitarioPesquisado: number;
+  medianaPesquisada: number | null;
   fontesConsultadas: string;
 }
 
@@ -111,8 +113,17 @@ function parseItensEditaveisJson(itensJson: string): { erro: string } | { itens:
     if (!Number.isFinite(valorUnitarioPesquisado) || valorUnitarioPesquisado < 0) {
       return { erro: "Valor unitário pesquisado inválido." };
     }
+    const medianaBruta = l.medianaPesquisada;
+    let medianaPesquisada: number | null = null;
+    if (medianaBruta !== null && medianaBruta !== undefined && medianaBruta !== "") {
+      medianaPesquisada = Number(medianaBruta);
+      if (!Number.isFinite(medianaPesquisada) || medianaPesquisada < 0) {
+        return { erro: "Mediana pesquisada inválida." };
+      }
+    }
     itens.push({
       valorUnitarioPesquisado,
+      medianaPesquisada,
       fontesConsultadas: String(l.fontesConsultadas ?? "").trim(),
     });
   }
@@ -187,6 +198,7 @@ export async function finalizarPesquisaPrecosAction(
     item: it.item,
     quantidade: Number(it.quantidade),
     valorUnitarioPesquisado: parse.itens[i].valorUnitarioPesquisado,
+    medianaPesquisada: parse.itens[i].medianaPesquisada,
     fontesConsultadas: parse.itens[i].fontesConsultadas,
   }));
   const erro = validarPesquisaPrecosParaFinalizar(itensParaValidar, metodologia, responsavelNome, responsavelMatricula);
@@ -200,6 +212,13 @@ export async function finalizarPesquisaPrecosAction(
     data: { metodologia, responsavelNome, responsavelMatricula, status: "FINALIZADO", finalizadoEm: new Date() },
   });
 
+  await avancarStatusLicitacaoSeNecessario(
+    resultado.pesquisa.consolidacaoTecnicaId,
+    "PESQUISA_PRECOS",
+    responsavelNome,
+  );
+
   revalidatePath(`/pesquisa-precos/${resultado.pesquisa.consolidacaoTecnicaId}`);
+  revalidatePath(`/licitacoes/${resultado.pesquisa.consolidacaoTecnicaId}`);
   return {};
 }

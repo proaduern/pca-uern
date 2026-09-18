@@ -31,11 +31,17 @@ export default function PesquisaPrecosForm({
   const [mostrarTextoPdf, setMostrarTextoPdf] = useState(false);
   const finalizado = pesquisa.status === "FINALIZADO";
 
-  function atualizarItem(indice: number, campo: "valorUnitarioPesquisado" | "fontesConsultadas", valor: string) {
+  function atualizarItem(
+    indice: number,
+    campo: "valorUnitarioPesquisado" | "medianaPesquisada" | "fontesConsultadas",
+    valor: string,
+  ) {
     setItens((atual) =>
-      atual.map((it, i) =>
-        i === indice ? { ...it, [campo]: campo === "valorUnitarioPesquisado" ? Number(valor) : valor } : it,
-      ),
+      atual.map((it, i) => {
+        if (i !== indice) return it;
+        if (campo === "fontesConsultadas") return { ...it, fontesConsultadas: valor };
+        return { ...it, [campo]: valor === "" ? null : Number(valor) };
+      }),
     );
   }
 
@@ -48,6 +54,7 @@ export default function PesquisaPrecosForm({
       JSON.stringify(
         itens.map((it) => ({
           valorUnitarioPesquisado: it.valorUnitarioPesquisado,
+          medianaPesquisada: it.medianaPesquisada,
           fontesConsultadas: it.fontesConsultadas,
         })),
       ),
@@ -106,6 +113,7 @@ export default function PesquisaPrecosForm({
                 <th className="py-1 pr-2 font-medium">Item</th>
                 <th className="py-1 pr-2 font-medium">Qtd.</th>
                 <th className="py-1 pr-2 font-medium">Valor unit. pesquisado</th>
+                <th className="py-1 pr-2 font-medium">Mediana pesquisada</th>
                 <th className="py-1 pr-2 font-medium">Total</th>
                 <th className="py-1 font-medium">Fontes consultadas</th>
               </tr>
@@ -123,6 +131,17 @@ export default function PesquisaPrecosForm({
                       value={it.valorUnitarioPesquisado || ""}
                       disabled={finalizado}
                       onChange={(e) => atualizarItem(i, "valorUnitarioPesquisado", e.target.value)}
+                      className="w-28 rounded-xl border border-slate-300 px-2 py-1 text-sm disabled:bg-slate-50"
+                    />
+                  </td>
+                  <td className="py-1.5 pr-2 align-top">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={it.medianaPesquisada ?? ""}
+                      disabled={finalizado}
+                      onChange={(e) => atualizarItem(i, "medianaPesquisada", e.target.value)}
                       className="w-28 rounded-xl border border-slate-300 px-2 py-1 text-sm disabled:bg-slate-50"
                     />
                   </td>
@@ -144,7 +163,7 @@ export default function PesquisaPrecosForm({
             </tbody>
             <tfoot>
               <tr className="border-t border-slate-200 font-semibold text-slate-900">
-                <td className="py-1.5 pr-2" colSpan={3}>
+                <td className="py-1.5 pr-2" colSpan={4}>
                   Total estimado
                 </td>
                 <td className="py-1.5 pr-2">{brl(totalPesquisaPrecos(itens))}</td>

@@ -293,7 +293,7 @@ await passo("finalizar a Pesquisa de Preços", async () => {
 
 await passo("campos ficam bloqueados para edição após finalizar", async () => {
   await page.reload();
-  const campoValor = await page.locator('input[type="number"]').isDisabled();
+  const campoValor = await page.locator('input[type="number"]').first().isDisabled();
   if (!campoValor) throw new Error("campo de valor deveria estar desabilitado após finalização");
   const botaoFinalizar = await page.locator('button:has-text("Finalizar Pesquisa de Preços")').count();
   if (botaoFinalizar !== 0) throw new Error("botão Finalizar não deveria mais aparecer");
