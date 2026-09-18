@@ -201,7 +201,9 @@ export async function construirTimelineItemDfd(itemId: string): Promise<EventoTi
     where: { id: itemId },
     include: {
       dfd: true,
-      consolidacaoTecnica: { include: { statusLicitacao: { orderBy: { createdAt: "asc" } } } },
+      consolidacaoTecnica: {
+        include: { statusLicitacao: { orderBy: { createdAt: "asc" } }, estudoTecnicoPreliminar: true },
+      },
       processoExecucao: { include: { statusExecucao: { orderBy: { createdAt: "asc" } } } },
       entrega: { include: entregaInclude },
       atendimentoEstoque: { include: { entrega: { include: entregaInclude } } },
@@ -234,8 +236,15 @@ export async function construirTimelineItemDfd(itemId: string): Promise<EventoTi
     eventos.push({
       data: cons.createdAt.toISOString(),
       titulo: "Consolidado pelo Setor Técnico",
-      desc: `Processo SEI ${cons.processoSEI} — ETP ${cons.idDocumentoETP}`,
+      desc: `Processo SEI ${cons.processoSEI}`,
     });
+    if (cons.estudoTecnicoPreliminar?.finalizadoEm) {
+      eventos.push({
+        data: cons.estudoTecnicoPreliminar.finalizadoEm.toISOString(),
+        titulo: "Estudo Técnico Preliminar finalizado pelo Setor Técnico",
+        desc: "",
+      });
+    }
     for (const h of cons.statusLicitacao) {
       eventos.push({ data: h.createdAt.toISOString(), titulo: `Licitação: ${statusLicitacaoLabel(h.status)}`, desc: "" });
     }

@@ -96,7 +96,7 @@ export default function PainelLicitacao({
   agentesContratacao,
   categoriaNome,
   processoSEI,
-  idDocumentoETP,
+  statusEtp,
   dataETP,
   prioridade,
   tipoContratacao,
@@ -117,7 +117,7 @@ export default function PainelLicitacao({
   agentesContratacao: { id: string; nome: string }[];
   categoriaNome: string;
   processoSEI: string;
-  idDocumentoETP: string;
+  statusEtp: "RASCUNHO" | "FINALIZADO" | null;
   dataETP: string;
   prioridade: "ALTA" | "MEDIA" | "BAIXA";
   tipoContratacao: "NORMAL" | "ATA";
@@ -169,7 +169,9 @@ export default function PainelLicitacao({
 
       <div className="space-y-1 rounded-2xl border border-slate-100 bg-white shadow-sm p-4 text-sm">
         <p>
-          <b>ID do documento ETP:</b> {idDocumentoETP} &nbsp;·&nbsp; <b>Data do ETP:</b> {formatarData(dataETP)}
+          <b>Estudo Técnico Preliminar:</b>{" "}
+          {statusEtp === "FINALIZADO" ? "Finalizado" : statusEtp === "RASCUNHO" ? "Em elaboração" : "Não iniciado"}{" "}
+          &nbsp;·&nbsp; <b>Data do ETP:</b> {formatarData(dataETP)}
         </p>
         <p>
           <b>Prioridade original:</b> {PRIORIDADE_LABEL[prioridade]} &nbsp;·&nbsp; <b>Conclusão esperada original:</b>{" "}

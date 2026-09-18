@@ -209,7 +209,6 @@ await passo("Setor Técnico consolida o item pendente", async () => {
   for (let i = 0; i < total; i++) await checkboxes.nth(i).check();
 
   await page.fill('input[name="processoSEI"]', PROCESSO_SEI);
-  await page.fill('input[name="idDocumentoETP"]', "1234567");
   await page.fill('input[name="dataETP"]', "2030-01-01");
   await page.selectOption('select[name="prioridade"]', "ALTA");
   await page.selectOption('select[name="tipoContratacao"]', "NORMAL");
