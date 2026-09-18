@@ -1186,18 +1186,90 @@ export async function aprovarSelecionadosAction(
   return {};
 }
 
+/**
+ * Desfazer a aprovação de um DFD cujos itens já foram consolidados pelo
+ * Setor Técnico precisa desfazer também essa consolidação — senão o item
+ * continua contando no PCA/licitação mesmo sem DFD aprovado por trás. Só
+ * fazemos isso automaticamente enquanto a consolidação ainda não avançou
+ * (nenhum ETP/Riscos/Pesquisa/TR/Minuta iniciado, nenhum status de
+ * licitação registrado): a partir daí pode já existir um certame real em
+ * andamento, e desfazer silenciosamente seria perigoso — bloqueamos e
+ * pedimos intervenção manual do setor responsável.
+ */
 export async function desfazerAprovacaoDfdAction(
   dfdId: string,
 ): Promise<ResultadoAcao> {
   await exigirAdmin();
-  const dfd = await prisma.dfd.findUniqueOrThrow({ where: { id: dfdId } });
+  const dfd = await prisma.dfd.findUniqueOrThrow({
+    where: { id: dfdId },
+    include: {
+      itens: {
+        where: { consolidacaoTecnicaId: { not: null } },
+        include: {
+          consolidacaoTecnica: {
+            include: {
+              categoria: true,
+              estudoTecnicoPreliminar: true,
+              analiseRiscos: true,
+              pesquisaDePrecos: true,
+              termoReferencia: true,
+              minutaEdital: true,
+              statusLicitacao: true,
+            },
+          },
+        },
+      },
+    },
+  });
   if (dfd.status !== "APROVADO") {
     return { erro: "Este DFD não está aprovado no momento." };
   }
-  await prisma.dfd.update({
-    where: { id: dfdId },
-    data: { status: "AGUARDANDO_APROVACAO", aprovadoEm: null },
+
+  const consolidacoes = new Map<
+    string,
+    NonNullable<(typeof dfd.itens)[number]["consolidacaoTecnica"]>
+  >();
+  for (const item of dfd.itens) {
+    if (item.consolidacaoTecnica) {
+      consolidacoes.set(item.consolidacaoTecnica.id, item.consolidacaoTecnica);
+    }
+  }
+
+  for (const consolidacao of consolidacoes.values()) {
+    const avancou =
+      !!consolidacao.estudoTecnicoPreliminar ||
+      !!consolidacao.analiseRiscos ||
+      !!consolidacao.pesquisaDePrecos ||
+      !!consolidacao.termoReferencia ||
+      !!consolidacao.minutaEdital ||
+      consolidacao.statusLicitacao.length > 0;
+    if (avancou) {
+      return {
+        erro: `Não é possível desfazer a aprovação: um item deste DFD já está na consolidação da categoria "${consolidacao.categoria.nome}" (processo SEI ${consolidacao.processoSEI}), que já avançou no fluxo (ETP, Riscos, Pesquisa de Preços, TR, Minuta ou status de licitação já registrado). Peça ao setor responsável para reverter isso manualmente antes de desfazer a aprovação.`,
+      };
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    for (const consolidacao of consolidacoes.values()) {
+      await tx.itemDfd.updateMany({
+        where: { dfdId, consolidacaoTecnicaId: consolidacao.id },
+        data: { consolidacaoTecnicaId: null },
+      });
+      const [itensDfdRestantes, itensTecnicosRestantes] = await Promise.all([
+        tx.itemDfd.count({ where: { consolidacaoTecnicaId: consolidacao.id } }),
+        tx.itemTecnico.count({ where: { consolidacaoTecnicaId: consolidacao.id } }),
+      ]);
+      if (itensDfdRestantes === 0 && itensTecnicosRestantes === 0) {
+        await tx.consolidacaoTecnica.delete({ where: { id: consolidacao.id } });
+      }
+    }
+    await tx.dfd.update({
+      where: { id: dfdId },
+      data: { status: "AGUARDANDO_APROVACAO", aprovadoEm: null },
+    });
   });
+
   revalidatePath("/");
   return {};
 }
