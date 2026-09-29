@@ -28,14 +28,21 @@ async function validarSomaCotaSetores(opts: {
     }),
   ]);
 
-  const somaOP = setores.reduce((s, x) => s + Number(x.cotaOP), cotaOP);
-  const somaGeral = setores.reduce((s, x) => s + Number(x.cotaGeral), cotaGeral);
+  const outrosOP = setores.reduce((s, x) => s + Number(x.cotaOP), 0);
+  const outrosGeral = setores.reduce((s, x) => s + Number(x.cotaGeral), 0);
+  const somaOP = outrosOP + cotaOP;
+  const somaGeral = outrosGeral + cotaGeral;
 
-  if (somaOP > Number(unidade.cotaOP)) {
-    return `A soma da cota OP dos setores internos (${somaOP.toFixed(2)}) excederia a cota OP da unidade (${Number(unidade.cotaOP).toFixed(2)}).`;
+  const totalOP = Number(unidade.cotaOP);
+  const totalGeral = Number(unidade.cotaGeral);
+  const saldoDisponivelOP = Math.max(0, totalOP - outrosOP);
+  const saldoDisponivelGeral = Math.max(0, totalGeral - outrosGeral);
+
+  if (somaOP > totalOP) {
+    return `A soma da cota OP dos setores internos (${somaOP.toFixed(2)}) excederia a cota OP da unidade (${totalOP.toFixed(2)}) e o saldo é de ${saldoDisponivelOP.toFixed(2)}, vez que já foi disponibilizado um total de ${outrosOP.toFixed(2)} para outros setores internos desta unidade.`;
   }
-  if (somaGeral > Number(unidade.cotaGeral)) {
-    return `A soma da cota Geral dos setores internos (${somaGeral.toFixed(2)}) excederia a cota Geral da unidade (${Number(unidade.cotaGeral).toFixed(2)}).`;
+  if (somaGeral > totalGeral) {
+    return `A soma da cota Geral dos setores internos (${somaGeral.toFixed(2)}) excederia a cota Geral da unidade (${totalGeral.toFixed(2)}) e o saldo é de ${saldoDisponivelGeral.toFixed(2)}, vez que já foi disponibilizado um total de ${outrosGeral.toFixed(2)} para outros setores internos desta unidade.`;
   }
   return null;
 }
