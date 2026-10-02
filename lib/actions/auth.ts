@@ -11,6 +11,7 @@ import {
   exigirSessao,
   gerarHashSenha,
   iniciarAtuarComo,
+  iniciarAtuarComoUsuario,
   type OpcaoPerfil,
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -70,6 +71,12 @@ export async function iniciarAtuarComoAction(
   redirect("/");
 }
 
+export async function iniciarAtuarComoUsuarioAction(usuarioId: string) {
+  await iniciarAtuarComoUsuario(usuarioId);
+  revalidatePath("/", "layout");
+  redirect("/");
+}
+
 export async function encerrarAtuarComoAction() {
   await encerrarAtuarComo();
   redirect("/");
@@ -96,7 +103,12 @@ export async function trocarSenhaAction(
 
   const senhaHash = await gerarHashSenha(novaSenha);
 
-  if (sessao.tipo === "ADMIN") {
+  if (sessao.usuarioId) {
+    await prisma.usuario.update({
+      where: { id: sessao.usuarioId },
+      data: { senhaHash, senhaTemporaria: false },
+    });
+  } else if (sessao.tipo === "ADMIN") {
     await prisma.usuario.update({ where: { id: sessao.id }, data: { senhaHash } });
   } else if (sessao.tipo === "UNIDADE") {
     await prisma.unidade.update({

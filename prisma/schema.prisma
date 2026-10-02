@@ -12,13 +12,44 @@ datasource db {
 // Acesso
 // ---------------------------------------------------------------------------
 
+enum RoleUsuario {
+  ADMIN
+  UNIDADE
+}
+
 model Usuario {
-  id        String   @id @default(cuid())
-  nome      String
-  email     String   @unique
-  senhaHash String
+  id              String      @id @default(cuid())
+  nome            String
+  email           String      @unique
+  senhaHash       String
+  senhaTemporaria Boolean     @default(true)
+  ativo           Boolean     @default(true)
+  matricula       String?
+  cargo           String?
+  telefone        String?
+
+  role            RoleUsuario @default(UNIDADE)
+
+  unidadeId       String?
+  unidade         Unidade?    @relation(fields: [unidadeId], references: [id], onDelete: Cascade)
+
+  // Permissões operacionais do usuário na unidade (gerenciadas pelo administrador)
+  podeCriarDfd           Boolean @default(true)
+  podeEditarDfd          Boolean @default(true)
+  podeEnviarDfd          Boolean @default(false)
+  podeExcluirDfd         Boolean @default(false)
+  podeSolicitarCatalogo  Boolean @default(true)
+  podeSolicitarCotaGeral Boolean @default(false)
+  podeConfirmarEntrega   Boolean @default(true)
+  podeGerenciarSetores   Boolean @default(false)
+  podeEditarDadosUnidade Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  dfdsCriados Dfd[] @relation("DfdCriadoPorUsuario")
+
+  @@index([unidadeId])
 }
 
 model Unidade {
@@ -41,6 +72,7 @@ model Unidade {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  usuarios             Usuario[]
   dfds                 Dfd[]
   setoresVinculados    SetorTecnico[]
   licitacoesVinculadas Licitacoes[]
@@ -572,6 +604,10 @@ model Dfd {
   enviadoParaUnidadeEm DateTime?
 
   criadoPorId String
+
+  criadoPorUsuarioId String?
+  criadoPorUsuario   Usuario? @relation("DfdCriadoPorUsuario", fields: [criadoPorUsuarioId], references: [id], onDelete: SetNull)
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -583,6 +619,7 @@ model Dfd {
   @@index([status])
   @@index([ano])
   @@index([setorInternoId])
+  @@index([criadoPorUsuarioId])
 }
 
 enum TipoItemDfd {

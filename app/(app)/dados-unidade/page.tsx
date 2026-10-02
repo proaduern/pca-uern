@@ -23,6 +23,7 @@ export default async function DadosUnidadePage() {
         responsavelNome={unidade.responsavelNome}
         responsavelMatricula={unidade.responsavelMatricula}
         responsavelTelefone={unidade.responsavelTelefone}
+        podeEditar={sessao.permissoes ? sessao.permissoes.podeEditarDadosUnidade : true}
       />
       <SetoresInternosSection
         setores={setores.map((s) => ({
@@ -33,6 +34,7 @@ export default async function DadosUnidadePage() {
           cotaGeral: Number(s.cotaGeral),
           ativo: s.ativo,
         }))}
+        podeGerenciar={sessao.permissoes ? sessao.permissoes.podeGerenciarSetores : true}
       />
     </div>
   );

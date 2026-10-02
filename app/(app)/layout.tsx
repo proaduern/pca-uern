@@ -42,6 +42,7 @@ export default async function AppLayout({
     { href: "/admin/demandas", label: "Demandas" },
     { href: "/admin/consolidacao", label: "Consolidação Geral" },
     { href: "/admin/unidades", label: "Unidades" },
+    { href: "/admin/usuarios", label: "Usuários das Unidades" },
     { href: "/admin/setores-tecnicos", label: "Setores Técnicos" },
     { href: "/admin/licitacoes", label: "Licitações" },
     { href: "/admin/pesquisa-precos", label: "Pesquisa de Preços" },
@@ -63,7 +64,9 @@ export default async function AppLayout({
 
   const linksUnidade = [
     { href: "/", label: "Minhas Demandas" },
-    { href: "/dados-unidade", label: "Dados da Unidade" },
+    ...(sessao.permissoes?.podeEditarDadosUnidade !== false
+      ? [{ href: "/dados-unidade", label: "Dados da Unidade" }]
+      : []),
   ];
   const linksSetorInterno = [{ href: "/", label: "Minhas Demandas" }];
   const linksSetorTecnico = [{ href: "/", label: "Consolidação" }];
@@ -119,6 +122,7 @@ export default async function AppLayout({
       <Navbar
         nome={sessao.nome}
         tipo={sessao.tipo}
+        subtitulo={sessao.unidadeNome ?? null}
         pcaAtuacao={
           contextoPca?.status === "resolvido"
             ? {

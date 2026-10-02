@@ -17,7 +17,13 @@ interface SetorInterno {
   ativo: boolean;
 }
 
-function LinhaSetorInterno({ setor }: { setor: SetorInterno }) {
+function LinhaSetorInterno({
+  setor,
+  podeGerenciar = true,
+}: {
+  setor: SetorInterno;
+  podeGerenciar?: boolean;
+}) {
   const [modo, setModo] = useState<"ver" | "editar" | "senha">("ver");
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -113,18 +119,24 @@ function LinhaSetorInterno({ setor }: { setor: SetorInterno }) {
       <td className="px-4 py-2 text-slate-600">{setor.cotaOP.toFixed(2)}</td>
       <td className="px-4 py-2 text-slate-600">{setor.cotaGeral.toFixed(2)}</td>
       <td className="px-4 py-2 space-x-2">
-        <button onClick={() => setModo("editar")} className="text-xs text-slate-600 underline">Editar</button>
-        <button onClick={() => setModo("senha")} className="text-xs text-slate-600 underline">Redefinir senha</button>
-        <button
-          disabled={isPending}
-          onClick={() => {
-            if (!confirm(`Excluir o setor interno "${setor.nome}"?`)) return;
-            rodar(() => excluirSetorInternoAction(setor.id));
-          }}
-          className="text-xs text-red-600 underline disabled:opacity-60"
-        >
-          Excluir
-        </button>
+        {podeGerenciar ? (
+          <>
+            <button onClick={() => setModo("editar")} className="text-xs text-slate-600 underline">Editar</button>
+            <button onClick={() => setModo("senha")} className="text-xs text-slate-600 underline">Redefinir senha</button>
+            <button
+              disabled={isPending}
+              onClick={() => {
+                if (!confirm(`Excluir o setor interno "${setor.nome}"?`)) return;
+                rodar(() => excluirSetorInternoAction(setor.id));
+              }}
+              className="text-xs text-red-600 underline disabled:opacity-60"
+            >
+              Excluir
+            </button>
+          </>
+        ) : (
+          <span className="text-xs text-slate-400">—</span>
+        )}
         {erro && <span className="block text-xs text-red-600">{erro}</span>}
       </td>
     </tr>
@@ -181,7 +193,13 @@ function NovoSetorInternoForm() {
   );
 }
 
-export default function SetoresInternosSection({ setores }: { setores: SetorInterno[] }) {
+export default function SetoresInternosSection({
+  setores,
+  podeGerenciar = true,
+}: {
+  setores: SetorInterno[];
+  podeGerenciar?: boolean;
+}) {
   return (
     <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
       <div>
@@ -192,7 +210,13 @@ export default function SetoresInternosSection({ setores }: { setores: SetorInte
           das cotas OP/Geral deles não pode passar da cota da própria unidade.
         </p>
       </div>
-      <NovoSetorInternoForm />
+      {podeGerenciar ? (
+        <NovoSetorInternoForm />
+      ) : (
+        <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
+          Seu usuário não possui permissão para criar ou modificar setores internos.
+        </p>
+      )}
       <div className="overflow-x-auto rounded-2xl border border-slate-100">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-slate-500">
@@ -206,7 +230,7 @@ export default function SetoresInternosSection({ setores }: { setores: SetorInte
           </thead>
           <tbody className="divide-y divide-slate-100">
             {setores.map((s) => (
-              <LinhaSetorInterno key={s.id} setor={s} />
+              <LinhaSetorInterno key={s.id} setor={s} podeGerenciar={podeGerenciar} />
             ))}
             {setores.length === 0 && (
               <tr>

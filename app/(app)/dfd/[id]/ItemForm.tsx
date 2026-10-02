@@ -31,12 +31,16 @@ export default function ItemForm({
   itensCatalogo,
   unidadeElegivelOP,
   modoAdmin = false,
+  podeSolicitarCatalogo = true,
+  podeSolicitarCotaGeral = true,
 }: {
   dfdId: string;
   categorias: CategoriaParaItem[];
   itensCatalogo: ItemCatalogoParaItem[];
   unidadeElegivelOP: boolean;
   modoAdmin?: boolean;
+  podeSolicitarCatalogo?: boolean;
+  podeSolicitarCotaGeral?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -357,21 +361,27 @@ export default function ItemForm({
         </button>
       </form>
       {formDataBloqueada && !solicitacaoEnviada && (
-        <SolicitarAutorizacaoCotaGeralPainel
-          dfdId={dfdId}
-          dadosItem={formDataBloqueada}
-          onEnviado={() => {
-            setSolicitacaoEnviada(true);
-            setFormDataBloqueada(null);
-          }}
-        />
+        podeSolicitarCotaGeral ? (
+          <SolicitarAutorizacaoCotaGeralPainel
+            dfdId={dfdId}
+            dadosItem={formDataBloqueada}
+            onEnviado={() => {
+              setSolicitacaoEnviada(true);
+              setFormDataBloqueada(null);
+            }}
+          />
+        ) : (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+            O valor total do item excede o saldo disponível e seu usuário não possui permissão para solicitar autorização de cota geral.
+          </div>
+        )
       )}
       {solicitacaoEnviada && (
         <p className="text-xs text-emerald-600">
           Solicitação de autorização enviada à PROAD para análise.
         </p>
       )}
-      {tipo === "MATERIAL" && !modoAdmin && <SolicitarItemPainel />}
+      {tipo === "MATERIAL" && !modoAdmin && podeSolicitarCatalogo && <SolicitarItemPainel />}
     </>
   );
 }

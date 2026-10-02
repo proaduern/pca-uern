@@ -155,7 +155,15 @@ type DfdComItens = Dfd & { itens: ItemDfd[] };
 async function obterDfdParaEdicao(
   dfdId: string,
   ctx: ContextoDfd,
+  sessao?: SessionPayload,
 ): Promise<{ erro: string } | { dfd: DfdComItens }> {
+  if (
+    sessao?.tipo === "UNIDADE" &&
+    sessao.permissoes &&
+    !sessao.permissoes.podeEditarDfd
+  ) {
+    return { erro: "Seu usuário não possui permissão para editar DFDs." };
+  }
   const dfd = await prisma.dfd.findUnique({
     where: { id: dfdId },
     include: { itens: true },
@@ -204,6 +212,13 @@ export interface ResultadoCriarDfd extends ResultadoAcao {
 
 export async function criarRascunhoDfdAction(): Promise<ResultadoCriarDfd> {
   const sessao = await exigirUnidadeOuSetorInterno();
+  if (
+    sessao.tipo === "UNIDADE" &&
+    sessao.permissoes &&
+    !sessao.permissoes.podeCriarDfd
+  ) {
+    return { erro: "Seu usuário não possui permissão para criar novos DFDs." };
+  }
   const ctx = await resolverContextoDfd(sessao);
   const resultadoPca = await resolverPcaAtuacao(sessao);
   if ("erro" in resultadoPca) return { erro: resultadoPca.erro };
@@ -240,6 +255,7 @@ export async function criarRascunhoDfdAction(): Promise<ResultadoCriarDfd> {
         tipoDemanda: "NOVA",
         status: "RASCUNHO",
         criadoPorId: sessao.id,
+        criadoPorUsuarioId: sessao.usuarioId ?? null,
       },
     });
   });
@@ -310,7 +326,7 @@ export async function atualizarDadosGeraisDfdAction(
 ): Promise<ResultadoAcao> {
   const sessao = await exigirUnidadeOuSetorInterno();
   const ctx = await resolverContextoDfd(sessao);
-  const resultadoDfd = await obterDfdParaEdicao(dfdId, ctx);
+  const resultadoDfd = await obterDfdParaEdicao(dfdId, ctx, sessao);
   if ("erro" in resultadoDfd) return { erro: resultadoDfd.erro };
   const resultado = await processarAtualizacaoDadosGerais(
     dfdId,
@@ -671,7 +687,7 @@ export async function adicionarItemDfdAction(
 ): Promise<ResultadoAdicionarItem> {
   const sessao = await exigirUnidadeOuSetorInterno();
   const ctx = await resolverContextoDfd(sessao);
-  const resultadoDfd = await obterDfdParaEdicao(dfdId, ctx);
+  const resultadoDfd = await obterDfdParaEdicao(dfdId, ctx, sessao);
   if ("erro" in resultadoDfd) return { erro: resultadoDfd.erro };
   const unidade = await prisma.unidade.findUniqueOrThrow({
     where: { id: ctx.unidadeId },
@@ -721,8 +737,17 @@ export async function solicitarAutorizacaoCotaGeralAction(
   formData: FormData,
 ): Promise<ResultadoAcao> {
   const sessao = await exigirUnidadeOuSetorInterno();
+  if (
+    sessao.tipo === "UNIDADE" &&
+    sessao.permissoes &&
+    !sessao.permissoes.podeSolicitarCotaGeral
+  ) {
+    return {
+      erro: "Seu usuário não possui permissão para solicitar autorização de Cota Geral.",
+    };
+  }
   const ctx = await resolverContextoDfd(sessao);
-  const resultadoDfd = await obterDfdParaEdicao(dfdId, ctx);
+  const resultadoDfd = await obterDfdParaEdicao(dfdId, ctx, sessao);
   if ("erro" in resultadoDfd) return { erro: resultadoDfd.erro };
   const unidade = await prisma.unidade.findUniqueOrThrow({
     where: { id: ctx.unidadeId },
@@ -892,7 +917,7 @@ export async function removerItemDfdAction(
 ): Promise<ResultadoAcao> {
   const sessao = await exigirUnidadeOuSetorInterno();
   const ctx = await resolverContextoDfd(sessao);
-  const resultadoDfd = await obterDfdParaEdicao(dfdId, ctx);
+  const resultadoDfd = await obterDfdParaEdicao(dfdId, ctx, sessao);
   if ("erro" in resultadoDfd) return { erro: resultadoDfd.erro };
   const resultado = await processarRemocaoItem(dfdId, itemId);
   if (resultado.erro) return resultado;
@@ -940,10 +965,19 @@ export async function enviarParaAprovacaoAction(
   dfdId: string,
 ): Promise<ResultadoAcao> {
   const sessao = await exigirUnidade();
-  const resultadoDfd = await obterDfdParaEdicao(dfdId, {
-    unidadeId: sessao.id,
-    setorInternoId: null,
-  });
+  if (sessao.permissoes && !sessao.permissoes.podeEnviarDfd) {
+    return {
+      erro: "Seu usuário não possui permissão para enviar DFDs para homologação da PROAD.",
+    };
+  }
+  const resultadoDfd = await obterDfdParaEdicao(
+    dfdId,
+    {
+      unidadeId: sessao.id,
+      setorInternoId: null,
+    },
+    sessao,
+  );
   if ("erro" in resultadoDfd) return { erro: resultadoDfd.erro };
   const { dfd } = resultadoDfd;
   const erroJanela = await verificarJanela(sessao.id, dfd.ano);
@@ -1012,8 +1046,15 @@ export async function reabrirParaSetorAction(
 
 export async function excluirDfdAction(dfdId: string): Promise<ResultadoAcao> {
   const sessao = await exigirUnidadeOuSetorInterno();
+  if (
+    sessao.tipo === "UNIDADE" &&
+    sessao.permissoes &&
+    !sessao.permissoes.podeExcluirDfd
+  ) {
+    return { erro: "Seu usuário não possui permissão para excluir DFDs." };
+  }
   const ctx = await resolverContextoDfd(sessao);
-  const resultadoDfd = await obterDfdParaEdicao(dfdId, ctx);
+  const resultadoDfd = await obterDfdParaEdicao(dfdId, ctx, sessao);
   if ("erro" in resultadoDfd) return { erro: resultadoDfd.erro };
   await prisma.dfd.delete({ where: { id: dfdId } });
   revalidatePath("/");

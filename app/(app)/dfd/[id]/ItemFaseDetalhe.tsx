@@ -21,7 +21,15 @@ const BADGE_CLASSE: Record<Fase["badge"], string> = {
   neutral: "bg-slate-100 text-slate-600",
 };
 
-export default function ItemFaseDetalhe({ itemId, fase }: { itemId: string; fase: Fase }) {
+export default function ItemFaseDetalhe({
+  itemId,
+  fase,
+  podeConfirmarEntrega = true,
+}: {
+  itemId: string;
+  fase: Fase;
+  podeConfirmarEntrega?: boolean;
+}) {
   const [timelineAberta, setTimelineAberta] = useState(false);
   const [timeline, setTimeline] = useState<{ data: string; titulo: string; desc: string }[] | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -73,22 +81,28 @@ export default function ItemFaseDetalhe({ itemId, fase }: { itemId: string; fase
             <b>{fase.prazoConfirmacao ? formatarData(fase.prazoConfirmacao) : "—"}</b>, o sistema considera a
             entrega automaticamente aceita.
           </p>
-          <div className="mt-2 flex gap-2">
-            <button
-              disabled={isPending}
-              onClick={confirmar}
-              className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
-            >
-              Confirmar Recebimento
-            </button>
-            <button
-              disabled={isPending}
-              onClick={() => setMostrarContestacao((v) => !v)}
-              className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
-            >
-              Contestar Entrega
-            </button>
-          </div>
+          {podeConfirmarEntrega ? (
+            <div className="mt-2 flex gap-2">
+              <button
+                disabled={isPending}
+                onClick={confirmar}
+                className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+              >
+                Confirmar Recebimento
+              </button>
+              <button
+                disabled={isPending}
+                onClick={() => setMostrarContestacao((v) => !v)}
+                className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+              >
+                Contestar Entrega
+              </button>
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-amber-700 italic">
+              Seu usuário não possui permissão para confirmar ou contestar o recebimento de entregas.
+            </p>
+          )}
           {mostrarContestacao && (
             <form
               onSubmit={(e) => {

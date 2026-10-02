@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { exigirAdmin, exigirEntrega, exigirUnidade } from "@/lib/auth";
+import { exigirAdmin, exigirEntrega, exigirPermissao } from "@/lib/auth";
 import { proximosStatusEntrega, subperfilBensPorTipo, type StatusEntregaValor } from "@/lib/entrega";
 
 /**
@@ -263,7 +263,10 @@ async function obterConfirmacaoPendenteOuErro(entregaId: string, unidadeId: stri
 }
 
 export async function confirmarRecebimentoEntregaAction(entregaId: string) {
-  const sessao = await exigirUnidade();
+  const sessao = await exigirPermissao(
+    "podeConfirmarEntrega",
+    "Seu usuário não possui permissão para confirmar o recebimento de entregas.",
+  );
   const { confirmacao, dfdId } = await obterConfirmacaoPendenteOuErro(entregaId, sessao.id);
   await prisma.confirmacaoEntrega.update({
     where: { id: confirmacao.id },
@@ -274,7 +277,10 @@ export async function confirmarRecebimentoEntregaAction(entregaId: string) {
 }
 
 export async function enviarContestacaoEntregaAction(entregaId: string, formData: FormData) {
-  const sessao = await exigirUnidade();
+  const sessao = await exigirPermissao(
+    "podeConfirmarEntrega",
+    "Seu usuário não possui permissão para contestar o recebimento de entregas.",
+  );
   const motivo = String(formData.get("motivo") ?? "").trim();
   if (!motivo) throw new Error("Descreva o motivo da contestação.");
   const { confirmacao, dfdId } = await obterConfirmacaoPendenteOuErro(entregaId, sessao.id);

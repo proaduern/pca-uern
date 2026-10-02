@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { exigirUnidade, gerarHashSenha } from "@/lib/auth";
+import { exigirPermissao, gerarHashSenha } from "@/lib/auth";
 import type { ResultadoAcao } from "./tipos";
 
 const SENHA_PADRAO_INICIAL = "123";
@@ -48,7 +48,10 @@ async function validarSomaCotaSetores(opts: {
 }
 
 export async function criarSetorInternoAction(formData: FormData): Promise<ResultadoAcao> {
-  const sessao = await exigirUnidade();
+  const sessao = await exigirPermissao(
+    "podeGerenciarSetores",
+    "Seu usuário não possui permissão para gerenciar setores internos.",
+  );
   const nome = String(formData.get("nome") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const cotaOP = Number(formData.get("cotaOP") ?? 0);
@@ -95,7 +98,10 @@ export async function atualizarSetorInternoAction(
   setorInternoId: string,
   formData: FormData,
 ): Promise<ResultadoAcao> {
-  const sessao = await exigirUnidade();
+  const sessao = await exigirPermissao(
+    "podeGerenciarSetores",
+    "Seu usuário não possui permissão para gerenciar setores internos.",
+  );
   const resultadoSetor = await obterSetorInternoDaUnidade(setorInternoId, sessao.id);
   if ("erro" in resultadoSetor) return { erro: resultadoSetor.erro };
 
@@ -138,7 +144,10 @@ export async function redefinirSenhaSetorInternoAction(
   setorInternoId: string,
   formData: FormData,
 ): Promise<ResultadoAcao> {
-  const sessao = await exigirUnidade();
+  const sessao = await exigirPermissao(
+    "podeGerenciarSetores",
+    "Seu usuário não possui permissão para gerenciar setores internos.",
+  );
   const resultadoSetor = await obterSetorInternoDaUnidade(setorInternoId, sessao.id);
   if ("erro" in resultadoSetor) return { erro: resultadoSetor.erro };
   const novaSenha = String(formData.get("novaSenha") ?? "");
@@ -153,7 +162,10 @@ export async function redefinirSenhaSetorInternoAction(
 }
 
 export async function excluirSetorInternoAction(setorInternoId: string): Promise<ResultadoAcao> {
-  const sessao = await exigirUnidade();
+  const sessao = await exigirPermissao(
+    "podeGerenciarSetores",
+    "Seu usuário não possui permissão para gerenciar setores internos.",
+  );
   const resultadoSetor = await obterSetorInternoDaUnidade(setorInternoId, sessao.id);
   if ("erro" in resultadoSetor) return { erro: resultadoSetor.erro };
   const emUso = await prisma.dfd.count({ where: { setorInternoId } });

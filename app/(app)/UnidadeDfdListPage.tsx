@@ -5,6 +5,7 @@ import { calcularGastos, dfdComprometeOrcamento } from "@/lib/cota";
 import { computarPorCategoria } from "@/lib/relatorio-unidade";
 import { resolverPcaEmAtuacao } from "@/lib/pca-contexto";
 import NovaDemandaBotao from "./NovaDemandaBotao";
+import type { PermissoesUsuario } from "@/lib/auth";
 
 const ENQUADRAMENTO_LABEL: Record<string, string> = {
   geral: "Geral",
@@ -34,8 +35,10 @@ const STATUS_SOLICITACAO_COTA_GERAL_LABEL: Record<string, string> = {
 
 export default async function UnidadeDfdListPage({
   unidadeId,
+  permissoes,
 }: {
   unidadeId: string;
+  permissoes?: PermissoesUsuario | null;
 }) {
   const [
     unidade,
@@ -205,7 +208,12 @@ export default async function UnidadeDfdListPage({
               planejamento, licitação, execução e entrega — e a linha do tempo completa do pedido.
             </p>
           </div>
-          {pcaAtivo && <NovaDemandaBotao />}
+          {pcaAtivo && (permissoes ? permissoes.podeCriarDfd : true) && <NovaDemandaBotao />}
+          {pcaAtivo && permissoes && !permissoes.podeCriarDfd && (
+            <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">
+              Criação de DFD desabilitada para seu perfil
+            </span>
+          )}
         </div>
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-slate-500">

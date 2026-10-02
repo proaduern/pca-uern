@@ -38,10 +38,16 @@ export default async function DfdDetalhePage({
   const modoAdmin = sessao.tipo === "ADMIN";
   const modoUnidade = sessao.tipo === "UNIDADE";
   const modoSetorInterno = sessao.tipo === "SETOR_INTERNO";
+
+  const permissaoEdicao = sessao.permissoes ? sessao.permissoes.podeEditarDfd : true;
+  const permissaoEnvio = sessao.permissoes ? sessao.permissoes.podeEnviarDfd : true;
+  const permissaoExclusao = sessao.permissoes ? sessao.permissoes.podeExcluirDfd : true;
+
   // Uma vez enviado para a unidade revisar, o setor interno perde a edição
   // até ela reabrir (reabrirParaSetorAction) — ver obterDfdParaEdicaoOuErro.
   const bloqueadoParaSetor = modoSetorInterno && !!dfd.enviadoParaUnidadeEm;
-  const podeEditarAutor = editavel && (modoUnidade || (modoSetorInterno && !bloqueadoParaSetor));
+  const podeEditarAutor =
+    editavel && ((modoUnidade && permissaoEdicao) || (modoSetorInterno && !bloqueadoParaSetor));
   // A PROAD pode editar o DFD em qualquer status — uma edição em um DFD já
   // aprovado o devolve para "aguardando aprovação" (ver reverterAprovacaoSeNecessario).
   const podeEditar = podeEditarAutor || modoAdmin;
@@ -153,7 +159,11 @@ export default async function DfdDetalhePage({
             </div>
             {fasesPorItem[it.id] && sessao.tipo === "UNIDADE" && (
               <>
-                <ItemFaseDetalhe itemId={it.id} fase={fasesPorItem[it.id]} />
+                <ItemFaseDetalhe
+                  itemId={it.id}
+                  fase={fasesPorItem[it.id]}
+                  podeConfirmarEntrega={sessao.permissoes ? sessao.permissoes.podeConfirmarEntrega : true}
+                />
                 {it.enquadramento === "OP" && it.tipo === "MATERIAL" && !fasesPorItem[it.id].executado && (
                   <TrocaOPPainel
                     itemDfdId={it.id}
@@ -195,6 +205,8 @@ export default async function DfdDetalhePage({
             }))}
             unidadeElegivelOP={dfd.unidade.elegivelCotaOP}
             modoAdmin={modoAdmin}
+            podeSolicitarCatalogo={sessao.permissoes ? sessao.permissoes.podeSolicitarCatalogo : true}
+            podeSolicitarCotaGeral={sessao.permissoes ? sessao.permissoes.podeSolicitarCotaGeral : true}
           />
         )}
       </section>
@@ -220,14 +232,18 @@ export default async function DfdDetalhePage({
         <AcoesDfd
           dfdId={dfd.id}
           podeEditar={podeEditarAutor}
+          podeEnviar={modoUnidade ? permissaoEnvio : true}
+          podeExcluir={modoUnidade ? permissaoExclusao : true}
           totalItens={dfd.itens.length}
           papel={modoSetorInterno ? "SETOR_INTERNO" : "UNIDADE"}
           mensagemBloqueio={
             bloqueadoParaSetor
               ? `Enviado para revisão da unidade em ${formatarDataHora(dfd.enviadoParaUnidadeEm!)}. Aguarde a liberação para a PROAD.`
+              : modoUnidade && !permissaoEdicao && editavel
+              ? "Seu perfil de usuário tem acesso apenas de visualização neste DFD."
               : undefined
           }
-          podeReabrirParaSetor={modoUnidade && !!dfd.setorInternoId && !!dfd.enviadoParaUnidadeEm && editavel}
+          podeReabrirParaSetor={modoUnidade && !!dfd.setorInternoId && !!dfd.enviadoParaUnidadeEm && editavel && permissaoEdicao}
         />
       )}
 

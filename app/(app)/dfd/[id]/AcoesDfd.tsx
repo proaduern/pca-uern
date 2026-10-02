@@ -15,6 +15,8 @@ export default function AcoesDfd({
   papel,
   mensagemBloqueio,
   podeReabrirParaSetor,
+  podeEnviar = true,
+  podeExcluir = true,
 }: {
   dfdId: string;
   podeEditar: boolean;
@@ -22,6 +24,8 @@ export default function AcoesDfd({
   papel: "UNIDADE" | "SETOR_INTERNO";
   mensagemBloqueio?: string;
   podeReabrirParaSetor?: boolean;
+  podeEnviar?: boolean;
+  podeExcluir?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -49,7 +53,7 @@ export default function AcoesDfd({
         <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">{mensagemBloqueio}</p>
       )}
       <div className="flex flex-wrap gap-3">
-        {podeEditar && papel === "UNIDADE" && (
+        {podeEditar && papel === "UNIDADE" && podeEnviar && (
           <button
             disabled={isPending || totalItens === 0}
             onClick={() => rodar(() => enviarParaAprovacaoAction(dfdId))}
@@ -76,7 +80,7 @@ export default function AcoesDfd({
             Reabrir para o setor editar
           </button>
         )}
-        {podeEditar && (
+        {podeEditar && podeExcluir && (
           <button
             disabled={isPending}
             onClick={() => {

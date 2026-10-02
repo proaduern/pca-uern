@@ -7,10 +7,12 @@ export default function DadosUnidadeForm({
   responsavelNome,
   responsavelMatricula,
   responsavelTelefone,
+  podeEditar = true,
 }: {
   responsavelNome: string | null;
   responsavelMatricula: string | null;
   responsavelTelefone: string | null;
+  podeEditar?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -39,7 +41,8 @@ export default function DadosUnidadeForm({
         <input
           name="responsavelNome"
           defaultValue={responsavelNome ?? ""}
-          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+          disabled={!podeEditar}
+          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500"
         />
       </div>
       <div>
@@ -47,7 +50,8 @@ export default function DadosUnidadeForm({
         <input
           name="responsavelMatricula"
           defaultValue={responsavelMatricula ?? ""}
-          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+          disabled={!podeEditar}
+          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500"
         />
       </div>
       <div>
@@ -55,20 +59,27 @@ export default function DadosUnidadeForm({
         <input
           name="responsavelTelefone"
           defaultValue={responsavelTelefone ?? ""}
-          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+          disabled={!podeEditar}
+          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500"
         />
       </div>
 
       {erro && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
       {salvo && !erro && <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Salvo.</p>}
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="rounded-xl bg-[#003366] px-3 py-2 text-sm font-medium text-white hover:bg-[#002244] disabled:opacity-60"
-      >
-        {isPending ? "Salvando..." : "Salvar"}
-      </button>
+      {podeEditar ? (
+        <button
+          type="submit"
+          disabled={isPending}
+          className="rounded-xl bg-[#003366] px-3 py-2 text-sm font-medium text-white hover:bg-[#002244] disabled:opacity-60"
+        >
+          {isPending ? "Salvando..." : "Salvar"}
+        </button>
+      ) : (
+        <p className="text-xs text-slate-400 italic">
+          Seu usuário não possui permissão para alterar os dados do responsável da unidade.
+        </p>
+      )}
     </form>
   );
 }

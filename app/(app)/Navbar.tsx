@@ -23,10 +23,12 @@ const ROTULO_POR_TIPO: Record<TipoSessao, string> = {
 export default function Navbar({
   nome,
   tipo,
+  subtitulo,
   pcaAtuacao,
 }: {
   nome: string;
   tipo: TipoSessao;
+  subtitulo?: string | null;
   pcaAtuacao?: { ano: number; podeTrocar: boolean } | null;
 }) {
   const [aberto, setAberto] = useState(false);
@@ -77,7 +79,7 @@ export default function Navbar({
             <div className="hidden md:block">
               <div className="text-xs font-bold leading-tight text-slate-800">{nome}</div>
               <div className="mt-0.5 text-[11px] font-medium leading-tight text-blue-600">
-                {ROTULO_POR_TIPO[tipo]}
+                {subtitulo ? `${subtitulo} • ${ROTULO_POR_TIPO[tipo]}` : ROTULO_POR_TIPO[tipo]}
               </div>
             </div>
             <ChevronDown className="hidden h-4 w-4 text-slate-400 md:block" />
@@ -86,10 +88,13 @@ export default function Navbar({
           {aberto && (
             <div
               onMouseLeave={() => setAberto(false)}
-              className="absolute right-0 z-50 mt-2 w-56 rounded-2xl border border-slate-100 bg-white py-2 shadow-xl"
+              className="absolute right-0 z-50 mt-2 w-64 rounded-2xl border border-slate-100 bg-white py-2 shadow-xl"
             >
               <div className="border-b border-slate-100 px-4 py-2.5">
                 <p className="truncate text-xs font-semibold text-slate-800">{nome}</p>
+                {subtitulo && (
+                  <p className="mt-0.5 truncate text-[11px] text-slate-500">{subtitulo}</p>
+                )}
                 <span className="mt-1.5 inline-block rounded-md border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
                   {ROTULO_POR_TIPO[tipo]}
                 </span>

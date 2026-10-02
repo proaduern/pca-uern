@@ -1479,3 +1479,191 @@ export async function autorizarExecucaoAtaAction(consolidacaoId: string) {
 
   revalidatePath("/admin/gestor-ata");
 }
+
+// ---------------------------------------------------------------------------
+// Usuários de Unidades
+// ---------------------------------------------------------------------------
+
+export async function criarUsuarioUnidadeAction(
+  formData: FormData,
+): Promise<ResultadoAcao> {
+  await exigirAdmin();
+  const nome = String(formData.get("nome") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const matricula = String(formData.get("matricula") ?? "").trim() || null;
+  const cargo = String(formData.get("cargo") ?? "").trim() || null;
+  const telefone = String(formData.get("telefone") ?? "").trim() || null;
+  const unidadeId = String(formData.get("unidadeId") ?? "").trim();
+  const senhaInicial = String(formData.get("senhaInicial") ?? "");
+
+  const podeCriarDfd = formData.get("podeCriarDfd") === "on";
+  const podeEditarDfd = formData.get("podeEditarDfd") === "on";
+  const podeEnviarDfd = formData.get("podeEnviarDfd") === "on";
+  const podeExcluirDfd = formData.get("podeExcluirDfd") === "on";
+  const podeSolicitarCatalogo = formData.get("podeSolicitarCatalogo") === "on";
+  const podeSolicitarCotaGeral = formData.get("podeSolicitarCotaGeral") === "on";
+  const podeConfirmarEntrega = formData.get("podeConfirmarEntrega") === "on";
+  const podeGerenciarSetores = formData.get("podeGerenciarSetores") === "on";
+  const podeEditarDadosUnidade = formData.get("podeEditarDadosUnidade") === "on";
+
+  if (!nome || !email || !unidadeId || !senhaInicial) {
+    return { erro: "Preencha nome, email, unidade vinculada e senha inicial." };
+  }
+  if (!email.endsWith("@uern.br")) {
+    return { erro: "O email do usuário precisa ser do domínio @uern.br." };
+  }
+  if (senhaInicial.length < 8) {
+    return { erro: "A senha inicial precisa ter pelo menos 8 caracteres." };
+  }
+
+  const unidade = await prisma.unidade.findUnique({ where: { id: unidadeId } });
+  if (!unidade) return { erro: "Unidade demandante não encontrada." };
+
+  const senhaHash = await gerarHashSenha(senhaInicial);
+
+  try {
+    await prisma.usuario.create({
+      data: {
+        nome,
+        email,
+        senhaHash,
+        senhaTemporaria: true,
+        matricula,
+        cargo,
+        telefone,
+        role: "UNIDADE",
+        unidadeId,
+        podeCriarDfd,
+        podeEditarDfd,
+        podeEnviarDfd,
+        podeExcluirDfd,
+        podeSolicitarCatalogo,
+        podeSolicitarCotaGeral,
+        podeConfirmarEntrega,
+        podeGerenciarSetores,
+        podeEditarDadosUnidade,
+      },
+    });
+  } catch (erro) {
+    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+      return { erro: "Já existe um usuário cadastrado com este e-mail." };
+    }
+    throw erro;
+  }
+
+  revalidatePath("/admin/usuarios");
+  revalidatePath("/admin/unidades");
+  return {};
+}
+
+export async function atualizarUsuarioUnidadeAction(
+  usuarioId: string,
+  formData: FormData,
+): Promise<ResultadoAcao> {
+  await exigirAdmin();
+  const nome = String(formData.get("nome") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const matricula = String(formData.get("matricula") ?? "").trim() || null;
+  const cargo = String(formData.get("cargo") ?? "").trim() || null;
+  const telefone = String(formData.get("telefone") ?? "").trim() || null;
+  const unidadeId = String(formData.get("unidadeId") ?? "").trim();
+  const ativo = formData.get("ativo") === "on";
+
+  const podeCriarDfd = formData.get("podeCriarDfd") === "on";
+  const podeEditarDfd = formData.get("podeEditarDfd") === "on";
+  const podeEnviarDfd = formData.get("podeEnviarDfd") === "on";
+  const podeExcluirDfd = formData.get("podeExcluirDfd") === "on";
+  const podeSolicitarCatalogo = formData.get("podeSolicitarCatalogo") === "on";
+  const podeSolicitarCotaGeral = formData.get("podeSolicitarCotaGeral") === "on";
+  const podeConfirmarEntrega = formData.get("podeConfirmarEntrega") === "on";
+  const podeGerenciarSetores = formData.get("podeGerenciarSetores") === "on";
+  const podeEditarDadosUnidade = formData.get("podeEditarDadosUnidade") === "on";
+
+  if (!nome || !email || !unidadeId) {
+    return { erro: "Preencha nome, email e unidade vinculada." };
+  }
+  if (!email.endsWith("@uern.br")) {
+    return { erro: "O email do usuário precisa ser do domínio @uern.br." };
+  }
+
+  try {
+    await prisma.usuario.update({
+      where: { id: usuarioId },
+      data: {
+        nome,
+        email,
+        matricula,
+        cargo,
+        telefone,
+        unidadeId,
+        ativo,
+        podeCriarDfd,
+        podeEditarDfd,
+        podeEnviarDfd,
+        podeExcluirDfd,
+        podeSolicitarCatalogo,
+        podeSolicitarCotaGeral,
+        podeConfirmarEntrega,
+        podeGerenciarSetores,
+        podeEditarDadosUnidade,
+      },
+    });
+  } catch (erro) {
+    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+      return { erro: "Já existe outro usuário com este e-mail." };
+    }
+    throw erro;
+  }
+
+  revalidatePath("/admin/usuarios");
+  revalidatePath("/admin/unidades");
+  return {};
+}
+
+export async function redefinirSenhaUsuarioAction(
+  usuarioId: string,
+  formData: FormData,
+): Promise<ResultadoAcao> {
+  await exigirAdmin();
+  const novaSenha = String(formData.get("novaSenha") ?? "");
+  if (novaSenha.length < 8) {
+    return { erro: "A senha precisa ter pelo menos 8 caracteres." };
+  }
+  const senhaHash = await gerarHashSenha(novaSenha);
+  await prisma.usuario.update({
+    where: { id: usuarioId },
+    data: { senhaHash, senhaTemporaria: true },
+  });
+  revalidatePath("/admin/usuarios");
+  revalidatePath("/admin/unidades");
+  return {};
+}
+
+export async function alternarStatusUsuarioAction(
+  usuarioId: string,
+  ativo: boolean,
+): Promise<ResultadoAcao> {
+  await exigirAdmin();
+  await prisma.usuario.update({
+    where: { id: usuarioId },
+    data: { ativo },
+  });
+  revalidatePath("/admin/usuarios");
+  revalidatePath("/admin/unidades");
+  return {};
+}
+
+export async function excluirUsuarioAction(
+  id: string,
+): Promise<ResultadoAcao> {
+  await exigirAdmin();
+  const u = await prisma.usuario.findUnique({ where: { id } });
+  if (!u) return { erro: "Usuário não encontrado." };
+  if (u.role === "ADMIN") {
+    return { erro: "Não é possível excluir um usuário administrador PROAD por esta ação." };
+  }
+  await prisma.usuario.delete({ where: { id } });
+  revalidatePath("/admin/usuarios");
+  revalidatePath("/admin/unidades");
+  return {};
+}

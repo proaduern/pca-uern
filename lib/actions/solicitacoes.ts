@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { exigirAdmin, exigirUnidade } from "@/lib/auth";
+import { exigirAdmin, exigirPermissao } from "@/lib/auth";
 
 /**
  * Solicitação de inclusão de novo item no catálogo padronizado, feita pela
@@ -10,7 +10,10 @@ import { exigirAdmin, exigirUnidade } from "@/lib/auth";
  * equivalente a "enviarSolicitacao" do sistema original.
  */
 export async function enviarSolicitacaoCatalogoAction(formData: FormData) {
-  const sessao = await exigirUnidade();
+  const sessao = await exigirPermissao(
+    "podeSolicitarCatalogo",
+    "Seu usuário não possui permissão para solicitar novos itens no catálogo.",
+  );
 
   const nomeResumido = String(formData.get("nomeResumido") ?? "").trim();
   const descricao = String(formData.get("descricao") ?? "").trim();

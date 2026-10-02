@@ -31,12 +31,40 @@ export type TipoSessao =
   | "ENTREGA"
   | "GESTOR_ATA";
 
+export interface PermissoesUsuario {
+  podeCriarDfd: boolean;
+  podeEditarDfd: boolean;
+  podeEnviarDfd: boolean;
+  podeExcluirDfd: boolean;
+  podeSolicitarCatalogo: boolean;
+  podeSolicitarCotaGeral: boolean;
+  podeConfirmarEntrega: boolean;
+  podeGerenciarSetores: boolean;
+  podeEditarDadosUnidade: boolean;
+}
+
+export const PERMISSOES_TOTAL: PermissoesUsuario = {
+  podeCriarDfd: true,
+  podeEditarDfd: true,
+  podeEnviarDfd: true,
+  podeExcluirDfd: true,
+  podeSolicitarCatalogo: true,
+  podeSolicitarCotaGeral: true,
+  podeConfirmarEntrega: true,
+  podeGerenciarSetores: true,
+  podeEditarDadosUnidade: true,
+};
+
 export interface SessionPayload {
   tipo: TipoSessao;
-  id: string;
+  id: string; // Para UNIDADE, o id da Unidade
   nome: string;
   email: string;
   senhaTemporaria?: boolean;
+  usuarioId?: string; // id do Usuario logado (pessoa fisica)
+  unidadeId?: string; // id da Unidade vinculada
+  unidadeNome?: string; // Nome da Unidade vinculada
+  permissoes?: PermissoesUsuario;
 }
 
 export async function criarSessao(payload: SessionPayload) {
@@ -73,6 +101,12 @@ async function obterSessaoDoCookie(nomeCookie: string): Promise<SessionPayload |
       nome: payload.nome as string,
       email: payload.email as string,
       senhaTemporaria: payload.senhaTemporaria as boolean | undefined,
+      usuarioId: payload.usuarioId as string | undefined,
+      unidadeId: payload.unidadeId as string | undefined,
+      unidadeNome: payload.unidadeNome as string | undefined,
+      permissoes:
+        (payload.permissoes as PermissoesUsuario | undefined) ??
+        (payload.tipo === "UNIDADE" ? PERMISSOES_TOTAL : undefined),
     };
   } catch {
     return null;
@@ -119,6 +153,24 @@ export async function exigirAdminNaPagina(): Promise<SessionPayload> {
 export async function exigirUnidade(): Promise<SessionPayload> {
   const sessao = await exigirSessao();
   if (sessao.tipo !== "UNIDADE") throw new Error("Acesso restrito a unidades demandantes.");
+  return sessao;
+}
+
+export async function exigirPermissao(
+  permissao: keyof PermissoesUsuario,
+  mensagem?: string,
+): Promise<SessionPayload> {
+  const sessao = await exigirSessao();
+  if (sessao.tipo === "ADMIN") return sessao;
+  if (sessao.tipo !== "UNIDADE") {
+    throw new Error("Acesso restrito a unidades demandantes.");
+  }
+  const permissoes = sessao.permissoes ?? PERMISSOES_TOTAL;
+  if (!permissoes[permissao]) {
+    throw new Error(
+      mensagem ?? "Seu usuário não possui permissão para executar esta ação no sistema. Contate o administrador da PROAD.",
+    );
+  }
   return sessao;
 }
 
@@ -356,14 +408,55 @@ const HASH_FANTASMA = "$2b$12$Wy4LLRXQi4YTb.p/xAWyreawLe5HR1ZI.4ssLmxJtbSDVwgqbt
 export async function autenticar(email: string, senha: string): Promise<ResultadoAutenticacao> {
   const emailNorm = email.trim().toLowerCase();
 
-  const admin = await prisma.usuario.findUnique({ where: { email: emailNorm } });
-  if (admin) {
-    const ok = await bcrypt.compare(senha, admin.senhaHash);
-    if (!ok) return null;
-    return {
-      resultado: "sessao",
-      sessao: { tipo: "ADMIN", id: admin.id, nome: admin.nome, email: admin.email },
-    };
+  const usuario = await prisma.usuario.findUnique({
+    where: { email: emailNorm },
+    include: { unidade: true },
+  });
+
+  if (usuario) {
+    const ok = await bcrypt.compare(senha, usuario.senhaHash);
+    if (!ok || !usuario.ativo) return null;
+
+    if (usuario.role === "ADMIN") {
+      return {
+        resultado: "sessao",
+        sessao: {
+          tipo: "ADMIN",
+          id: usuario.id,
+          nome: usuario.nome,
+          email: usuario.email,
+          usuarioId: usuario.id,
+        },
+      };
+    }
+
+    if (usuario.role === "UNIDADE" && usuario.unidadeId && usuario.unidade) {
+      if (!usuario.unidade.ativa) return null;
+      return {
+        resultado: "sessao",
+        sessao: {
+          tipo: "UNIDADE",
+          id: usuario.unidade.id,
+          nome: usuario.nome,
+          email: usuario.email,
+          senhaTemporaria: usuario.senhaTemporaria,
+          usuarioId: usuario.id,
+          unidadeId: usuario.unidade.id,
+          unidadeNome: usuario.unidade.nome,
+          permissoes: {
+            podeCriarDfd: usuario.podeCriarDfd,
+            podeEditarDfd: usuario.podeEditarDfd,
+            podeEnviarDfd: usuario.podeEnviarDfd,
+            podeExcluirDfd: usuario.podeExcluirDfd,
+            podeSolicitarCatalogo: usuario.podeSolicitarCatalogo,
+            podeSolicitarCotaGeral: usuario.podeSolicitarCotaGeral,
+            podeConfirmarEntrega: usuario.podeConfirmarEntrega,
+            podeGerenciarSetores: usuario.podeGerenciarSetores,
+            podeEditarDadosUnidade: usuario.podeEditarDadosUnidade,
+          },
+        },
+      };
+    }
   }
 
   const setorProprio = await prisma.setorTecnico.findUnique({ where: { email: emailNorm } });
@@ -629,7 +722,16 @@ async function construirPayloadAtuarComo(
 ): Promise<SessionPayload> {
   if (tipo === "UNIDADE") {
     const u = await prisma.unidade.findUniqueOrThrow({ where: { id } });
-    return { tipo: "UNIDADE", id: u.id, nome: u.nome, email: u.email, senhaTemporaria: u.senhaTemporaria };
+    return {
+      tipo: "UNIDADE",
+      id: u.id,
+      nome: u.nome,
+      email: u.email,
+      senhaTemporaria: u.senhaTemporaria,
+      unidadeId: u.id,
+      unidadeNome: u.nome,
+      permissoes: PERMISSOES_TOTAL,
+    };
   }
   if (tipo === "SETOR_TECNICO") {
     const t = await prisma.setorTecnico.findUniqueOrThrow({ where: { id } });
@@ -733,6 +835,46 @@ export async function iniciarAtuarComo(
     throw new Error('Só a PROAD pode usar "Atuar Como".');
   }
   const payload = await construirPayloadAtuarComo(tipo, id);
+  await salvarCookieSessao(ADMIN_IMPERSONACAO_COOKIE_NAME, payload);
+}
+
+export async function construirPayloadAtuarComoUsuario(usuarioId: string): Promise<SessionPayload> {
+  const u = await prisma.usuario.findUniqueOrThrow({
+    where: { id: usuarioId },
+    include: { unidade: true },
+  });
+  if (!u.unidadeId || !u.unidade) {
+    throw new Error("Usuário não está vinculado a uma unidade demandante.");
+  }
+  return {
+    tipo: "UNIDADE",
+    id: u.unidade.id,
+    nome: u.nome,
+    email: u.email,
+    usuarioId: u.id,
+    unidadeId: u.unidade.id,
+    unidadeNome: u.unidade.nome,
+    permissoes: {
+      podeCriarDfd: u.podeCriarDfd,
+      podeEditarDfd: u.podeEditarDfd,
+      podeEnviarDfd: u.podeEnviarDfd,
+      podeExcluirDfd: u.podeExcluirDfd,
+      podeSolicitarCatalogo: u.podeSolicitarCatalogo,
+      podeSolicitarCotaGeral: u.podeSolicitarCotaGeral,
+      podeConfirmarEntrega: u.podeConfirmarEntrega,
+      podeGerenciarSetores: u.podeGerenciarSetores,
+      podeEditarDadosUnidade: u.podeEditarDadosUnidade,
+    },
+    senhaTemporaria: false,
+  };
+}
+
+export async function iniciarAtuarComoUsuario(usuarioId: string) {
+  const real = await obterSessaoReal();
+  if (!real || real.tipo !== "ADMIN") {
+    throw new Error('Só a PROAD pode usar "Atuar Como".');
+  }
+  const payload = await construirPayloadAtuarComoUsuario(usuarioId);
   await salvarCookieSessao(ADMIN_IMPERSONACAO_COOKIE_NAME, payload);
 }
 

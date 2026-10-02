@@ -45,5 +45,5 @@ export default async function HomePage() {
   if (sessao.tipo === "GESTOR_ATA") {
     return <GestorAtaHomePage />;
   }
-  return <UnidadeDfdListPage unidadeId={sessao.id} />;
+  return <UnidadeDfdListPage unidadeId={sessao.id} permissoes={sessao.permissoes} />;
 }
