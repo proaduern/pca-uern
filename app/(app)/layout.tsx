@@ -52,6 +52,7 @@ export default async function AppLayout({
     { href: "/admin/entrega", label: "Entrega de Bens" },
     { href: "/admin/gestor-ata", label: "Gestão de Ata" },
     { href: "/admin/pca", label: "PCA" },
+    { href: "/admin/contratos-sgc", label: "Contratos Vigentes (SGC)" },
     { href: "/admin/categorias", label: "Categorias" },
     { href: "/admin/catalogo", label: "Catálogo" },
     { href: "/admin/solicitacoes", label: "Solicitações de Catálogo" },

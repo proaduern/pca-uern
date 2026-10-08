@@ -74,18 +74,18 @@ npm run lint
 
 # smoke test end-to-end (precisa do servidor rodando em :3001)
 npm run build && npm run start -- -p 3001 &
-node smoke-pca.mjs                      # fluxo completo: login → DFD → aprovação
-node smoke-import.mjs                   # importação em lote de unidades/categorias/catálogo
-node smoke-fase2.mjs                    # consolidação por setor técnico (roda smoke-pca.mjs antes)
-node smoke-fase3-licitacoes.mjs         # máquina de status de Licitações
-node smoke-fase4-execucao-entrega.mjs   # Execução e Entrega de Bens + confirmação do demandante
-node smoke-fase5-casos-especiais.mjs    # Gestor de Ata, Atendimento por Estoque, Troca de Item OP
-node smoke-admin-edicao.mjs             # edição administrativa de DFD aprovado, mesclagem de categoria, relatório de consolidação geral
-node smoke-cota-visibilidade.mjs        # validação de cota/saldo (unidade, categoria, PCA) e visibilidade de catálogo por unidade
-node smoke-item6-10.mjs                 # itens finais de fidelidade ao legado (6-10)
-node smoke-recursos-legado.mjs          # demais recursos herdados do sistema anterior
-node smoke-fase-a2-cadastros.mjs        # responsável da unidade, edição de categoria/catálogo, rubrica, tipo de bem padrão
-node smoke-fase-d-cota-geral-op.mjs     # restrição de Cota Geral p/ unidades OP (Climatização/Mobília) + solicitação de autorização à PROAD
+node tests/smoke/smoke-pca.mjs                      # fluxo completo: login → DFD → aprovação
+node tests/smoke/smoke-import.mjs                   # importação em lote de unidades/categorias/catálogo
+node tests/smoke/smoke-fase2.mjs                    # consolidação por setor técnico (roda smoke-pca.mjs antes)
+node tests/smoke/smoke-fase3-licitacoes.mjs         # máquina de status de Licitações
+node tests/smoke/smoke-fase4-execucao-entrega.mjs   # Execução e Entrega de Bens + confirmação do demandante
+node tests/smoke/smoke-fase5-casos-especiais.mjs    # Gestor de Ata, Atendimento por Estoque, Troca de Item OP
+node tests/smoke/smoke-admin-edicao.mjs             # edição administrativa de DFD aprovado, mesclagem de categoria, relatório de consolidação geral
+node tests/smoke/smoke-cota-visibilidade.mjs        # validação de cota/saldo (unidade, categoria, PCA) e visibilidade de catálogo por unidade
+node tests/smoke/smoke-item6-10.mjs                 # itens finais de fidelidade ao legado (6-10)
+node tests/smoke/smoke-recursos-legado.mjs          # demais recursos herdados do sistema anterior
+node tests/smoke/smoke-fase-a2-cadastros.mjs        # responsável da unidade, edição de categoria/catálogo, rubrica, tipo de bem padrão
+node tests/smoke/smoke-fase-d-cota-geral-op.mjs     # restrição de Cota Geral p/ unidades OP (Climatização/Mobília) + solicitação de autorização à PROAD
 ```
 
 ## Importação em lote
