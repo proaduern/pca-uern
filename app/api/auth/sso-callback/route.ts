@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
         senhaTemporaria: false,
       };
 
-      destinoUrl = "/admin";
+      destinoUrl = "/";
     } else {
       // 3. Fluxo UNIDADE (Servidor operando em nome de sua Unidade)
       const siglaBusca = unidadeSigla || "PROAD";
@@ -173,7 +173,7 @@ export async function GET(request: NextRequest) {
         permissoes: permissoesSessao,
       };
 
-      destinoUrl = "/dfd";
+      destinoUrl = "/";
     }
 
     // 4. Gera token de sessão assinado com a chave do PCA
