@@ -5,12 +5,7 @@ import { AlertTriangle } from "lucide-react";
 
 /**
  * Rede de segurança genérica para erros de render/runtime inesperados nesta
- * área (bugs reais, não validação de negócio). Validação de formulário usa
- * o contrato ResultadoAcao (ver lib/actions/tipos.ts) e nunca chega aqui —
- * um `throw` de validação dentro de uma server action chamada direto do
- * cliente quebra antes mesmo de qualquer boundary do React rodar (bug do
- * Next.js 16.3.5 em produção), então esta tela não substitui aquele
- * conserto, só cobre o que sobra: erros de fato inesperados.
+ * área (bugs reais, não validação de negócio).
  */
 export default function AppErrorBoundary({
   error,
@@ -20,7 +15,7 @@ export default function AppErrorBoundary({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error(error);
+    console.error("[AppErrorBoundary]", error);
   }, [error]);
 
   return (
@@ -35,6 +30,11 @@ export default function AppErrorBoundary({
           cadastrado, cota excedida, campo obrigatório) ou uma falha temporária. Tente novamente;
           se persistir, avise a PROAD com a hora aproximada.
         </p>
+        {error.message && (
+          <p className="rounded-lg bg-red-50 p-2 font-mono text-xs text-red-700 max-h-32 overflow-auto text-left">
+            Detalhe: {error.message}
+          </p>
+        )}
         {error.digest && (
           <p className="text-xs text-slate-400">Código de referência: {error.digest}</p>
         )}
