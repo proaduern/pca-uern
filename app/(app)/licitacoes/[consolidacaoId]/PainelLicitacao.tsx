@@ -17,6 +17,7 @@ import {
   registrarHomologacaoServicoAction,
   registrarStatusLicitacaoAction,
   salvarRevisaoLicitacaoAction,
+  despacharHomologacaoParaSgcAction,
 } from "@/lib/actions/licitacoes";
 
 const PRIORIDADE_LABEL: Record<string, string> = { ALTA: "Alta", MEDIA: "Média", BAIXA: "Baixa" };
@@ -110,6 +111,7 @@ export default function PainelLicitacao({
   gruposMaterial,
   gruposServicoValor,
   servicosObjeto,
+  statusSgc,
 }: {
   consolidacaoId: string;
   podeGerenciarStatus: boolean;
@@ -131,6 +133,13 @@ export default function PainelLicitacao({
   gruposMaterial: GrupoMaterialProp[];
   gruposServicoValor: GrupoServicoValorProp[];
   servicosObjeto: ServicoObjetoProp[];
+  statusSgc?: {
+    tipo: "ATA" | "CONTRATO";
+    id: string;
+    numeroRegistro: string;
+    fornecedorNome: string | null;
+    statusExecucao: string | null;
+  } | null;
 }) {
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -320,6 +329,107 @@ export default function PainelLicitacao({
                 />
               ))}
             </>
+          )}
+        </div>
+      )}
+
+      {homologacaoIniciada && (
+        <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/50 via-white to-slate-50 shadow-sm p-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="flex h-2.5 w-2.5 rounded-full bg-indigo-600 animate-pulse" />
+                <h2 className="text-sm font-semibold text-indigo-950">
+                  Interoperabilidade Sistêmica SGC — Gestão de Contratos e Atas
+                </h2>
+              </div>
+              <p className="mt-0.5 text-xs text-slate-600">
+                Alimentação direta da homologação para o SGC ({tipoContratacao === "ATA" ? "Módulo de Atas de Registro de Preço" : "Formalização de Contratos / Nota de Empenho"}).
+              </p>
+            </div>
+            {statusSgc && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                {statusSgc.tipo === "ATA" ? `Ata: ${statusSgc.numeroRegistro}` : `Contrato: ${statusSgc.numeroRegistro}`}
+              </span>
+            )}
+          </div>
+
+          {statusSgc ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs text-emerald-900">
+              <p className="font-semibold text-emerald-950">
+                ✓ Homologação integrada e sincronizada com o Sistema de Gestão de Contratos (SGC).
+              </p>
+              <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div>
+                  <span className="text-emerald-700 font-medium">Fornecedor Vencedor:</span>
+                  <p className="font-bold">{statusSgc.fornecedorNome || "Registrado no SGC"}</p>
+                </div>
+                <div>
+                  <span className="text-emerald-700 font-medium">Instrumento Gerado:</span>
+                  <p className="font-bold">{statusSgc.tipo === "ATA" ? "Ata de Registro de Preços" : "Contrato Administrativo"}</p>
+                </div>
+                <div>
+                  <span className="text-emerald-700 font-medium">Status de Execução:</span>
+                  <p className="font-bold">{statusSgc.statusExecucao || "Ativo / Em Formalização"}</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                executar(() => despacharHomologacaoParaSgcAction(consolidacaoId, formData), "Dados homologados integrados ao SGC com sucesso!");
+              }}
+              className="space-y-3 rounded-xl border border-slate-200 bg-white p-3.5 text-xs"
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block font-medium text-slate-700">CNPJ do Fornecedor Vencedor</label>
+                  <input
+                    name="fornecedorCnpj"
+                    placeholder="00.000.000/0000-00"
+                    required
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block font-medium text-slate-700">Razão Social do Fornecedor Vencedor</label>
+                  <input
+                    name="fornecedorRazaoSocial"
+                    placeholder="Nome empresarial da contratada"
+                    required
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs"
+                  />
+                </div>
+              </div>
+
+              {tipoContratacao === "NORMAL" && (
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="empenhoSubstituiContrato"
+                    name="empenhoSubstituiContrato"
+                    value="true"
+                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <label htmlFor="empenhoSubstituiContrato" className="text-slate-700">
+                    Execução direta por Nota de Empenho (sem termo formal de contrato — despachar para Almoxarifado/Patrimônio se material ou DSO se serviço)
+                  </label>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-1">
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="rounded-xl bg-indigo-600 px-3.5 py-2 font-semibold text-white hover:bg-indigo-700 disabled:opacity-60 transition"
+                >
+                  {isPending ? "Transmitindo ao SGC..." : "Transmitir Homologação para o SGC"}
+                </button>
+              </div>
+            </form>
           )}
         </div>
       )}

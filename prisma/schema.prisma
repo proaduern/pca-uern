@@ -707,6 +707,19 @@ model ItemDfd {
   trocaOPOrigem      TrocaOP?            @relation("ItemGeradoPorTrocaOP")
   entrega            Entrega?
 
+  // Interoperabilidade e Rastreabilidade com SGC (Gestão de Contratos e Atas)
+  sgcContratoId          String?
+  sgcNumeroContrato      String?
+  sgcAtaId               String?
+  sgcNumeroAta           String?
+  sgcFornecedorNome      String?
+  sgcFornecedorCnpj      String?
+  sgcStatusExecucao      String?   // CONTRATADO, EM_EXECUCAO, RECEBIDO_PROVISORIO, RECEBIDO_DEFINITIVO, PAGO, REMETIDO_DEMANDANTE
+  sgcDataRecebimentoProv DateTime?
+  sgcDataRecebimentoDef  DateTime?
+  sgcDataAtesto          DateTime?
+  sgcNumeroNotaFiscal    String?
+
   createdAt DateTime @default(now())
 
   @@index([dfdId])

@@ -91,9 +91,21 @@ export default async function LicitacaoDetalhePage({
   const jaHomologou = consolidacao.statusLicitacao.some((s) => s.status === "HOMOLOGADO");
   const proximos = proximosStatusLicitacao(statusAtual, consolidacao.tipoContratacao);
 
+  const sgcItem = consolidacao.itensDfd.find((i) => i.sgcContratoId || i.sgcAtaId) || null;
+  const statusSgc = sgcItem
+    ? {
+        tipo: sgcItem.sgcAtaId ? ("ATA" as const) : ("CONTRATO" as const),
+        id: (sgcItem.sgcAtaId || sgcItem.sgcContratoId)!,
+        numeroRegistro: sgcItem.sgcNumeroAta || sgcItem.sgcNumeroContrato || "Pendente de Formalização",
+        fornecedorNome: sgcItem.sgcFornecedorNome,
+        statusExecucao: sgcItem.sgcStatusExecucao,
+      }
+    : null;
+
   return (
     <PainelLicitacao
       consolidacaoId={consolidacaoId}
+      statusSgc={statusSgc}
       podeGerenciarStatus={podeGerenciarStatus}
       agenteDesignado={
         consolidacao.agenteContratacaoDesignado

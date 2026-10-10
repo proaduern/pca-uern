@@ -142,6 +142,13 @@ export async function resolverFaseItemPipelineDfd(itemId: string): Promise<FaseI
   }
 
   // resultadoHomologacao === "SUCESSO" -> segue para execução
+  if (item.sgcStatusExecucao === "RECEBIDO_DEFINITIVO" || item.sgcStatusExecucao === "PAGO") {
+    return { label: "Concluído — Recebido em Definitivo e Atestado no SGC", badge: "ok", executado: true };
+  }
+  if (item.sgcStatusExecucao === "RECEBIDO_PROVISORIO") {
+    return { label: "SGC: Recebimento Provisório pelo Fiscal Técnico", badge: "warn", executado: false };
+  }
+
   const proc = item.processoExecucaoId
     ? await prisma.processoExecucao.findUnique({
         where: { id: item.processoExecucaoId },
@@ -149,6 +156,22 @@ export async function resolverFaseItemPipelineDfd(itemId: string): Promise<FaseI
       })
     : null;
   if (!proc) {
+    if (item.sgcAtaId) {
+      return {
+        label: `Ata de Registro de Preços Vigente no SGC (${item.sgcNumeroAta || "ARP"})`,
+        badge: "ok",
+        executado: false,
+      };
+    }
+    if (item.sgcContratoId) {
+      return {
+        label: item.sgcNumeroContrato
+          ? `Contrato nº ${item.sgcNumeroContrato} Ativo no SGC`
+          : "Homologado no PCA — Em Formalização no Setor de Contratos (SGC)",
+        badge: "neutral",
+        executado: false,
+      };
+    }
     return {
       label: "Homologado com Êxito — Aguardando Abertura de Processo de Execução",
       badge: "warn",
@@ -256,6 +279,38 @@ export async function construirTimelineItemDfd(itemId: string): Promise<EventoTi
         data: (ultimoStatus?.createdAt ?? cons.createdAt).toISOString(),
         titulo: `Resultado do Item: ${resultadoLabel}`,
         desc: item.resultadoHomologacao === "SUCESSO" && item.valorAdjudicado != null ? `Valor adjudicado: ${brl(item.valorAdjudicado)}` : "",
+      });
+    }
+
+    // Eventos sistêmicos de integração e execução no SGC
+    if (item.sgcAtaId) {
+      eventos.push({
+        data: (cons?.createdAt ?? item.dfd.createdAt).toISOString(),
+        titulo: `Ata de Registro de Preços no SGC: ${item.sgcNumeroAta || "Vigente"}`,
+        desc: `Fornecedor: ${item.sgcFornecedorNome || "Homologado"} | Gestão ativa no Módulo de Atas`,
+      });
+    } else if (item.sgcContratoId) {
+      eventos.push({
+        data: (cons?.createdAt ?? item.dfd.createdAt).toISOString(),
+        titulo: `Contratação no SGC: ${item.sgcNumeroContrato ? `Contrato nº ${item.sgcNumeroContrato}` : "Em Formalização"}`,
+        desc: `Fornecedor: ${item.sgcFornecedorNome || "Homologado"} | Status: ${item.sgcStatusExecucao || "Ativo"}`,
+      });
+    }
+
+    if (item.sgcDataRecebimentoProv) {
+      eventos.push({
+        data: item.sgcDataRecebimentoProv.toISOString(),
+        titulo: "Recebimento Provisório no SGC (Fiscal Técnico)",
+        desc: `Ateste provisório registrado para a Nota Fiscal nº ${item.sgcNumeroNotaFiscal || "S/N"}.`,
+      });
+    }
+
+    if (item.sgcDataRecebimentoDef || item.sgcDataAtesto) {
+      const dt = item.sgcDataRecebimentoDef || item.sgcDataAtesto!;
+      eventos.push({
+        data: dt.toISOString(),
+        titulo: "Recebimento Definitivo / Atesto Final no SGC (Gestor)",
+        desc: "Despesa conferida, recebida em definitivo e aprovada para liquidação/pagamento.",
       });
     }
   }

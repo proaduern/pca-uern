@@ -15,6 +15,7 @@ import {
   type StatusLicitacaoValor,
 } from "@/lib/licitacao";
 import { avancarStatusLicitacaoSeNecessario } from "./avancar-status";
+import { despacharHomologacaoParaSgc, type DadosFornecedorVencedor } from "@/lib/sgc-integration-client";
 
 async function obterConsolidacaoOuErro(consolidacaoId: string) {
   const consolidacao = await prisma.consolidacaoTecnica.findUnique({ where: { id: consolidacaoId } });
@@ -125,6 +126,13 @@ async function avancarStatusAposHomologacaoCompleta(consolidacaoId: string): Pro
   const pendentes = await itensPendentesHomologacao(consolidacaoId);
   if (pendentes.length > 0) return;
   await avancarStatusLicitacaoSeNecessario(consolidacaoId, "ASSINATURA_CONTRATO");
+
+  // Despacho sistêmico e automático dos dados da homologação para o SGC
+  try {
+    await despacharHomologacaoParaSgc(consolidacaoId);
+  } catch (err) {
+    console.warn("[Interop PCA -> SGC] Aviso ao despachar homologação automaticamente para o SGC:", err);
+  }
 }
 
 /** Aplica o mesmo resultado (fracassado/deserto/sucesso sem fracionar) a todos os itens de um grupo. */
@@ -437,3 +445,37 @@ export async function registrarHomologacaoServicoAction(consolidacaoId: string, 
   await avancarStatusAposHomologacaoCompleta(consolidacaoId);
   revalidatePath(`/licitacoes/${consolidacaoId}`);
 }
+
+/** Despacha ou resincroniza manualmente a homologação da licitação com o SGC */
+export async function despacharHomologacaoParaSgcAction(consolidacaoId: string, formData?: FormData) {
+  const consolidacao = await obterConsolidacaoOuErro(consolidacaoId);
+  await exigirAcessoHomologacao(consolidacao);
+
+  let fornecedorInfo: DadosFornecedorVencedor | undefined = undefined;
+  let empenhoSubstituiContrato = false;
+
+  if (formData) {
+    const cnpj = String(formData.get("fornecedorCnpj") ?? "").trim();
+    const razaoSocial = String(formData.get("fornecedorRazaoSocial") ?? "").trim();
+    if (cnpj && razaoSocial) {
+      fornecedorInfo = {
+        cnpj,
+        razaoSocial,
+        nomeFantasia: String(formData.get("fornecedorNomeFantasia") ?? razaoSocial).trim(),
+        email: String(formData.get("fornecedorEmail") ?? "").trim() || undefined,
+        telefone: String(formData.get("fornecedorTelefone") ?? "").trim() || undefined,
+      };
+    }
+    empenhoSubstituiContrato = formData.get("empenhoSubstituiContrato") === "true";
+  }
+
+  const res = await despacharHomologacaoParaSgc(consolidacaoId, fornecedorInfo, empenhoSubstituiContrato);
+  if (!res.sucesso) {
+    throw new Error(res.mensagem || "Falha ao integrar com o SGC.");
+  }
+
+  revalidatePath(`/licitacoes/${consolidacaoId}`);
+  revalidatePath("/");
+  return res;
+}
+
