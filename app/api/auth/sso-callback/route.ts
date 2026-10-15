@@ -57,7 +57,8 @@ export async function GET(request: NextRequest) {
     if (
       roleUpper === "ADMIN" ||
       roleUpper === "ADMIN_PROAD" ||
-      emailLimpo === "adj.proad@uern.br"
+      emailLimpo === "adj.proad@uern.br" ||
+      emailLimpo === "pedroreboucas@uern.br"
     ) {
       let usuarioDb = await prisma.usuario.findUnique({
         where: { email: emailLimpo },
