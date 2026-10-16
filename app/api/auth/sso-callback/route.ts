@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     // 1. Valida o token JWT emitido pelo Portal Central PROAD usando a chave mestra de SSO
     const { payload } = await jwtVerify(token, getSsoSecretKey());
-    const { email, nome, matricula, role, targetSystem, unidadeSigla, permissoesPca } =
+    const { email, nome, matricula, role, targetSystem, unidadeSigla, unidadeNome, unidadeEmail, permissoesPca } =
       payload as {
         userId?: string;
         email: string;
@@ -39,6 +39,8 @@ export async function GET(request: NextRequest) {
         role?: string;
         targetSystem: string;
         unidadeSigla?: string;
+        unidadeNome?: string;
+        unidadeEmail?: string;
         permissoesPca?: any;
       };
 
@@ -95,10 +97,14 @@ export async function GET(request: NextRequest) {
     } else {
       // 3. Fluxo UNIDADE (Servidor operando em nome de sua Unidade)
       const siglaBusca = unidadeSigla || "PROAD";
+      const emailUnidadeOficial = unidadeEmail ? unidadeEmail.toLowerCase().trim() : null;
       let unidadeDb = await prisma.unidade.findFirst({
         where: {
           OR: [
+            ...(emailUnidadeOficial ? [{ email: emailUnidadeOficial }] : []),
             { email: emailLimpo },
+            { nome: { equals: siglaBusca, mode: "insensitive" } },
+            ...(unidadeNome ? [{ nome: { equals: unidadeNome, mode: "insensitive" } }] : []),
             { nome: { contains: siglaBusca, mode: "insensitive" } },
           ],
         },

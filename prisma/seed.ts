@@ -3,59 +3,93 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-const UNIDADES_OFICIAIS = [
-  { codigo: '010', sigla: 'PROAD', nome: 'Pró-Reitoria de Administração', campus: 'Mossoró', email: 'proad@uern.br' },
-  { codigo: '001', sigla: 'REITORIA', nome: 'Gabinete da Reitoria', campus: 'Mossoró', email: 'reitoria@uern.br' },
-  { codigo: '011', sigla: 'PROEG', nome: 'Pró-Reitoria de Ensino de Graduação', campus: 'Mossoró', email: 'proeg@uern.br' },
-  { codigo: '012', sigla: 'PROPEG', nome: 'Pró-Reitoria de Pesquisa e Pós-Graduação', campus: 'Mossoró', email: 'propeg@uern.br' },
-  { codigo: '013', sigla: 'PROEX', nome: 'Pró-Reitoria de Extensão', campus: 'Mossoró', email: 'proex@uern.br' },
-  { codigo: '014', sigla: 'PRAE', nome: 'Pró-Reitoria de Assuntos Estudantis', campus: 'Mossoró', email: 'prae@uern.br' },
-  { codigo: '015', sigla: 'PROPLAN', nome: 'Pró-Reitoria de Planejamento, Orçamento e Finanças', campus: 'Mossoró', email: 'proplan@uern.br' },
-  { codigo: '020', sigla: 'DINF', nome: 'Diretoria de Informatização', campus: 'Mossoró', email: 'dinf@uern.br' },
-  { codigo: '025', sigla: 'SOBE', nome: 'Setor de Obras e Manutenção Predial', campus: 'Mossoró', email: 'sobe@uern.br' },
-  { codigo: '101', sigla: 'FAFIC', nome: 'Faculdade de Filosofia e Ciências Sociais', campus: 'Mossoró', email: 'fafic@uern.br' },
-  { codigo: '102', sigla: 'FANAT', nome: 'Faculdade de Ciências Exatas e Naturais', campus: 'Mossoró', email: 'fanat@uern.br' },
-  { codigo: '103', sigla: 'FAE', nome: 'Faculdade de Educação', campus: 'Mossoró', email: 'fae@uern.br' },
-  { codigo: '104', sigla: 'FACS', nome: 'Faculdade de Ciências da Saúde', campus: 'Mossoró', email: 'facs@uern.br' },
-  { codigo: '105', sigla: 'FAD', nome: 'Faculdade de Direito', campus: 'Mossoró', email: 'fad@uern.br' },
-  { codigo: '106', sigla: 'FASSO', nome: 'Faculdade de Serviço Social', campus: 'Mossoró', email: 'fasso@uern.br' },
-  { codigo: '107', sigla: 'FAEN', nome: 'Faculdade de Enfermagem', campus: 'Mossoró', email: 'faen@uern.br' },
-  { codigo: '108', sigla: 'FE', nome: 'Faculdade de Educação Física', campus: 'Mossoró', email: 'fe@uern.br' },
-  { codigo: '201', sigla: 'CAMPUS-ASSU', nome: 'Campus Avançado Prefeito Walter de Sá Leitão', campus: 'Assú', email: 'campus.assu@uern.br' },
-  { codigo: '202', sigla: 'CAMPUS-CAICO', nome: 'Campus de Caicó', campus: 'Caicó', email: 'campus.caico@uern.br' },
-  { codigo: '203', sigla: 'CAMPUS-PATU', nome: 'Campus Avançado de Patu', campus: 'Patu', email: 'campus.patu@uern.br' },
-  { codigo: '204', sigla: 'CAMPUS-PAU-FERROS', nome: 'Campus Avançado de Pau dos Ferros', campus: 'Pau dos Ferros', email: 'campus.pauferros@uern.br' },
-  { codigo: '205', sigla: 'CAMPUS-NATAL', nome: 'Complexo Cultural / Campus de Natal', campus: 'Natal', email: 'campus.natal@uern.br' },
+const UNIDADES_47: {
+  nome: string;
+  email: string;
+  elegivelCotaOP: boolean;
+  cotaOP: number;
+  cotaTipo: "FECHADA" | "ABERTA";
+}[] = [
+  { nome: "Almoxarifado - PROAD", email: "almoxarifado@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "Patrimônio - PROAD", email: "patrimonio@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "Transportes - PROAD", email: "transportes@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "Setor de Diárias, Passagens e Hospedagens – PROAD", email: "diarias.proad@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "Dir. Administração e Serviços - PROAD", email: "diradm@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "FALA", email: "fala@uern.br", elegivelCotaOP: true, cotaOP: 381640.77, cotaTipo: "FECHADA" },
+  { nome: "FASSO", email: "fasso@uern.br", elegivelCotaOP: true, cotaOP: 115450.98, cotaTipo: "FECHADA" },
+  { nome: "FAEF", email: "faef@uern.br", elegivelCotaOP: true, cotaOP: 156678.74, cotaTipo: "FECHADA" },
+  { nome: "FAFIC", email: "fafic@uern.br", elegivelCotaOP: true, cotaOP: 485772.45, cotaTipo: "FECHADA" },
+  { nome: "FE", email: "fe@uern.br", elegivelCotaOP: true, cotaOP: 275149.43, cotaTipo: "FECHADA" },
+  { nome: "FAD", email: "fad@uern.br", elegivelCotaOP: true, cotaOP: 154051.55, cotaTipo: "FECHADA" },
+  { nome: "FANAT", email: "fanat@uern.br", elegivelCotaOP: true, cotaOP: 465189.78, cotaTipo: "FECHADA" },
+  { nome: "FACEM", email: "facem@uern.br", elegivelCotaOP: true, cotaOP: 421580.95, cotaTipo: "FECHADA" },
+  { nome: "FAEN", email: "faen@uern.br", elegivelCotaOP: true, cotaOP: 157111.49, cotaTipo: "FECHADA" },
+  { nome: "FACS", email: "facs@uern.br", elegivelCotaOP: true, cotaOP: 277867.35, cotaTipo: "FECHADA" },
+  { nome: "Campus Pau dos Ferros", email: "pferros@uern.br", elegivelCotaOP: true, cotaOP: 686686.90, cotaTipo: "FECHADA" },
+  { nome: "Campus Natal", email: "natal@uern.br", elegivelCotaOP: true, cotaOP: 419948.16, cotaTipo: "FECHADA" },
+  { nome: "Campus Assu", email: "assu@uern.br", elegivelCotaOP: true, cotaOP: 344168.79, cotaTipo: "FECHADA" },
+  { nome: "Campus Caicó", email: "caico@uern.br", elegivelCotaOP: true, cotaOP: 311643.34, cotaTipo: "FECHADA" },
+  { nome: "Campus Patu", email: "patu@uern.br", elegivelCotaOP: true, cotaOP: 247059.32, cotaTipo: "FECHADA" },
+  { nome: "PROEG", email: "proeg@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "PROPEG", email: "propeg@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "PROEX", email: "proex@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "PROGEP", email: "progep@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "PRAE", email: "prae@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "PROAD", email: "adj.proad@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "STI", email: "sti@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "SOBE", email: "sobe@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "UERNTV", email: "uerntv@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "AGECOM", email: "agecom@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "DICE", email: "dice@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "DIRI", email: "diri@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "DEAD", email: "dead@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "DIAAD", email: "diaad@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "DAIN", email: "dain@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "DSIB", email: "biblioteca@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "EDUERN", email: "edicoes.uern@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "GABINETE DA REITORIA", email: "chgab@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "Ouvidoria", email: "ouvidoria@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "AGT", email: "governanca@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "AJUR", email: "ajur@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "AAI", email: "aai@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "AAN", email: "aan@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "Comitê Especializado - Saúde e Laboratórios", email: "cesl@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "Comitê Especializado - Eventos e Com. Visual", email: "ceeicv@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "Comitê Especializado - Esportes e Lazer", email: "ceel@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "Comitê Especializado - Fotografia, Audio e Vídeo", email: "cefav@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
 ];
 
 async function main() {
-  console.log("Seed PCA: sincronizando 22 unidades oficiais da UERN...");
-  for (const u of UNIDADES_OFICIAIS) {
-    const nomeCompleto = `${u.sigla} - ${u.nome}`;
-    const existente = await prisma.unidade.findUnique({ where: { email: u.email } });
-    if (existente) {
-      await prisma.unidade.update({
-        where: { id: existente.id },
-        data: { nome: nomeCompleto, ativa: true },
-      });
-    } else {
-      await prisma.unidade.create({
-        data: {
-          nome: nomeCompleto,
-          email: u.email,
-          senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
-          senhaTemporaria: false,
-          ativa: true,
-          cotaTipo: "FECHADA",
-          cotaOP: 0,
-          cotaGeral: 0,
-        },
-      });
-    }
+  console.log("Seed PCA: sincronizando 47 unidades oficiais da UERN...");
+  const senhaHashUnidade = await bcrypt.hash("123", 10);
+
+  for (const u of UNIDADES_47) {
+    await prisma.unidade.upsert({
+      where: { email: u.email },
+      update: {
+        nome: u.nome,
+        elegivelCotaOP: u.elegivelCotaOP,
+        cotaOP: u.cotaOP,
+        cotaTipo: u.cotaTipo,
+        ativa: true,
+      },
+      create: {
+        nome: u.nome,
+        email: u.email,
+        senhaHash: senhaHashUnidade,
+        senhaTemporaria: true,
+        elegivelCotaOP: u.elegivelCotaOP,
+        cotaOP: u.cotaOP,
+        cotaGeral: 0,
+        cotaTipo: u.cotaTipo,
+        verCotaGeralPCA: false,
+        ativa: true,
+      },
+    });
   }
 
   console.log("Seed PCA: usuários admins...");
-  const senhaHash = await bcrypt.hash("Uern@2026", 12);
+  const senhaHashAdmin = await bcrypt.hash("Uern@2026", 12);
   const admins = [
     { nome: "Administrador Adjunto PROAD", email: "adj.proad@uern.br" },
     { nome: "Pedro Rebouças (Administrador Geral)", email: "pedroreboucas@uern.br" },
@@ -65,7 +99,7 @@ async function main() {
     await prisma.usuario.upsert({
       where: { email: adm.email },
       update: { role: "ADMIN", ativo: true },
-      create: { nome: adm.nome, email: adm.email, senhaHash, role: "ADMIN", ativo: true },
+      create: { nome: adm.nome, email: adm.email, senhaHash: senhaHashAdmin, role: "ADMIN", ativo: true },
     });
   }
 
