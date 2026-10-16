@@ -20,9 +20,11 @@ interface SetorInterno {
 function LinhaSetorInterno({
   setor,
   podeGerenciar = true,
+  apenasCotaOP = false,
 }: {
   setor: SetorInterno;
   podeGerenciar?: boolean;
+  apenasCotaOP?: boolean;
 }) {
   const [modo, setModo] = useState<"ver" | "editar" | "senha">("ver");
   const [isPending, startTransition] = useTransition();
@@ -43,7 +45,7 @@ function LinhaSetorInterno({
   if (modo === "editar") {
     return (
       <tr>
-        <td colSpan={5} className="px-4 py-3">
+        <td colSpan={apenasCotaOP ? 4 : 5} className="px-4 py-3">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -53,21 +55,25 @@ function LinhaSetorInterno({
             className="grid grid-cols-1 gap-2 sm:grid-cols-5 sm:items-end"
           >
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Nome</label>
+              <label className="mb-1 block text-xs font-medium text-slate-700">Nome do Subsetor</label>
               <input name="nome" defaultValue={setor.nome} required className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Email</label>
+              <label className="mb-1 block text-xs font-medium text-slate-700">Email (@uern.br)</label>
               <input name="email" type="email" defaultValue={setor.email} required className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs" />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Cota OP (R$)</label>
               <input name="cotaOP" type="number" min={0} step="0.01" defaultValue={setor.cotaOP} className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs" />
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Cota Geral (R$)</label>
-              <input name="cotaGeral" type="number" min={0} step="0.01" defaultValue={setor.cotaGeral} className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs" />
-            </div>
+            {apenasCotaOP ? (
+              <input type="hidden" name="cotaGeral" value={0} />
+            ) : (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">Cota Geral (R$)</label>
+                <input name="cotaGeral" type="number" min={0} step="0.01" defaultValue={setor.cotaGeral} className="w-full rounded-xl border border-slate-300 px-2 py-1 text-xs" />
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <input type="checkbox" id={`ativo-${setor.id}`} name="ativo" defaultChecked={setor.ativo} className="h-4 w-4" />
               <label htmlFor={`ativo-${setor.id}`} className="text-xs text-slate-700">Ativo</label>
@@ -88,7 +94,7 @@ function LinhaSetorInterno({
   if (modo === "senha") {
     return (
       <tr>
-        <td colSpan={5} className="px-4 py-3">
+        <td colSpan={apenasCotaOP ? 4 : 5} className="px-4 py-3">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -117,7 +123,7 @@ function LinhaSetorInterno({
       <td className="px-4 py-2 text-slate-900">{setor.nome}</td>
       <td className="px-4 py-2 text-slate-600">{setor.email}</td>
       <td className="px-4 py-2 text-slate-600">{setor.cotaOP.toFixed(2)}</td>
-      <td className="px-4 py-2 text-slate-600">{setor.cotaGeral.toFixed(2)}</td>
+      {!apenasCotaOP && <td className="px-4 py-2 text-slate-600">{setor.cotaGeral.toFixed(2)}</td>}
       <td className="px-4 py-2 space-x-2">
         {podeGerenciar ? (
           <>
@@ -143,7 +149,7 @@ function LinhaSetorInterno({
   );
 }
 
-function NovoSetorInternoForm() {
+function NovoSetorInternoForm({ apenasCotaOP = false }: { apenasCotaOP?: boolean }) {
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
 
@@ -163,31 +169,35 @@ function NovoSetorInternoForm() {
           form.reset();
         });
       }}
-      className="grid grid-cols-1 gap-3 sm:grid-cols-4 sm:items-end"
+      className={`grid grid-cols-1 gap-3 ${apenasCotaOP ? "sm:grid-cols-3" : "sm:grid-cols-4"} sm:items-end`}
     >
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-700">Nome do setor</label>
-        <input name="nome" required className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+        <label className="mb-1 block text-xs font-medium text-slate-700">Nome do subsetor interno</label>
+        <input name="nome" placeholder="Ex: Departamento de Informática" required className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-700">Email (@uern.br)</label>
-        <input name="email" type="email" required className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+        <label className="mb-1 block text-xs font-medium text-slate-700">Email do Responsável ou Setor (@uern.br)</label>
+        <input name="email" type="email" placeholder="servidor@uern.br ou setor@uern.br" required className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-700">Cota OP (R$)</label>
+        <label className="mb-1 block text-xs font-medium text-slate-700">Cota OP destinada (R$)</label>
         <input name="cotaOP" type="number" min={0} step="0.01" defaultValue={0} className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
       </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-slate-700">Cota Geral (R$)</label>
-        <input name="cotaGeral" type="number" min={0} step="0.01" defaultValue={0} className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
-      </div>
+      {apenasCotaOP ? (
+        <input type="hidden" name="cotaGeral" value={0} />
+      ) : (
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-700">Cota Geral (R$)</label>
+          <input name="cotaGeral" type="number" min={0} step="0.01" defaultValue={0} className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+        </div>
+      )}
       {erro && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-4">{erro}</p>}
       <button
         type="submit"
         disabled={isPending}
-        className="rounded-xl bg-[#003366] px-3 py-2 text-sm font-medium text-white hover:bg-[#002244] disabled:opacity-60 sm:col-span-4 sm:w-fit"
+        className="rounded-xl bg-[#003366] px-3 py-2 text-sm font-medium text-white hover:bg-[#002244] disabled:opacity-60 sm:col-span-3 sm:w-fit"
       >
-        {isPending ? "Salvando..." : "Criar setor interno"}
+        {isPending ? "Salvando..." : "Criar subsetor interno"}
       </button>
     </form>
   );
@@ -196,22 +206,25 @@ function NovoSetorInternoForm() {
 export default function SetoresInternosSection({
   setores,
   podeGerenciar = true,
+  apenasCotaOP = false,
 }: {
   setores: SetorInterno[];
   podeGerenciar?: boolean;
+  apenasCotaOP?: boolean;
 }) {
   return (
     <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
       <div>
-        <h2 className="text-sm font-semibold text-slate-900">Setores internos</h2>
+        <h2 className="text-sm font-semibold text-slate-900">Subsetores internos (Departamentos, Cursos e Laboratórios)</h2>
         <p className="text-xs text-slate-500">
-          Departamentos/cursos da unidade com login próprio para preencher DFDs — cada um começa
-          com a senha padrão &quot;123&quot; (o sistema pede a troca no primeiro acesso), e a soma
-          das cotas OP/Geral deles não pode passar da cota da própria unidade.
+          Cadastre os subsetores da unidade e distribua internamente a Cota OP. Informe o e-mail institucional
+          (@uern.br) do servidor responsável pelo subsetor: ao acessar o PCA pelo <strong>Portal PROAD</strong>,
+          ele entrará automaticamente na visão restrita do seu subsetor (ou poderá acessar via login direto com a
+          senha inicial &quot;123&quot;). A soma das cotas distribuídas não pode ultrapassar a cota total da unidade.
         </p>
       </div>
       {podeGerenciar ? (
-        <NovoSetorInternoForm />
+        <NovoSetorInternoForm apenasCotaOP={apenasCotaOP} />
       ) : (
         <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
           Seu usuário não possui permissão para criar ou modificar setores internos.
@@ -222,20 +235,20 @@ export default function SetoresInternosSection({
           <thead className="bg-slate-50 text-left text-slate-500">
             <tr>
               <th className="px-4 py-2 font-medium">Nome</th>
-              <th className="px-4 py-2 font-medium">Email</th>
+              <th className="px-4 py-2 font-medium">Email Vinculado</th>
               <th className="px-4 py-2 font-medium">Cota OP</th>
-              <th className="px-4 py-2 font-medium">Cota Geral</th>
+              {!apenasCotaOP && <th className="px-4 py-2 font-medium">Cota Geral</th>}
               <th className="px-4 py-2 font-medium">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {setores.map((s) => (
-              <LinhaSetorInterno key={s.id} setor={s} podeGerenciar={podeGerenciar} />
+              <LinhaSetorInterno key={s.id} setor={s} podeGerenciar={podeGerenciar} apenasCotaOP={apenasCotaOP} />
             ))}
             {setores.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
-                  Nenhum setor interno cadastrado ainda.
+                <td colSpan={apenasCotaOP ? 4 : 5} className="px-4 py-6 text-center text-slate-400">
+                  Nenhum subsetor interno cadastrado ainda.
                 </td>
               </tr>
             )}

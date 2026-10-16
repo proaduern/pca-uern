@@ -35,6 +35,7 @@ export default async function DadosUnidadePage() {
           ativo: s.ativo,
         }))}
         podeGerenciar={sessao.permissoes ? sessao.permissoes.podeGerenciarSetores : true}
+        apenasCotaOP={unidade.elegivelCotaOP}
       />
     </div>
   );

@@ -126,6 +126,90 @@ async function main() {
     await prisma.prioridade.upsert({ where: { frase: p.frase }, update: {}, create: p });
   }
 
+  console.log("Seed PCA: setores técnicos oficiais...");
+  const setoresTecnicosOficiais = [
+    { nome: "DAS - Diretoria de Administração e Serviços", emailUnidade: "diradm@uern.br" },
+    { nome: "Setor de Transportes", emailUnidade: "transportes@uern.br" },
+    { nome: "Almoxarifado Central", emailUnidade: "almoxarifado@uern.br" },
+    { nome: "Setor de Patrimônio", emailUnidade: "patrimonio@uern.br" },
+    { nome: "STI - Superintendência de Tecnologia da Informação", emailUnidade: "sti@uern.br" },
+    { nome: "SOBE - Setor de Obras e Edificações", emailUnidade: "sobe@uern.br" },
+    { nome: "Comitê Especializado - Saúde e Laboratórios", emailUnidade: "cesl@uern.br" },
+    { nome: "Comitê Especializado - Eventos e Com. Visual", emailUnidade: "ceeicv@uern.br" },
+    { nome: "Comitê Especializado - Esportes e Lazer", emailUnidade: "ceel@uern.br" },
+    { nome: "Comitê Especializado - Fotografia, Audio e Vídeo", emailUnidade: "cefav@uern.br" },
+  ];
+
+  for (const st of setoresTecnicosOficiais) {
+    const unid = await prisma.unidade.findUnique({ where: { email: st.emailUnidade } });
+    if (unid) {
+      const existente = await prisma.setorTecnico.findFirst({
+        where: { OR: [{ unidadeId: unid.id }, { nome: st.nome }] },
+      });
+      if (!existente) {
+        await prisma.setorTecnico.create({
+          data: {
+            nome: st.nome,
+            vinculado: true,
+            unidadeId: unid.id,
+            ativo: true,
+          },
+        });
+      }
+    }
+  }
+
+  console.log("Seed PCA: Diretoria de Licitações e Contratos (DLC)...");
+  const dlcUnidade = await prisma.unidade.findUnique({ where: { email: "dlc@uern.br" } });
+  if (dlcUnidade) {
+    const licExistente = await prisma.licitacoes.findFirst({
+      where: { OR: [{ unidadeId: dlcUnidade.id }, { email: "dlc@uern.br" }] },
+    });
+    if (!licExistente) {
+      await prisma.licitacoes.create({
+        data: {
+          nome: "Diretoria de Licitações e Contratos (DLC)",
+          vinculado: true,
+          unidadeId: dlcUnidade.id,
+          ativo: true,
+        },
+      });
+    }
+  }
+
+  console.log("Seed PCA: perfis de Entrega (Almoxarifado e Patrimônio)...");
+  const unAlmox = await prisma.unidade.findUnique({ where: { email: "almoxarifado@uern.br" } });
+  if (unAlmox) {
+    const entExistente = await prisma.acessoEntrega.findFirst({ where: { subperfil: "ALMOXARIFADO" } });
+    if (!entExistente) {
+      await prisma.acessoEntrega.create({
+        data: {
+          nome: "Almoxarifado Central (Recebimento/Entrega)",
+          subperfil: "ALMOXARIFADO",
+          vinculado: true,
+          unidadeId: unAlmox.id,
+          ativo: true,
+        },
+      });
+    }
+  }
+
+  const unPatrimonio = await prisma.unidade.findUnique({ where: { email: "patrimonio@uern.br" } });
+  if (unPatrimonio) {
+    const entExistente = await prisma.acessoEntrega.findFirst({ where: { subperfil: "PATRIMONIO" } });
+    if (!entExistente) {
+      await prisma.acessoEntrega.create({
+        data: {
+          nome: "Setor de Patrimônio (Recebimento/Tombamento)",
+          subperfil: "PATRIMONIO",
+          vinculado: true,
+          unidadeId: unPatrimonio.id,
+          ativo: true,
+        },
+      });
+    }
+  }
+
   console.log("Seed PCA concluído com sucesso!");
 }
 

@@ -95,92 +95,115 @@ export async function GET(request: NextRequest) {
 
       destinoUrl = "/";
     } else {
-      // 3. Fluxo UNIDADE (Servidor operando em nome de sua Unidade)
-      const siglaBusca = unidadeSigla || "PROAD";
-      const emailUnidadeOficial = unidadeEmail ? unidadeEmail.toLowerCase().trim() : null;
-      let unidadeDb = await prisma.unidade.findFirst({
-        where: {
-          OR: [
-            ...(emailUnidadeOficial ? [{ email: emailUnidadeOficial }] : []),
-            { email: emailLimpo },
-            { nome: { equals: siglaBusca, mode: "insensitive" } },
-            ...(unidadeNome ? [{ nome: { equals: unidadeNome, mode: "insensitive" } }] : []),
-            { nome: { contains: siglaBusca, mode: "insensitive" } },
-          ],
-        },
+      // 3. Verifica primeiro se o e-mail pertence a um Subsetor Interno (SetorInterno) cadastrado pelo Diretor da Unidade
+      const setorInternoDb = await prisma.setorInterno.findUnique({
+        where: { email: emailLimpo },
+        include: { unidade: true },
       });
 
-      if (!unidadeDb) {
-        const emailUnidade = `${siglaBusca.toLowerCase()}_uern@uern.br`;
-        const unidadeExistenteEmail = await prisma.unidade.findUnique({
-          where: { email: emailUnidade },
+      if (setorInternoDb && setorInternoDb.ativo) {
+        sessionPayload = {
+          tipo: "SETOR_INTERNO",
+          id: setorInternoDb.id,
+          nome: setorInternoDb.nome,
+          email: setorInternoDb.email,
+          unidadeId: setorInternoDb.unidadeId,
+          unidadeNome: setorInternoDb.unidade.nome,
+          senhaTemporaria: false,
+        };
+        destinoUrl = "/";
+      } else {
+        // 4. Fluxo UNIDADE (Diretor ou Servidor operando em nome de sua Unidade)
+        const siglaBusca = unidadeSigla || "PROAD";
+        const emailUnidadeOficial = unidadeEmail ? unidadeEmail.toLowerCase().trim() : null;
+        let unidadeDb = await prisma.unidade.findFirst({
+          where: {
+            OR: [
+              ...(emailUnidadeOficial ? [{ email: emailUnidadeOficial }] : []),
+              { email: emailLimpo },
+              { nome: { equals: siglaBusca, mode: "insensitive" as const } },
+              ...(unidadeNome ? [{ nome: { equals: unidadeNome, mode: "insensitive" as const } }] : []),
+              { nome: { contains: siglaBusca, mode: "insensitive" as const } },
+            ],
+          },
         });
 
-        if (unidadeExistenteEmail) {
-          unidadeDb = unidadeExistenteEmail;
-        } else {
-          unidadeDb = await prisma.unidade.create({
+        if (!unidadeDb) {
+          const emailUnidade = `${siglaBusca.toLowerCase()}_uern@uern.br`;
+          const unidadeExistenteEmail = await prisma.unidade.findUnique({
+            where: { email: emailUnidade },
+          });
+
+          if (unidadeExistenteEmail) {
+            unidadeDb = unidadeExistenteEmail;
+          } else {
+            unidadeDb = await prisma.unidade.create({
+              data: {
+                nome: siglaBusca,
+                email: emailUnidade,
+                senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
+                senhaTemporaria: false,
+                ativa: true,
+              },
+            });
+          }
+        }
+
+        const isDiretorOuEnvia = permissoesPca?.podeEnviarDfd ?? true;
+
+        let usuarioVinculado = await prisma.usuario.findUnique({
+          where: { email: emailLimpo },
+        });
+
+        if (!usuarioVinculado) {
+          usuarioVinculado = await prisma.usuario.create({
             data: {
-              nome: siglaBusca,
-              email: emailUnidade,
+              nome: nome || emailLimpo.split("@")[0],
+              email: emailLimpo,
+              matricula: matricula || null,
               senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
               senhaTemporaria: false,
-              ativa: true,
+              role: "UNIDADE",
+              unidadeId: unidadeDb.id,
+              podeCriarDfd: permissoesPca?.podeCriarDfd ?? true,
+              podeEditarDfd: permissoesPca?.podeEditarDfd ?? true,
+              podeEnviarDfd: isDiretorOuEnvia,
+              podeExcluirDfd: permissoesPca?.podeExcluirDfd ?? isDiretorOuEnvia,
+              podeSolicitarCatalogo: permissoesPca?.podeSolicitarCatalogo ?? true,
+              podeSolicitarCotaGeral: permissoesPca?.podeSolicitarCotaGeral ?? false,
+              podeConfirmarEntrega: permissoesPca?.podeConfirmarEntrega ?? true,
+              podeGerenciarSetores: permissoesPca?.podeGerenciarSetores ?? isDiretorOuEnvia,
+              podeEditarDadosUnidade: permissoesPca?.podeEditarDadosUnidade ?? isDiretorOuEnvia,
             },
           });
         }
+
+        const permissoesSessao = {
+          podeCriarDfd: usuarioVinculado.podeCriarDfd,
+          podeEditarDfd: usuarioVinculado.podeEditarDfd,
+          podeEnviarDfd: usuarioVinculado.podeEnviarDfd,
+          podeExcluirDfd: usuarioVinculado.podeExcluirDfd,
+          podeSolicitarCatalogo: usuarioVinculado.podeSolicitarCatalogo,
+          podeSolicitarCotaGeral: usuarioVinculado.podeSolicitarCotaGeral,
+          podeConfirmarEntrega: usuarioVinculado.podeConfirmarEntrega,
+          podeGerenciarSetores: usuarioVinculado.podeGerenciarSetores || usuarioVinculado.podeEnviarDfd,
+          podeEditarDadosUnidade: usuarioVinculado.podeEditarDadosUnidade || usuarioVinculado.podeEnviarDfd,
+        };
+
+        sessionPayload = {
+          tipo: "UNIDADE",
+          id: unidadeDb.id,
+          nome: unidadeDb.nome,
+          email: unidadeDb.email,
+          usuarioId: usuarioVinculado.id,
+          unidadeId: unidadeDb.id,
+          unidadeNome: unidadeDb.nome,
+          senhaTemporaria: false,
+          permissoes: permissoesSessao,
+        };
+
+        destinoUrl = "/";
       }
-
-      let usuarioVinculado = await prisma.usuario.findUnique({
-        where: { email: emailLimpo },
-      });
-
-      if (!usuarioVinculado) {
-        usuarioVinculado = await prisma.usuario.create({
-          data: {
-            nome: nome || emailLimpo.split("@")[0],
-            email: emailLimpo,
-            matricula: matricula || null,
-            senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
-            senhaTemporaria: false,
-            role: "UNIDADE",
-            unidadeId: unidadeDb.id,
-            podeCriarDfd: permissoesPca?.podeCriarDfd ?? true,
-            podeEditarDfd: permissoesPca?.podeEditarDfd ?? true,
-            podeEnviarDfd: permissoesPca?.podeEnviarDfd ?? true,
-            podeExcluirDfd: permissoesPca?.podeExcluirDfd ?? false,
-            podeSolicitarCatalogo: permissoesPca?.podeSolicitarCatalogo ?? true,
-            podeSolicitarCotaGeral: permissoesPca?.podeSolicitarCotaGeral ?? false,
-            podeConfirmarEntrega: permissoesPca?.podeConfirmarEntrega ?? true,
-          },
-        });
-      }
-
-      const permissoesSessao = {
-        podeCriarDfd: usuarioVinculado.podeCriarDfd,
-        podeEditarDfd: usuarioVinculado.podeEditarDfd,
-        podeEnviarDfd: usuarioVinculado.podeEnviarDfd,
-        podeExcluirDfd: usuarioVinculado.podeExcluirDfd,
-        podeSolicitarCatalogo: usuarioVinculado.podeSolicitarCatalogo,
-        podeSolicitarCotaGeral: usuarioVinculado.podeSolicitarCotaGeral,
-        podeConfirmarEntrega: usuarioVinculado.podeConfirmarEntrega,
-        podeGerenciarSetores: usuarioVinculado.podeGerenciarSetores,
-        podeEditarDadosUnidade: usuarioVinculado.podeEditarDadosUnidade,
-      };
-
-      sessionPayload = {
-        tipo: "UNIDADE",
-        id: unidadeDb.id,
-        nome: unidadeDb.nome,
-        email: unidadeDb.email,
-        usuarioId: usuarioVinculado.id,
-        unidadeId: unidadeDb.id,
-        unidadeNome: unidadeDb.nome,
-        senhaTemporaria: false,
-        permissoes: permissoesSessao,
-      };
-
-      destinoUrl = "/";
     }
 
     // 4. Gera token de sessão assinado com a chave do PCA
