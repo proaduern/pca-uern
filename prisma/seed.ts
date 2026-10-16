@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-const UNIDADES_47: {
+const UNIDADES_50: {
   nome: string;
   email: string;
   elegivelCotaOP: boolean;
@@ -15,6 +15,7 @@ const UNIDADES_47: {
   { nome: "Transportes - PROAD", email: "transportes@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
   { nome: "Setor de Diárias, Passagens e Hospedagens – PROAD", email: "diarias.proad@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
   { nome: "Dir. Administração e Serviços - PROAD", email: "diradm@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "DLC", email: "dlc@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
   { nome: "FALA", email: "fala@uern.br", elegivelCotaOP: true, cotaOP: 381640.77, cotaTipo: "FECHADA" },
   { nome: "FASSO", email: "fasso@uern.br", elegivelCotaOP: true, cotaOP: 115450.98, cotaTipo: "FECHADA" },
   { nome: "FAEF", email: "faef@uern.br", elegivelCotaOP: true, cotaOP: 156678.74, cotaTipo: "FECHADA" },
@@ -36,9 +37,11 @@ const UNIDADES_47: {
   { nome: "PROGEP", email: "progep@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
   { nome: "PRAE", email: "prae@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
   { nome: "PROAD", email: "adj.proad@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "PROPLAN", email: "proplan@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
   { nome: "STI", email: "sti@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
   { nome: "SOBE", email: "sobe@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
   { nome: "UERNTV", email: "uerntv@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
+  { nome: "Comissão Rádio e TV", email: "comissao.radiotv@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
   { nome: "AGECOM", email: "agecom@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
   { nome: "DICE", email: "dice@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
   { nome: "DIRI", email: "diri@uern.br", elegivelCotaOP: false, cotaOP: 0, cotaTipo: "ABERTA" },
@@ -60,10 +63,10 @@ const UNIDADES_47: {
 ];
 
 async function main() {
-  console.log("Seed PCA: sincronizando 47 unidades oficiais da UERN...");
+  console.log("Seed PCA: sincronizando 50 unidades oficiais da UERN...");
   const senhaHashUnidade = await bcrypt.hash("123", 10);
 
-  for (const u of UNIDADES_47) {
+  for (const u of UNIDADES_50) {
     await prisma.unidade.upsert({
       where: { email: u.email },
       update: {

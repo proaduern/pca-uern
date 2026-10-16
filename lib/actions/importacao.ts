@@ -242,7 +242,14 @@ export async function importarDfdsPcaAction(formData: FormData): Promise<Resulta
   let prioridadesNovas = 0;
 
   const unidades = await prisma.unidade.findMany();
-  const mapaUnidades = new Map(unidades.map((u) => [u.nome.trim().toLowerCase(), u]));
+  const mapaUnidades = new Map<string, (typeof unidades)[number]>();
+  for (const u of unidades) {
+    mapaUnidades.set(u.nome.trim().toLowerCase(), u);
+    const prefixoEmail = u.email.split("@")[0]?.trim().toLowerCase();
+    if (prefixoEmail && !mapaUnidades.has(prefixoEmail)) {
+      mapaUnidades.set(prefixoEmail, u);
+    }
+  }
 
   const gruposGeral = new Map<
     string,
