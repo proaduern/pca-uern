@@ -258,7 +258,7 @@ export async function criarRascunhoDfdAction(): Promise<ResultadoCriarDfd> {
         criadoPorUsuarioId: sessao.usuarioId ?? null,
       },
     });
-  });
+  }, { timeout: 15000 });
 
   return { dfdId: dfd.id };
 }
