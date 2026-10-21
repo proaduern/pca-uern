@@ -6,9 +6,13 @@ import { exigirSetorTecnico } from "@/lib/auth";
 import { resolverPcaEmAtuacao } from "@/lib/pca-contexto";
 import { validarDataConclusao } from "@/lib/consolidacao";
 
-async function obterCategoriaDoSetorOuErro(categoriaId: string, setorTecnicoId: string) {
+async function obterCategoriaDoSetorOuErro(
+  categoriaId: string,
+  setorTecnicoId: string,
+  isAdmin = false,
+) {
   const categoria = await prisma.categoria.findUnique({ where: { id: categoriaId } });
-  if (!categoria || categoria.setorTecnicoId !== setorTecnicoId) {
+  if (!categoria || (!isAdmin && categoria.setorTecnicoId !== setorTecnicoId)) {
     throw new Error("Esta categoria não está atribuída ao seu setor técnico.");
   }
   return categoria;
@@ -16,7 +20,7 @@ async function obterCategoriaDoSetorOuErro(categoriaId: string, setorTecnicoId: 
 
 export async function adicionarItemTecnicoAction(categoriaId: string, formData: FormData) {
   const sessao = await exigirSetorTecnico();
-  await obterCategoriaDoSetorOuErro(categoriaId, sessao.id);
+  const categoria = await obterCategoriaDoSetorOuErro(categoriaId, sessao.id, sessao.tipo === "ADMIN");
 
   const item = String(formData.get("item") ?? "").trim();
   const valorUnit = Number(formData.get("valorUnit") ?? 0);
@@ -31,6 +35,11 @@ export async function adicionarItemTecnicoAction(categoriaId: string, formData: 
     throw new Error("Selecione o tipo de bem.");
   }
 
+  const setorIdEfetivo =
+    sessao.tipo === "SETOR_TECNICO"
+      ? sessao.id
+      : categoria.setorTecnicoId ?? (await prisma.setorTecnico.findFirstOrThrow()).id;
+
   await prisma.itemTecnico.create({
     data: {
       categoriaId,
@@ -40,7 +49,7 @@ export async function adicionarItemTecnicoAction(categoriaId: string, formData: 
       valorTotal: valorUnit * quantidade,
       tipoBem,
       correlacao,
-      criadoPorId: sessao.id,
+      criadoPorId: setorIdEfetivo,
     },
   });
 
@@ -59,13 +68,15 @@ export async function substituirItemAction(
 
   if (origem === "dfd") {
     const it = await prisma.itemDfd.findUniqueOrThrow({ where: { id: itemId } });
-    await obterCategoriaDoSetorOuErro(it.categoriaId, sessao.id);
+    const cat = await obterCategoriaDoSetorOuErro(it.categoriaId, sessao.id, sessao.tipo === "ADMIN");
     if (it.consolidacaoTecnicaId) throw new Error("Este item já foi consolidado e não pode mais ser substituído.");
 
     const novoItemCatalogo = await prisma.itemCatalogo.findUniqueOrThrow({ where: { id: novoItemCatalogoId } });
     if (novoItemCatalogo.categoriaId !== it.categoriaId) {
       throw new Error("O item substituto precisa ser da mesma categoria.");
     }
+
+    const setorIdEfetivo = sessao.tipo === "SETOR_TECNICO" ? sessao.id : cat.setorTecnicoId;
 
     await prisma.itemDfd.update({
       where: { id: itemId },
@@ -83,14 +94,14 @@ export async function substituirItemAction(
         tipoBem: novoItemCatalogo.tipoBem,
         valorTotal: Number(novoItemCatalogo.valor) * Number(it.quantidade ?? 1),
         substituicaoJustificativa: justificativaLimpa,
-        substituicaoPorId: sessao.id,
+        substituicaoPorId: setorIdEfetivo,
         substituicaoEm: new Date(),
       },
     });
     revalidatePath(`/consolidacao/${it.categoriaId}`);
   } else {
     const it = await prisma.itemTecnico.findUniqueOrThrow({ where: { id: itemId } });
-    await obterCategoriaDoSetorOuErro(it.categoriaId, sessao.id);
+    await obterCategoriaDoSetorOuErro(it.categoriaId, sessao.id, sessao.tipo === "ADMIN");
     if (it.consolidacaoTecnicaId) throw new Error("Este item já foi consolidado e não pode mais ser substituído.");
 
     const novoItemCatalogo = await prisma.itemCatalogo.findUniqueOrThrow({ where: { id: novoItemCatalogoId } });
@@ -122,7 +133,7 @@ export async function substituirItemAction(
 
 export async function consolidarCategoriaAction(categoriaId: string, formData: FormData) {
   const sessao = await exigirSetorTecnico();
-  const categoria = await obterCategoriaDoSetorOuErro(categoriaId, sessao.id);
+  const categoria = await obterCategoriaDoSetorOuErro(categoriaId, sessao.id, sessao.tipo === "ADMIN");
 
   const itensDfdIds = formData.getAll("itemDfdId").map(String);
   const itensTecnicosIds = formData.getAll("itemTecnicoId").map(String);
@@ -145,16 +156,18 @@ export async function consolidarCategoriaAction(categoriaId: string, formData: F
   const erroData = validarDataConclusao(dataETP, dataEsperadaConclusao);
   if (erroData) throw new Error(erroData);
 
-  const contextoPca = await resolverPcaEmAtuacao(sessao);
+  const contextoPca =
+    sessao.tipo === "SETOR_TECNICO"
+      ? await resolverPcaEmAtuacao(sessao)
+      : await prisma.pca
+          .findFirst({ where: { ativo: true }, orderBy: { ano: "desc" } })
+          .then((pca) => (pca ? ({ status: "resolvido" as const, pca, totalAtivos: 1 }) : ({ status: "nenhum" as const })));
   if (contextoPca.status === "nenhum") throw new Error("Nenhum PCA ativo no momento.");
   if (contextoPca.status === "precisa_escolher") {
     throw new Error("Selecione em qual PCA você está atuando antes de continuar.");
   }
   const pcaAtivo = contextoPca.pca;
 
-  // Revalida no servidor que os itens marcados realmente pertencem a esta
-  // categoria, estão aprovados (no caso de DFD) e ainda não foram
-  // consolidados — não confia em nada vindo só do formulário.
   const [itensDfd, itensTecnicos] = await Promise.all([
     itensDfdIds.length
       ? prisma.itemDfd.findMany({
@@ -177,14 +190,12 @@ export async function consolidarCategoriaAction(categoriaId: string, formData: F
     throw new Error("Algum item selecionado não está mais disponível para consolidação. Atualize a página.");
   }
 
+  const setorIdConsolidacao =
+    sessao.tipo === "SETOR_TECNICO"
+      ? sessao.id
+      : categoria.setorTecnicoId ?? (await prisma.setorTecnico.findFirstOrThrow()).id;
+
   await prisma.$transaction(async (tx) => {
-    // Categorias que agrupam (consolidarPorObjeto = false, o padrão) nunca
-    // devem acumular duas consolidações abertas no mesmo ano — senão o PCA
-    // Consolidado mostraria duas linhas da mesma categoria em vez de uma só
-    // soma. Se já existe uma consolidação desta categoria/ano que ainda não
-    // recebeu código PNCP (ou seja, ainda não foi enviada ao PNCP), os novos
-    // itens se juntam a ela. Categorias "por objeto" (obras, serviços por
-    // objeto) e consolidações já com código PNCP sempre viram uma nova linha.
     const consolidacaoAberta = categoria.consolidarPorObjeto
       ? null
       : await tx.consolidacaoTecnica.findFirst({
@@ -205,7 +216,7 @@ export async function consolidarCategoriaAction(categoriaId: string, formData: F
       : await tx.consolidacaoTecnica.create({
           data: {
             categoriaId,
-            setorTecnicoId: sessao.id,
+            setorTecnicoId: setorIdConsolidacao,
             pcaAno: pcaAtivo.ano,
             processoSEI,
             dataETP: new Date(dataETP),

@@ -108,12 +108,8 @@ export async function GET(request: NextRequest) {
         senhaTemporaria: false,
       };
 
-      // Redireciona diretamente para a tela principal do Subsistema clicado no Portal PROAD
-      if (subsistemaAtivo === "ETP_RISCOS") destinoUrl = "/admin/consolidacao";
-      else if (subsistemaAtivo === "PESQUISA_PRECOS") destinoUrl = "/admin/pesquisa-precos";
-      else if (subsistemaAtivo === "TERMO_REFERENCIA") destinoUrl = "/admin/planejamento";
-      else if (subsistemaAtivo === "LICITACOES_MINUTAS") destinoUrl = "/admin/licitacoes";
-      else destinoUrl = "/";
+      // Redireciona diretamente para a fila operacional principal ("/") do Subsistema clicado no Portal PROAD
+      destinoUrl = "/";
     } else if (subsistemaAtivo === "ETP_RISCOS" || roleUpper.includes("SETOR_TECNICO")) {
       // Subsistema 2: ETP e Mapa de Riscos (Setores Técnicos: STI, Patrimônio, SOBE, DAS, Almoxarifado, Transportes, Comitês)
       let setorTec = await prisma.setorTecnico.findFirst({

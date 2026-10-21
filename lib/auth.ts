@@ -195,49 +195,65 @@ export async function exigirUnidadeOuSetorInterno(): Promise<SessionPayload> {
 
 export async function exigirSetorTecnico(): Promise<SessionPayload> {
   const sessao = await exigirSessao();
-  if (sessao.tipo !== "SETOR_TECNICO") throw new Error("Acesso restrito a setores técnicos.");
+  if (sessao.tipo !== "SETOR_TECNICO" && sessao.tipo !== "ADMIN") {
+    throw new Error("Acesso restrito a setores técnicos.");
+  }
   return sessao;
 }
 
 export async function exigirLicitacoes(): Promise<SessionPayload> {
   const sessao = await exigirSessao();
-  if (sessao.tipo !== "LICITACOES") throw new Error("Acesso restrito à unidade de licitações.");
+  if (sessao.tipo !== "LICITACOES" && sessao.tipo !== "ADMIN") {
+    throw new Error("Acesso restrito à unidade de licitações.");
+  }
   return sessao;
 }
 
 export async function exigirPesquisaPrecos(): Promise<SessionPayload> {
   const sessao = await exigirSessao();
-  if (sessao.tipo !== "PESQUISA_PRECOS") throw new Error("Acesso restrito ao subsetor de Pesquisa de Preços.");
+  if (sessao.tipo !== "PESQUISA_PRECOS" && sessao.tipo !== "ADMIN") {
+    throw new Error("Acesso restrito ao subsetor de Pesquisa de Preços.");
+  }
   return sessao;
 }
 
 export async function exigirPlanejamento(): Promise<SessionPayload> {
   const sessao = await exigirSessao();
-  if (sessao.tipo !== "PLANEJAMENTO") throw new Error("Acesso restrito ao subsetor de Planejamento.");
+  if (sessao.tipo !== "PLANEJAMENTO" && sessao.tipo !== "ADMIN") {
+    throw new Error("Acesso restrito ao subsetor de Planejamento.");
+  }
   return sessao;
 }
 
 export async function exigirAgenteContratacao(): Promise<SessionPayload> {
   const sessao = await exigirSessao();
-  if (sessao.tipo !== "AGENTE_CONTRATACAO") throw new Error("Acesso restrito ao Agente de Contratação.");
+  if (sessao.tipo !== "AGENTE_CONTRATACAO" && sessao.tipo !== "ADMIN" && sessao.tipo !== "LICITACOES") {
+    throw new Error("Acesso restrito ao Agente de Contratação.");
+  }
   return sessao;
 }
 
 export async function exigirExecucao(): Promise<SessionPayload> {
   const sessao = await exigirSessao();
-  if (sessao.tipo !== "EXECUCAO") throw new Error("Acesso restrito à unidade de execução.");
+  if (sessao.tipo !== "EXECUCAO" && sessao.tipo !== "ADMIN") {
+    throw new Error("Acesso restrito à unidade de execução.");
+  }
   return sessao;
 }
 
 export async function exigirEntrega(): Promise<SessionPayload> {
   const sessao = await exigirSessao();
-  if (sessao.tipo !== "ENTREGA") throw new Error("Acesso restrito à unidade de entrega de bens.");
+  if (sessao.tipo !== "ENTREGA" && sessao.tipo !== "ADMIN") {
+    throw new Error("Acesso restrito à unidade de entrega de bens.");
+  }
   return sessao;
 }
 
 export async function exigirGestorAta(): Promise<SessionPayload> {
   const sessao = await exigirSessao();
-  if (sessao.tipo !== "GESTOR_ATA") throw new Error("Acesso restrito à unidade gestora de ata.");
+  if (sessao.tipo !== "GESTOR_ATA" && sessao.tipo !== "ADMIN") {
+    throw new Error("Acesso restrito à unidade gestora de ata.");
+  }
   return sessao;
 }
 

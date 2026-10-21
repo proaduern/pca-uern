@@ -12,7 +12,7 @@ export default async function RiscosPage({
 }) {
   const { categoriaId, consolidacaoId } = await params;
   const sessao = await obterSessao();
-  if (!sessao || sessao.tipo !== "SETOR_TECNICO") return null;
+  if (!sessao || (sessao.tipo !== "SETOR_TECNICO" && sessao.tipo !== "ADMIN")) return null;
 
   const consolidacao = await prisma.consolidacaoTecnica.findUnique({
     where: { id: consolidacaoId },
@@ -21,7 +21,11 @@ export default async function RiscosPage({
       analiseRiscos: { include: { itens: { orderBy: { ordem: "asc" } } } },
     },
   });
-  if (!consolidacao || consolidacao.categoriaId !== categoriaId || consolidacao.setorTecnicoId !== sessao.id) {
+  if (
+    !consolidacao ||
+    consolidacao.categoriaId !== categoriaId ||
+    (sessao.tipo === "SETOR_TECNICO" && consolidacao.setorTecnicoId !== sessao.id)
+  ) {
     notFound();
   }
 

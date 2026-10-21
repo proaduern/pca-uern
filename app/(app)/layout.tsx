@@ -48,12 +48,13 @@ export default async function AppLayout({
     subsistemaAtivo = cookieSub;
   }
 
-  //Menus particionados da PROAD conforme o Subsistema ativo
+  // Menus particionados da PROAD conforme o Subsistema ativo
   const linksAdminPorSubsistema: Record<SubsistemaCodigo, { href: string; label: string }[]> = {
     PCA: [
       { href: "/", label: "Aprovação de DFDs" },
       { href: "/admin/demandas", label: "Demandas" },
       { href: "/admin/pca", label: "PCA e Publicação PNCP" },
+      { href: "/admin/consolidacao", label: "Resumo Orçamentário do PCA" },
       { href: "/admin/unidades", label: "Unidades Demandantes" },
       { href: "/admin/usuarios", label: "Usuários das Unidades" },
       { href: "/admin/categorias", label: "Categorias e Competências" },
@@ -64,23 +65,23 @@ export default async function AppLayout({
       { href: "/admin/parametros", label: "Parâmetros do PCA" },
     ],
     ETP_RISCOS: [
-      { href: "/admin/consolidacao", label: "Consolidação Técnica, ETP e Riscos" },
+      { href: "/", label: "Consolidação Técnica, ETP e Riscos" },
       { href: "/admin/setores-tecnicos", label: "Setores Técnicos (STI, Patrimônio, SOBE, DAS...)" },
       { href: "/admin/categorias", label: "Categorias por Competência" },
     ],
     PESQUISA_PRECOS: [
-      { href: "/admin/pesquisa-precos", label: "Fila de Pesquisa de Preços" },
-      { href: "/admin/consolidacao", label: "Processos e Itens Consolidados" },
+      { href: "/", label: "Fila de Pesquisa de Preços" },
+      { href: "/admin/pesquisa-precos", label: "Servidores de Pesquisa de Preços" },
     ],
     TERMO_REFERENCIA: [
-      { href: "/admin/planejamento", label: "Fila de Termo de Referência (Planejamento)" },
-      { href: "/admin/consolidacao", label: "Processos, ETPs e Pesquisas" },
+      { href: "/", label: "Fila de Termo de Referência (TR)" },
+      { href: "/admin/planejamento", label: "Servidores de Planejamento (TR)" },
     ],
     LICITACOES_MINUTAS: [
-      { href: "/admin/licitacoes", label: "Minutas, Fase Jurídica (PGE) e Homologação" },
+      { href: "/", label: "Processos, Minutas, PGE e Homologação" },
       { href: "/admin/agentes-contratacao", label: "Agentes de Contratação" },
-      { href: "/admin/gestor-ata", label: "Minutas e Gestão de Atas (ARP)" },
-      { href: "/admin/consolidacao", label: "Todos os Processos Licitatórios" },
+      { href: "/admin/gestor-ata", label: "Setor de Gestão de Atas (ARP)" },
+      { href: "/admin/licitacoes", label: "Acessos de Licitações e Contratos" },
     ],
   };
 

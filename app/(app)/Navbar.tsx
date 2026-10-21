@@ -30,28 +30,28 @@ export const INFO_SUBSISTEMA: Record<
     titulo: "Subsistema de ETP e Mapa de Riscos",
     subtitulo: "Consolidação Técnica por Competência, Estudo Técnico Preliminar e Gestão de Riscos",
     badge: "Subsistema 02 • Setor Técnico",
-    rotaInicialAdmin: "/admin/consolidacao",
+    rotaInicialAdmin: "/",
   },
   PESQUISA_PRECOS: {
     sigla: "PP",
     titulo: "Subsistema de Pesquisa de Preços",
     subtitulo: "Cotação Referencial de Mercado sobre a Lista Consolidada no ETP",
     badge: "Subsistema 03 • Pesquisa",
-    rotaInicialAdmin: "/admin/pesquisa-precos",
+    rotaInicialAdmin: "/",
   },
   TERMO_REFERENCIA: {
     sigla: "TR",
     titulo: "Subsistema de Termo de Referência (TR)",
     subtitulo: "Planejamento da Contratação com Herança Automática do ETP e Pesquisa de Preços",
     badge: "Subsistema 04 • Planejamento",
-    rotaInicialAdmin: "/admin/planejamento",
+    rotaInicialAdmin: "/",
   },
   LICITACOES_MINUTAS: {
     sigla: "LIC",
     titulo: "Subsistema de Minutas, Fase Jurídica e Licitações",
     subtitulo: "Minutas (Edital/Contrato/Ata), Análise AJUR/PGE, Edital Definitivo, PNCP e Homologação Real",
     badge: "Subsistema 05 • Licitações",
-    rotaInicialAdmin: "/admin/licitacoes",
+    rotaInicialAdmin: "/",
   },
 };
 

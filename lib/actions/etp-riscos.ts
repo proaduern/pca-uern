@@ -12,9 +12,13 @@ import {
 import { RISCOS_PADRAO } from "@/lib/riscos-padrao";
 import type { ResultadoAcao } from "./tipos";
 
-async function obterConsolidacaoDoSetorOuErro(consolidacaoTecnicaId: string, setorTecnicoId: string) {
+async function obterConsolidacaoDoSetorOuErro(
+  consolidacaoTecnicaId: string,
+  setorTecnicoId: string,
+  isAdmin = false,
+) {
   const consolidacao = await prisma.consolidacaoTecnica.findUnique({ where: { id: consolidacaoTecnicaId } });
-  if (!consolidacao || consolidacao.setorTecnicoId !== setorTecnicoId) {
+  if (!consolidacao || (!isAdmin && consolidacao.setorTecnicoId !== setorTecnicoId)) {
     return { erro: "Esta consolidação não pertence ao seu setor técnico." };
   }
   return { consolidacao };
@@ -52,7 +56,11 @@ export interface ResultadoCriarEtp extends ResultadoAcao {
 /** Cria o ETP da consolidação (idempotente: se já existir, só devolve o id existente). */
 export async function criarEtpAction(consolidacaoTecnicaId: string): Promise<ResultadoCriarEtp> {
   const sessao = await exigirSetorTecnico();
-  const resultado = await obterConsolidacaoDoSetorOuErro(consolidacaoTecnicaId, sessao.id);
+  const resultado = await obterConsolidacaoDoSetorOuErro(
+    consolidacaoTecnicaId,
+    sessao.id,
+    sessao.tipo === "ADMIN",
+  );
   if ("erro" in resultado) return { erro: resultado.erro };
 
   const existente = await prisma.estudoTecnicoPreliminar.findUnique({ where: { consolidacaoTecnicaId } });
@@ -83,15 +91,15 @@ export async function criarEtpAction(consolidacaoTecnicaId: string): Promise<Res
   return { etpId: etp.id };
 }
 
-async function obterEtpEditavelDoSetorOuErro(etpId: string, setorTecnicoId: string) {
+async function obterEtpEditavelDoSetorOuErro(etpId: string, setorTecnicoId: string, isAdmin = false) {
   const etp = await prisma.estudoTecnicoPreliminar.findUnique({
     where: { id: etpId },
     include: { consolidacaoTecnica: true },
   });
-  if (!etp || etp.consolidacaoTecnica.setorTecnicoId !== setorTecnicoId) {
+  if (!etp || (!isAdmin && etp.consolidacaoTecnica.setorTecnicoId !== setorTecnicoId)) {
     return { erro: "ETP não encontrado." };
   }
-  if (etp.status === "FINALIZADO") {
+  if (etp.status === "FINALIZADO" && !isAdmin) {
     return { erro: "Este ETP já foi finalizado e não pode mais ser editado." };
   }
   return { etp };
@@ -100,7 +108,7 @@ async function obterEtpEditavelDoSetorOuErro(etpId: string, setorTecnicoId: stri
 /** Salva o ETP como rascunho — sem exigir todas as seções preenchidas. */
 export async function salvarEtpRascunhoAction(etpId: string, formData: FormData): Promise<ResultadoAcao> {
   const sessao = await exigirSetorTecnico();
-  const resultado = await obterEtpEditavelDoSetorOuErro(etpId, sessao.id);
+  const resultado = await obterEtpEditavelDoSetorOuErro(etpId, sessao.id, sessao.tipo === "ADMIN");
   if ("erro" in resultado) return { erro: resultado.erro };
 
   const dados = parseEtpFormData(formData);
@@ -119,7 +127,7 @@ export async function salvarEtpRascunhoAction(etpId: string, formData: FormData)
 /** Valida todas as seções e o responsável, e finaliza o ETP (bloqueia edição futura). */
 export async function finalizarEtpAction(etpId: string, formData: FormData): Promise<ResultadoAcao> {
   const sessao = await exigirSetorTecnico();
-  const resultado = await obterEtpEditavelDoSetorOuErro(etpId, sessao.id);
+  const resultado = await obterEtpEditavelDoSetorOuErro(etpId, sessao.id, sessao.tipo === "ADMIN");
   if ("erro" in resultado) return { erro: resultado.erro };
 
   const dados = parseEtpFormData(formData);
@@ -149,7 +157,11 @@ export interface ResultadoCriarRiscos extends ResultadoAcao {
 /** Cria a Análise de Riscos da consolidação, pré-carregada com os 16 riscos-padrão. */
 export async function criarAnaliseRiscosAction(consolidacaoTecnicaId: string): Promise<ResultadoCriarRiscos> {
   const sessao = await exigirSetorTecnico();
-  const resultado = await obterConsolidacaoDoSetorOuErro(consolidacaoTecnicaId, sessao.id);
+  const resultado = await obterConsolidacaoDoSetorOuErro(
+    consolidacaoTecnicaId,
+    sessao.id,
+    sessao.tipo === "ADMIN",
+  );
   if ("erro" in resultado) return { erro: resultado.erro };
 
   const existente = await prisma.analiseRiscos.findUnique({ where: { consolidacaoTecnicaId } });
@@ -166,15 +178,19 @@ export async function criarAnaliseRiscosAction(consolidacaoTecnicaId: string): P
   return { analiseRiscosId: analiseRiscos.id };
 }
 
-async function obterRiscosEditavelDoSetorOuErro(analiseRiscosId: string, setorTecnicoId: string) {
+async function obterRiscosEditavelDoSetorOuErro(
+  analiseRiscosId: string,
+  setorTecnicoId: string,
+  isAdmin = false,
+) {
   const analiseRiscos = await prisma.analiseRiscos.findUnique({
     where: { id: analiseRiscosId },
     include: { consolidacaoTecnica: true },
   });
-  if (!analiseRiscos || analiseRiscos.consolidacaoTecnica.setorTecnicoId !== setorTecnicoId) {
+  if (!analiseRiscos || (!isAdmin && analiseRiscos.consolidacaoTecnica.setorTecnicoId !== setorTecnicoId)) {
     return { erro: "Análise de Riscos não encontrada." };
   }
-  if (analiseRiscos.status === "FINALIZADO") {
+  if (analiseRiscos.status === "FINALIZADO" && !isAdmin) {
     return { erro: "Esta Análise de Riscos já foi finalizada e não pode mais ser editada." };
   }
   return { analiseRiscos };
@@ -230,7 +246,11 @@ async function salvarItensRisco(analiseRiscosId: string, itens: DadosRiscoItem[]
 /** Salva a Análise de Riscos como rascunho — substitui todas as linhas pelas enviadas. */
 export async function salvarRiscosRascunhoAction(analiseRiscosId: string, formData: FormData): Promise<ResultadoAcao> {
   const sessao = await exigirSetorTecnico();
-  const resultado = await obterRiscosEditavelDoSetorOuErro(analiseRiscosId, sessao.id);
+  const resultado = await obterRiscosEditavelDoSetorOuErro(
+    analiseRiscosId,
+    sessao.id,
+    sessao.tipo === "ADMIN",
+  );
   if ("erro" in resultado) return { erro: resultado.erro };
 
   const parse = parseItensRiscoJson(String(formData.get("itensJson") ?? "[]"));
@@ -251,7 +271,11 @@ export async function salvarRiscosRascunhoAction(analiseRiscosId: string, formDa
 /** Valida os riscos e o responsável, e finaliza a Análise de Riscos (bloqueia edição futura). */
 export async function finalizarRiscosAction(analiseRiscosId: string, formData: FormData): Promise<ResultadoAcao> {
   const sessao = await exigirSetorTecnico();
-  const resultado = await obterRiscosEditavelDoSetorOuErro(analiseRiscosId, sessao.id);
+  const resultado = await obterRiscosEditavelDoSetorOuErro(
+    analiseRiscosId,
+    sessao.id,
+    sessao.tipo === "ADMIN",
+  );
   if ("erro" in resultado) return { erro: resultado.erro };
 
   const parse = parseItensRiscoJson(String(formData.get("itensJson") ?? "[]"));

@@ -2,17 +2,24 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { resolverPcaEmAtuacao } from "@/lib/pca-contexto";
 
-export default async function SetorTecnicoHomePage({ setorTecnicoId }: { setorTecnicoId: string }) {
+export default async function SetorTecnicoHomePage({
+  setorTecnicoId,
+}: {
+  setorTecnicoId: string | null;
+}) {
   const [contextoPca, categorias] = await Promise.all([
-    resolverPcaEmAtuacao({ id: setorTecnicoId, tipo: "SETOR_TECNICO" }),
+    setorTecnicoId
+      ? resolverPcaEmAtuacao({ id: setorTecnicoId, tipo: "SETOR_TECNICO" })
+      : prisma.pca
+          .findFirst({ where: { ativo: true }, orderBy: { ano: "desc" } })
+          .then((pca) => (pca ? ({ status: "resolvido" as const, pca, totalAtivos: 1 }) : ({ status: "nenhum" as const }))),
     prisma.categoria.findMany({
-      where: { setorTecnicoId },
+      where: setorTecnicoId ? { setorTecnicoId } : { ativa: true },
+      include: { setorTecnico: { select: { nome: true } } },
       orderBy: { nome: "asc" },
     }),
   ]);
 
-  // AppLayout já redireciona pra /selecionar-pca quando há mais de um PCA
-  // ativo e o setor técnico ainda não escolheu em qual está atuando.
   const pcaAtivo = contextoPca.status === "resolvido" ? contextoPca.pca : null;
 
   const categoriaIds = categorias.map((c) => c.id);
@@ -51,7 +58,16 @@ export default async function SetorTecnicoHomePage({ setorTecnicoId }: { setorTe
 
   return (
     <div className="space-y-6">
-      <h1 className="text-lg font-semibold text-slate-900">Consolidação — Setor Técnico</h1>
+      <div>
+        <h1 className="text-lg font-semibold text-slate-900">
+          Consolidação Técnica, ETP e Mapa de Riscos — Setor Técnico
+        </h1>
+        <p className="text-sm text-slate-500">
+          Consolidação final da lista de itens por competência (STI, Patrimônio, SOBE, DAS,
+          Almoxarifado, Transportes e Comitês) e elaboração do Estudo Técnico Preliminar (ETP) e
+          Mapa de Riscos.
+        </p>
+      </div>
 
       {!pcaAtivo && (
         <div className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -65,8 +81,11 @@ export default async function SetorTecnicoHomePage({ setorTecnicoId }: { setorTe
             <thead className="bg-slate-50 text-left text-slate-500">
               <tr>
                 <th className="px-4 py-2 font-medium">Categoria</th>
+                {!setorTecnicoId && (
+                  <th className="px-4 py-2 font-medium">Setor Técnico Competente</th>
+                )}
                 <th className="px-4 py-2 font-medium">Itens pendentes de consolidação</th>
-                <th className="px-4 py-2 font-medium">Processos consolidados</th>
+                <th className="px-4 py-2 font-medium">Processos consolidados (ETP / Riscos)</th>
                 <th className="px-4 py-2 font-medium">Ações</th>
               </tr>
             </thead>
@@ -74,13 +93,25 @@ export default async function SetorTecnicoHomePage({ setorTecnicoId }: { setorTe
               {categorias.map((c) => {
                 const pendentes = (dfdPorId.get(c.id) ?? 0) + (tecnicosPorId.get(c.id) ?? 0);
                 return (
-                  <tr key={c.id}>
-                    <td className="px-4 py-2 text-slate-900">{c.nome}</td>
+                  <tr key={c.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-2 text-slate-900 font-medium">{c.nome}</td>
+                    {!setorTecnicoId && (
+                      <td className="px-4 py-2 text-slate-600">
+                        {c.setorTecnico?.nome ?? (
+                          <span className="text-xs text-amber-600">Sem setor vinculado</span>
+                        )}
+                      </td>
+                    )}
                     <td className="px-4 py-2 text-slate-600">{pendentes}</td>
-                    <td className="px-4 py-2 text-slate-600">{consolidacoesPorId.get(c.id) ?? 0}</td>
+                    <td className="px-4 py-2 text-slate-600">
+                      {consolidacoesPorId.get(c.id) ?? 0}
+                    </td>
                     <td className="px-4 py-2">
-                      <Link href={`/consolidacao/${c.id}`} className="text-xs text-slate-700 underline">
-                        Abrir
+                      <Link
+                        href={`/consolidacao/${c.id}`}
+                        className="rounded-lg bg-[#003366] px-3 py-1 text-xs font-semibold text-white hover:bg-[#002244]"
+                      >
+                        Abrir ETP / Riscos
                       </Link>
                     </td>
                   </tr>
@@ -88,7 +119,10 @@ export default async function SetorTecnicoHomePage({ setorTecnicoId }: { setorTe
               })}
               {categorias.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-slate-400">
+                  <td
+                    colSpan={setorTecnicoId ? 4 : 5}
+                    className="px-4 py-6 text-center text-slate-400"
+                  >
                     Nenhuma categoria atribuída ao seu setor ainda. Peça à PROAD para atribuir.
                   </td>
                 </tr>

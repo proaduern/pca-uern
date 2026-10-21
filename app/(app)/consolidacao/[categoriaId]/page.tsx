@@ -11,14 +11,19 @@ export default async function ConsolidacaoCategoriaPage({
 }) {
   const { categoriaId } = await params;
   const sessao = await obterSessao();
-  if (!sessao || sessao.tipo !== "SETOR_TECNICO") return null;
+  if (!sessao || (sessao.tipo !== "SETOR_TECNICO" && sessao.tipo !== "ADMIN")) return null;
 
   const categoria = await prisma.categoria.findUnique({ where: { id: categoriaId } });
-  if (!categoria || categoria.setorTecnicoId !== sessao.id) notFound();
+  if (!categoria || (sessao.tipo === "SETOR_TECNICO" && categoria.setorTecnicoId !== sessao.id)) {
+    notFound();
+  }
 
-  // AppLayout já redireciona pra /selecionar-pca quando há mais de um PCA
-  // ativo e o setor técnico ainda não escolheu em qual está atuando.
-  const contextoPca = await resolverPcaEmAtuacao(sessao);
+  const contextoPca =
+    sessao.tipo === "SETOR_TECNICO"
+      ? await resolverPcaEmAtuacao(sessao)
+      : await prisma.pca
+          .findFirst({ where: { ativo: true }, orderBy: { ano: "desc" } })
+          .then((pca) => (pca ? ({ status: "resolvido" as const, pca, totalAtivos: 1 }) : ({ status: "nenhum" as const })));
   const pcaAtivo = contextoPca.status === "resolvido" ? contextoPca.pca : null;
 
   const [itensDfd, itensTecnicos, itensCatalogo, historico] = await Promise.all([

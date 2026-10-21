@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { obterSessao } from "@/lib/auth";
 import AdminAprovacaoPage from "./AdminAprovacaoPage";
 import UnidadeDfdListPage from "./UnidadeDfdListPage";
@@ -10,12 +11,29 @@ import AgenteContratacaoHomePage from "./AgenteContratacaoHomePage";
 import ExecucaoHomePage from "./ExecucaoHomePage";
 import EntregaHomePage from "./EntregaHomePage";
 import GestorAtaHomePage from "./GestorAtaHomePage";
+import type { SubsistemaCodigo } from "./Navbar";
 
 export default async function HomePage() {
   const sessao = await obterSessao();
   if (!sessao) return null;
 
   if (sessao.tipo === "ADMIN") {
+    const cookieStore = await cookies();
+    const subsistemaAtivo =
+      (cookieStore.get("proad_subsistema_ativo")?.value as SubsistemaCodigo | undefined) ?? "PCA";
+
+    if (subsistemaAtivo === "ETP_RISCOS") {
+      return <SetorTecnicoHomePage setorTecnicoId={null} />;
+    }
+    if (subsistemaAtivo === "PESQUISA_PRECOS") {
+      return <PesquisaPrecosHomePage />;
+    }
+    if (subsistemaAtivo === "TERMO_REFERENCIA") {
+      return <PlanejamentoHomePage />;
+    }
+    if (subsistemaAtivo === "LICITACOES_MINUTAS") {
+      return <LicitacoesHomePage />;
+    }
     return <AdminAprovacaoPage />;
   }
   if (sessao.tipo === "SETOR_INTERNO") {
