@@ -19,7 +19,14 @@ export default async function LicitacaoDetalhePage({
   const { consolidacaoId } = await params;
   const sessao = await obterSessao();
   if (!sessao) return null;
-  if (sessao.tipo !== "LICITACOES" && sessao.tipo !== "ADMIN" && sessao.tipo !== "AGENTE_CONTRATACAO") return null;
+  if (
+    sessao.tipo !== "LICITACOES" &&
+    sessao.tipo !== "ADMIN" &&
+    sessao.tipo !== "AGENTE_CONTRATACAO" &&
+    sessao.tipo !== "GESTOR_ATA"
+  ) {
+    return null;
+  }
 
   const consolidacao = await prisma.consolidacaoTecnica.findUnique({
     where: { id: consolidacaoId },
@@ -27,7 +34,19 @@ export default async function LicitacaoDetalhePage({
       categoria: true,
       setorTecnico: true,
       agenteContratacaoDesignado: true,
-      estudoTecnicoPreliminar: { select: { status: true } },
+      estudoTecnicoPreliminar: { select: { status: true, objeto: true } },
+      analiseRiscos: { select: { status: true } },
+      pesquisaDePrecos: {
+        select: {
+          status: true,
+          itens: { select: { item: true, valorUnitarioPesquisado: true } },
+        },
+      },
+      termoReferencia: { select: { status: true } },
+      minutaEdital: { select: { status: true } },
+      minutaContrato: true,
+      minutaAta: true,
+      diligenciasJuridicas: { orderBy: { createdAt: "desc" } },
       statusLicitacao: { orderBy: { createdAt: "desc" } },
       itensDfd: { include: { dfd: { include: { unidade: true } }, categoria: true } },
       itensTecnicos: { include: { categoria: true } },
@@ -35,9 +54,8 @@ export default async function LicitacaoDetalhePage({
   });
   if (!consolidacao) notFound();
 
-  const podeGerenciarStatus = sessao.tipo === "LICITACOES" || sessao.tipo === "ADMIN";
-  // Um Agente de Contratação só enxerga o processo para o qual foi designado
-  // por Licitações — para conduzir o certame e registrar a homologação.
+  const podeGerenciarStatus =
+    sessao.tipo === "LICITACOES" || sessao.tipo === "ADMIN" || sessao.tipo === "GESTOR_ATA";
   if (sessao.tipo === "AGENTE_CONTRATACAO" && consolidacao.agenteContratacaoDesignadoId !== sessao.id) {
     return null;
   }
@@ -45,6 +63,12 @@ export default async function LicitacaoDetalhePage({
   const agentesContratacao = podeGerenciarStatus
     ? await prisma.agenteContratacao.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } })
     : [];
+
+  // Mapa de preço referencial da Pesquisa de Preços por nome do item (apenas informativo/teto)
+  const mapaPrecoPesquisa = new Map<string, number>();
+  for (const ip of consolidacao.pesquisaDePrecos?.itens ?? []) {
+    mapaPrecoPesquisa.set(ip.item.trim().toLowerCase(), Number(ip.valorUnitarioPesquisado ?? 0));
+  }
 
   const todosItens: ItemHomologavel[] = [
     ...consolidacao.itensDfd.map(
@@ -116,6 +140,62 @@ export default async function LicitacaoDetalhePage({
       categoriaNome={consolidacao.categoria.nome}
       processoSEI={consolidacao.processoSEI}
       statusEtp={consolidacao.estudoTecnicoPreliminar?.status ?? null}
+      objetoEtp={consolidacao.estudoTecnicoPreliminar?.objeto ?? null}
+      statusRiscos={consolidacao.analiseRiscos?.status ?? null}
+      statusPesquisa={consolidacao.pesquisaDePrecos?.status ?? null}
+      statusTr={consolidacao.termoReferencia?.status ?? null}
+      statusMinutaEdital={consolidacao.minutaEdital?.status ?? null}
+      minutaContrato={
+        consolidacao.minutaContrato
+          ? {
+              status: consolidacao.minutaContrato.status,
+              clausulaVigenciaProrrogacao: consolidacao.minutaContrato.clausulaVigenciaProrrogacao,
+              clausulaDotacaoOrcamentaria: consolidacao.minutaContrato.clausulaDotacaoOrcamentaria,
+              clausulaReajusteRepactuacao: consolidacao.minutaContrato.clausulaReajusteRepactuacao,
+              clausulaGarantiaContratual: consolidacao.minutaContrato.clausulaGarantiaContratual,
+              clausulaObrigacoesContratada: consolidacao.minutaContrato.clausulaObrigacoesContratada,
+              clausulaObrigacoesContratante: consolidacao.minutaContrato.clausulaObrigacoesContratante,
+              clausulaFiscalizacaoGestao: consolidacao.minutaContrato.clausulaFiscalizacaoGestao,
+              clausulaExtincaoForo: consolidacao.minutaContrato.clausulaExtincaoForo,
+              responsavelNome: consolidacao.minutaContrato.responsavelNome,
+              responsavelMatricula: consolidacao.minutaContrato.responsavelMatricula,
+            }
+          : null
+      }
+      minutaAta={
+        consolidacao.minutaAta
+          ? {
+              status: consolidacao.minutaAta.status,
+              clausulaValidadeAta: consolidacao.minutaAta.clausulaValidadeAta,
+              clausulaOrgaoGerenciadorParticipantes: consolidacao.minutaAta.clausulaOrgaoGerenciadorParticipantes,
+              clausulaAdesaoCarona: consolidacao.minutaAta.clausulaAdesaoCarona,
+              clausulaRevisaoCancelamentoPrecos: consolidacao.minutaAta.clausulaRevisaoCancelamentoPrecos,
+              clausulaCadastroReserva: consolidacao.minutaAta.clausulaCadastroReserva,
+              clausulaCondicoesFornecimento: consolidacao.minutaAta.clausulaCondicoesFornecimento,
+              clausulaPenalidadesAta: consolidacao.minutaAta.clausulaPenalidadesAta,
+              clausulaDisposicoesFinais: consolidacao.minutaAta.clausulaDisposicoesFinais,
+              responsavelNome: consolidacao.minutaAta.responsavelNome,
+              responsavelMatricula: consolidacao.minutaAta.responsavelMatricula,
+            }
+          : null
+      }
+      diligenciasJuridicas={consolidacao.diligenciasJuridicas.map((d) => ({
+        id: d.id,
+        numeroParecerSei: d.numeroParecerSei,
+        dataParecer: d.dataParecer.toISOString(),
+        descricaoDiligencia: d.descricaoDiligencia,
+        artefatosAfetados: d.artefatosAfetados,
+        status: d.status,
+        atendidaEm: d.atendidaEm?.toISOString() ?? null,
+      }))}
+      editalDefinitivoInfo={{
+        geradoEm: consolidacao.editalDefinitivoGeradoEm?.toISOString() ?? null,
+        observacoes: consolidacao.editalDefinitivoObservacoes ?? null,
+        aprovacaoAutoridadeSei: consolidacao.aprovacaoAutoridadeSei ?? null,
+        aprovacaoAutoridadeData: consolidacao.aprovacaoAutoridadeData?.toISOString() ?? null,
+        publicacaoPncpCodigo: consolidacao.publicacaoPncpCodigo ?? null,
+        publicacaoPncpData: consolidacao.publicacaoPncpData?.toISOString() ?? null,
+      }}
       dataETP={consolidacao.dataETP.toISOString()}
       prioridade={consolidacao.prioridade}
       tipoContratacao={consolidacao.tipoContratacao}
@@ -130,17 +210,29 @@ export default async function LicitacaoDetalhePage({
             }
           : null
       }
-      itens={todosItens.map((it) => ({
-        id: it.id,
-        nome: it.nome,
-        unidadeNome: it.unidadeNome,
-        tipoBem:
-          it.origem === "DFD"
-            ? (consolidacao.itensDfd.find((x) => x.id === it.id)?.tipoBem ?? null)
-            : (consolidacao.itensTecnicos.find((x) => x.id === it.id)?.tipoBem ?? null),
-        quantidade: it.quantidade,
-        valorTotal: it.valorTotal,
-      }))}
+      itens={todosItens.map((it) => {
+        const origDfd = it.origem === "DFD" ? consolidacao.itensDfd.find((x) => x.id === it.id) : null;
+        const origTec = it.origem === "TECNICO" ? consolidacao.itensTecnicos.find((x) => x.id === it.id) : null;
+        const precoRefPesquisa = mapaPrecoPesquisa.get(it.nome.trim().toLowerCase()) ?? null;
+        const precoRealHomologado = Number(
+          origDfd?.valorUnitarioHomologado ?? origTec?.valorUnitarioHomologado ?? 0,
+        );
+        const totalHomologado = Number(origDfd?.valorAdjudicado ?? origTec?.valorAdjudicado ?? 0);
+        const fornecedorVencedor = origDfd?.fornecedorVencedorNome ?? origTec?.fornecedorVencedorNome ?? null;
+        return {
+          id: it.id,
+          nome: it.nome,
+          unidadeNome: it.unidadeNome,
+          tipoBem: origDfd?.tipoBem ?? origTec?.tipoBem ?? null,
+          quantidade: it.quantidade,
+          valorTotal: it.valorTotal,
+          precoReferencialPesquisa: precoRefPesquisa,
+          precoRealHomologado: precoRealHomologado > 0 ? precoRealHomologado : null,
+          valorTotalHomologado: totalHomologado > 0 ? totalHomologado : null,
+          fornecedorVencedor,
+          resultadoHomologacao: origDfd?.resultadoHomologacao ?? origTec?.resultadoHomologacao ?? null,
+        };
+      })}
       statusAtual={statusAtual}
       proximos={proximos}
       historico={consolidacao.statusLicitacao.map((s) => ({
@@ -159,6 +251,7 @@ export default async function LicitacaoDetalhePage({
         nome: g.nome,
         quantidadeTotal: g.quantidadeTotal,
         quantidadeOP: g.quantidadeOP,
+        precoReferencialUnitario: mapaPrecoPesquisa.get(g.nome.trim().toLowerCase()) ?? null,
         itens: g.itens.map((it) => ({
           id: it.id,
           unidadeNome: it.unidadeNome,
@@ -169,13 +262,18 @@ export default async function LicitacaoDetalhePage({
       gruposServicoValor={agruparServicosValorPorCategoria(pendentes).map((g) => ({
         nome: g.nome,
         valorTotal: g.valorTotal,
-        itens: g.itens.map((it) => ({ unidadeNome: it.unidadeNome, enquadramento: it.enquadramento, valorTotal: it.valorTotal })),
+        itens: g.itens.map((it) => ({
+          unidadeNome: it.unidadeNome,
+          enquadramento: it.enquadramento,
+          valorTotal: it.valorTotal,
+        })),
       }))}
       servicosObjeto={servicosPendentesHomologacao(pendentes).map((it) => ({
         id: it.id,
         nome: it.nome,
         unidadeNome: it.unidadeNome,
         valorTotal: it.valorTotal,
+        precoReferencialPesquisa: mapaPrecoPesquisa.get(it.nome.trim().toLowerCase()) ?? null,
       }))}
     />
   );

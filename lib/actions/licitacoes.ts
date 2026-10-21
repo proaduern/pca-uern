@@ -135,17 +135,38 @@ async function avancarStatusAposHomologacaoCompleta(consolidacaoId: string): Pro
   }
 }
 
+interface DadosFornecedorItem {
+  cnpj?: string | null;
+  nome?: string | null;
+  email?: string | null;
+  telefone?: string | null;
+}
+
+function extrairFornecedorForm(formData: FormData): DadosFornecedorItem {
+  const cnpj = String(formData.get("fornecedorVencedorCnpj") ?? "").trim() || null;
+  const nome = String(formData.get("fornecedorVencedorNome") ?? "").trim() || null;
+  const email = String(formData.get("fornecedorVencedorEmail") ?? "").trim() || null;
+  const telefone = String(formData.get("fornecedorVencedorTelefone") ?? "").trim() || null;
+  return { cnpj, nome, email, telefone };
+}
+
 /** Aplica o mesmo resultado (fracassado/deserto/sucesso sem fracionar) a todos os itens de um grupo. */
 async function aplicarResultadoUniforme(
   itens: ItemHomologavel[],
   resultado: "SUCESSO" | "FRACASSADO" | "DESERTO",
   valorUnitario: number | null,
+  fornecedor?: DadosFornecedorItem,
 ) {
   await prisma.$transaction(
     itens.map((it) => {
       const data = {
         resultadoHomologacao: resultado,
+        valorUnitarioHomologado: resultado === "SUCESSO" ? valorUnitario : null,
         valorAdjudicado: resultado === "SUCESSO" ? valorUnitario! * it.quantidade : null,
+        fornecedorVencedorCnpj: resultado === "SUCESSO" ? (fornecedor?.cnpj ?? null) : null,
+        fornecedorVencedorNome: resultado === "SUCESSO" ? (fornecedor?.nome ?? null) : null,
+        fornecedorVencedorEmail: resultado === "SUCESSO" ? (fornecedor?.email ?? null) : null,
+        fornecedorVencedorTelefone: resultado === "SUCESSO" ? (fornecedor?.telefone ?? null) : null,
       };
       return it.origem === "DFD"
         ? prisma.itemDfd.update({ where: { id: it.id }, data })
@@ -166,6 +187,7 @@ async function dividirEHomologarItem(
   itemId: string,
   quantidadeIncluida: number,
   valorUnitario: number,
+  fornecedor?: DadosFornecedorItem,
 ) {
   if (origem === "DFD") {
     const original = await prisma.itemDfd.findUniqueOrThrow({ where: { id: itemId } });
@@ -192,7 +214,12 @@ async function dividirEHomologarItem(
           consolidacaoTecnicaId: original.consolidacaoTecnicaId,
           itemOrigemDivisaoId: itemId,
           resultadoHomologacao: "SUCESSO",
+          valorUnitarioHomologado: valorUnitario,
           valorAdjudicado: valorUnitario * quantidadeIncluida,
+          fornecedorVencedorCnpj: fornecedor?.cnpj ?? null,
+          fornecedorVencedorNome: fornecedor?.nome ?? null,
+          fornecedorVencedorEmail: fornecedor?.email ?? null,
+          fornecedorVencedorTelefone: fornecedor?.telefone ?? null,
         },
       }),
     ]);
@@ -218,7 +245,12 @@ async function dividirEHomologarItem(
           consolidacaoTecnicaId: original.consolidacaoTecnicaId,
           itemOrigemDivisaoId: itemId,
           resultadoHomologacao: "SUCESSO",
+          valorUnitarioHomologado: valorUnitario,
           valorAdjudicado: valorUnitario * quantidadeIncluida,
+          fornecedorVencedorCnpj: fornecedor?.cnpj ?? null,
+          fornecedorVencedorNome: fornecedor?.nome ?? null,
+          fornecedorVencedorEmail: fornecedor?.email ?? null,
+          fornecedorVencedorTelefone: fornecedor?.telefone ?? null,
         },
       }),
     ]);
@@ -229,16 +261,25 @@ async function aplicarAlocacoesHomologacao(
   grupo: GrupoHomologacaoItem,
   alocacoes: { itemId: string; origem: "DFD" | "TECNICO"; quantidadeIncluida: number }[],
   valorUnitario: number,
+  fornecedor?: DadosFornecedorItem,
 ) {
   for (const aloc of alocacoes) {
     const itemOriginal = grupo.itens.find((it) => it.id === aloc.itemId);
     if (!itemOriginal) continue;
     if (aloc.quantidadeIncluida >= itemOriginal.quantidade) {
-      const data = { resultadoHomologacao: "SUCESSO" as const, valorAdjudicado: valorUnitario * itemOriginal.quantidade };
+      const data = {
+        resultadoHomologacao: "SUCESSO" as const,
+        valorUnitarioHomologado: valorUnitario,
+        valorAdjudicado: valorUnitario * itemOriginal.quantidade,
+        fornecedorVencedorCnpj: fornecedor?.cnpj ?? null,
+        fornecedorVencedorNome: fornecedor?.nome ?? null,
+        fornecedorVencedorEmail: fornecedor?.email ?? null,
+        fornecedorVencedorTelefone: fornecedor?.telefone ?? null,
+      };
       if (aloc.origem === "DFD") await prisma.itemDfd.update({ where: { id: aloc.itemId }, data });
       else await prisma.itemTecnico.update({ where: { id: aloc.itemId }, data });
     } else {
-      await dividirEHomologarItem(aloc.origem, aloc.itemId, aloc.quantidadeIncluida, valorUnitario);
+      await dividirEHomologarItem(aloc.origem, aloc.itemId, aloc.quantidadeIncluida, valorUnitario, fornecedor);
     }
   }
 }
@@ -309,7 +350,7 @@ export async function salvarRevisaoLicitacaoAction(consolidacaoId: string, formD
 }
 
 // ---------------------------------------------------------------------------
-// Homologação
+// Homologação (Preço Real Homologado + Empresa Vencedora por Item/Grupo)
 // ---------------------------------------------------------------------------
 
 export async function registrarHomologacaoGrupoAction(consolidacaoId: string, formData: FormData) {
@@ -335,10 +376,11 @@ export async function registrarHomologacaoGrupoAction(consolidacaoId: string, fo
   }
 
   const valorUnitario = Number(formData.get("valorUnitario") ?? 0);
-  if (!(valorUnitario > 0)) throw new Error("Informe o valor unitário adjudicado.");
+  if (!(valorUnitario > 0)) throw new Error("Informe o preço unitário real homologado no certame.");
+  const fornecedor = extrairFornecedorForm(formData);
 
   if (resultado === "sucesso_total") {
-    await aplicarResultadoUniforme(grupo.itens, "SUCESSO", valorUnitario);
+    await aplicarResultadoUniforme(grupo.itens, "SUCESSO", valorUnitario, fornecedor);
     await avancarStatusAposHomologacaoCompleta(consolidacaoId);
     revalidatePath(`/licitacoes/${consolidacaoId}`);
     return;
@@ -356,7 +398,7 @@ export async function registrarHomologacaoGrupoAction(consolidacaoId: string, fo
   }
 
   const alocacoes = planejarHomologacaoParcialAutomatica(grupo, quantidadeHomologada);
-  await aplicarAlocacoesHomologacao(grupo, alocacoes, valorUnitario);
+  await aplicarAlocacoesHomologacao(grupo, alocacoes, valorUnitario, fornecedor);
   await avancarStatusAposHomologacaoCompleta(consolidacaoId);
   revalidatePath(`/licitacoes/${consolidacaoId}`);
 }
@@ -368,6 +410,7 @@ export async function confirmarHomologacaoManualAction(consolidacaoId: string, f
   const nomeGrupo = String(formData.get("nomeGrupo") ?? "");
   const valorUnitario = Number(formData.get("valorUnitario") ?? 0);
   const quantidadeHomologada = Number(formData.get("quantidadeHomologada") ?? 0);
+  const fornecedor = extrairFornecedorForm(formData);
 
   const pendentes = await itensPendentesHomologacao(consolidacaoId);
   const grupo = agruparItensParaHomologacao(pendentes).find((g) => g.nome === nomeGrupo);
@@ -387,7 +430,7 @@ export async function confirmarHomologacaoManualAction(consolidacaoId: string, f
     throw new Error(`A soma informada (${soma}) precisa ser exatamente ${quantidadeHomologada}.`);
   }
 
-  await aplicarAlocacoesHomologacao(grupo, alocacoes, valorUnitario);
+  await aplicarAlocacoesHomologacao(grupo, alocacoes, valorUnitario, fornecedor);
   await avancarStatusAposHomologacaoCompleta(consolidacaoId);
   revalidatePath(`/licitacoes/${consolidacaoId}`);
 }
@@ -404,11 +447,29 @@ export async function registrarHomologacaoGrupoServicoValorAction(consolidacaoId
   if (!grupo) throw new Error("Grupo não encontrado — a tela pode estar desatualizada, recarregue e tente novamente.");
 
   const resultadoEnum = resultado === "sucesso" ? "SUCESSO" : resultado === "fracassado" ? "FRACASSADO" : "DESERTO";
+  let valorRealHomologadoGrupo = 0;
+  if (resultado === "sucesso") {
+    valorRealHomologadoGrupo = Number(formData.get("valorHomologado") ?? 0);
+    if (!(valorRealHomologadoGrupo > 0)) {
+      throw new Error("Informe o Preço Real Homologado para este grupo no certame (e não o valor estimado).");
+    }
+  }
+  const fornecedor = extrairFornecedorForm(formData);
+  const totalBase = grupo.valorTotal > 0 ? grupo.valorTotal : 1;
+
   await prisma.$transaction(
     grupo.itens.map((it) => {
+      // Rateia proporcionalmente o preço real homologado do grupo entre as demandas que o compõem
+      const proporcao = grupo.valorTotal > 0 ? it.valorTotal / totalBase : 1 / grupo.itens.length;
+      const valorItemHomologado = resultado === "sucesso" ? Number((valorRealHomologadoGrupo * proporcao).toFixed(2)) : null;
       const data = {
         resultadoHomologacao: resultadoEnum as "SUCESSO" | "FRACASSADO" | "DESERTO",
-        valorAdjudicado: resultado === "sucesso" ? it.valorTotal : null,
+        valorUnitarioHomologado: valorItemHomologado,
+        valorAdjudicado: valorItemHomologado,
+        fornecedorVencedorCnpj: resultado === "sucesso" ? (fornecedor.cnpj ?? null) : null,
+        fornecedorVencedorNome: resultado === "sucesso" ? (fornecedor.nome ?? null) : null,
+        fornecedorVencedorEmail: resultado === "sucesso" ? (fornecedor.email ?? null) : null,
+        fornecedorVencedorTelefone: resultado === "sucesso" ? (fornecedor.telefone ?? null) : null,
       };
       return it.origem === "DFD"
         ? prisma.itemDfd.update({ where: { id: it.id }, data })
@@ -427,8 +488,9 @@ export async function registrarHomologacaoServicoAction(consolidacaoId: string, 
   let valorAdjudicado: number | null = null;
   if (resultado === "sucesso") {
     valorAdjudicado = Number(formData.get("valor") ?? 0);
-    if (!(valorAdjudicado > 0)) throw new Error("Informe o valor adjudicado.");
+    if (!(valorAdjudicado > 0)) throw new Error("Informe o preço real homologado/adjudicado.");
   }
+  const fornecedor = extrairFornecedorForm(formData);
 
   const pendentes = await itensPendentesHomologacao(consolidacaoId);
   const item = servicosPendentesHomologacao(pendentes).find((it) => it.id === itemId);
@@ -437,7 +499,12 @@ export async function registrarHomologacaoServicoAction(consolidacaoId: string, 
   const data = {
     resultadoHomologacao:
       resultado === "sucesso" ? ("SUCESSO" as const) : resultado === "fracassado" ? ("FRACASSADO" as const) : ("DESERTO" as const),
+    valorUnitarioHomologado: valorAdjudicado,
     valorAdjudicado,
+    fornecedorVencedorCnpj: resultado === "sucesso" ? (fornecedor.cnpj ?? null) : null,
+    fornecedorVencedorNome: resultado === "sucesso" ? (fornecedor.nome ?? null) : null,
+    fornecedorVencedorEmail: resultado === "sucesso" ? (fornecedor.email ?? null) : null,
+    fornecedorVencedorTelefone: resultado === "sucesso" ? (fornecedor.telefone ?? null) : null,
   };
   if (item.origem === "DFD") await prisma.itemDfd.update({ where: { id: itemId }, data });
   else await prisma.itemTecnico.update({ where: { id: itemId }, data });

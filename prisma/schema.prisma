@@ -681,8 +681,13 @@ model ItemDfd {
   substituicaoEm            DateTime?
 
   // Resultado da homologação (Licitação) — preenchido por item/grupo.
-  resultadoHomologacao ResultadoHomologacao?
-  valorAdjudicado      Decimal?              @db.Decimal(14, 2)
+  resultadoHomologacao       ResultadoHomologacao?
+  valorUnitarioHomologado    Decimal?              @db.Decimal(14, 2)
+  valorAdjudicado            Decimal?              @db.Decimal(14, 2)
+  fornecedorVencedorCnpj     String?
+  fornecedorVencedorNome     String?
+  fornecedorVencedorEmail    String?
+  fornecedorVencedorTelefone String?
 
   // Divisão por resultado/recebimento/entrega PARCIAL: a parte separada vira
   // uma nova linha (mesmo dfd, mesma origem); o item de origem permanece com
@@ -754,8 +759,13 @@ model ItemTecnico {
 
   // Mesmo mecanismo de ItemDfd — ver comentário lá. ItemTecnico não tem
   // demandante, então não participa de Atendimento por Estoque nem Troca OP.
-  resultadoHomologacao ResultadoHomologacao?
-  valorAdjudicado      Decimal?              @db.Decimal(14, 2)
+  resultadoHomologacao       ResultadoHomologacao?
+  valorUnitarioHomologado    Decimal?              @db.Decimal(14, 2)
+  valorAdjudicado            Decimal?              @db.Decimal(14, 2)
+  fornecedorVencedorCnpj     String?
+  fornecedorVencedorNome     String?
+  fornecedorVencedorEmail    String?
+  fornecedorVencedorTelefone String?
 
   itemOrigemDivisaoId String?
   itemOrigemDivisao   ItemTecnico?  @relation("DivisaoItemTecnico", fields: [itemOrigemDivisaoId], references: [id])
@@ -849,6 +859,17 @@ model ConsolidacaoTecnica {
   pesquisaDePrecos        PesquisaDePrecos?
   termoReferencia         TermoReferencia?
   minutaEdital            MinutaEdital?
+  minutaContrato          MinutaContrato?
+  minutaAta               MinutaAta?
+  diligenciasJuridicas    DiligenciaJuridica[]
+
+  // Edital Definitivo + Registro da Aprovação da Autoridade (no SEI) + Publicação no PNCP
+  editalDefinitivoGeradoEm    DateTime?
+  editalDefinitivoObservacoes String?
+  aprovacaoAutoridadeSei      String?
+  aprovacaoAutoridadeData     DateTime? @db.Date
+  publicacaoPncpCodigo        String?
+  publicacaoPncpData          DateTime? @db.Date
 
   // Agente de Contratação designado por Licitações para conduzir o certame
   // deste processo — enquanto designado, ele também pode registrar os
@@ -1084,6 +1105,87 @@ model MinutaEdital {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Minuta de Contrato (elaborada pelo Setor de Contratos quando tipoContratacao = NORMAL)
+// Herda automaticamente Objeto (ETP), Lista de Itens e Preços Referenciais (Pesquisa),
+// e Modelo de Gestão/Medição (TR).
+// ---------------------------------------------------------------------------
+
+model MinutaContrato {
+  id                    String              @id @default(cuid())
+  consolidacaoTecnicaId String              @unique
+  consolidacaoTecnica   ConsolidacaoTecnica @relation(fields: [consolidacaoTecnicaId], references: [id], onDelete: Cascade)
+
+  clausulaVigenciaProrrogacao String
+  clausulaDotacaoOrcamentaria String
+  clausulaReajusteRepactuacao String
+  clausulaGarantiaContratual  String
+  clausulaObrigacoesContratada String
+  clausulaObrigacoesContratante String
+  clausulaFiscalizacaoGestao  String
+  clausulaExtincaoForo        String
+
+  status               StatusDocumentoTecnico @default(RASCUNHO)
+  responsavelNome      String?
+  responsavelMatricula String?
+  finalizadoEm         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Minuta de Ata de Registro de Preços - ARP (elaborada pelo Setor de Gestão de Atas
+// quando tipoContratacao = ATA). Herda automaticamente Objeto (ETP), Lista de Itens
+// e Preços Referenciais (Pesquisa) e Condições do TR.
+// ---------------------------------------------------------------------------
+
+model MinutaAta {
+  id                    String              @id @default(cuid())
+  consolidacaoTecnicaId String              @unique
+  consolidacaoTecnica   ConsolidacaoTecnica @relation(fields: [consolidacaoTecnicaId], references: [id], onDelete: Cascade)
+
+  clausulaValidadeAta                 String
+  clausulaOrgaoGerenciadorParticipantes String
+  clausulaAdesaoCarona                String
+  clausulaRevisaoCancelamentoPrecos   String
+  clausulaCadastroReserva             String
+  clausulaCondicoesFornecimento       String
+  clausulaPenalidadesAta              String
+  clausulaDisposicoesFinais           String
+
+  status               StatusDocumentoTecnico @default(RASCUNHO)
+  responsavelNome      String?
+  responsavelMatricula String?
+  finalizadoEm         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Fase Jurídica (AJUR/PGE) e Loop de Diligências Seletivas dentro do Sistema
+// ---------------------------------------------------------------------------
+
+model DiligenciaJuridica {
+  id                    String              @id @default(cuid())
+  consolidacaoTecnicaId String
+  consolidacaoTecnica   ConsolidacaoTecnica @relation(fields: [consolidacaoTecnicaId], references: [id], onDelete: Cascade)
+
+  numeroParecerSei    String
+  dataParecer         DateTime @db.Date
+  descricaoDiligencia String
+  // Artefatos reabertos para ajuste dentro do sistema:
+  // Ex.: ["ETP", "MAPA_RISCOS", "PESQUISA_PRECOS", "TERMO_REFERENCIA", "MINUTA_EDITAL", "MINUTA_CONTRATO", "MINUTA_ATA"]
+  artefatosAfetados   String[]
+
+  status     String    @default("ABERTA") // "ABERTA" | "CONCLUIDA"
+  atendidaEm DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([consolidacaoTecnicaId])
 }
 
 // ---------------------------------------------------------------------------

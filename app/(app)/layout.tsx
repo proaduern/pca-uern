@@ -1,9 +1,10 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { obterSessao, obterSessaoReal } from "@/lib/auth";
 import { resolverPcaEmAtuacao } from "@/lib/pca-contexto";
 import VoltarParaAdminBotao from "./VoltarParaAdminBotao";
 import Sidebar from "./Sidebar";
-import Navbar from "./Navbar";
+import Navbar, { type SubsistemaCodigo } from "./Navbar";
 
 export default async function AppLayout({
   children,
@@ -13,19 +14,11 @@ export default async function AppLayout({
   const sessao = await obterSessao();
   if (!sessao) redirect("/login");
   const sessaoReal = await obterSessaoReal();
-  // "Atuando como": a sessão real é da PROAD, mas a sessão efetiva (a que
-  // vale pra tudo) é outra — ver obterSessao()/iniciarAtuarComo em lib/auth.
   const atuandoComo =
     sessaoReal?.tipo === "ADMIN" && sessao.tipo !== "ADMIN" ? sessaoReal : null;
-  // Enquanto a PROAD está "atuando como" outra sessão, não força a troca de
-  // senha temporária dessa sessão — evita alterar sem querer a senha de uma
-  // unidade/setor/licitação real só por estar navegando como ela.
   if (sessao.tipo !== "ADMIN" && sessao.senhaTemporaria && !atuandoComo)
     redirect("/trocar-senha");
 
-  // Com mais de um PCA ativo ao mesmo tempo (ex.: o do ano corrente ainda em
-  // execução e o do ano seguinte já em coleta), a unidade/setor técnico
-  // precisa dizer em qual está atuando antes de ver demandas ou lançar novas.
   let contextoPca: Awaited<ReturnType<typeof resolverPcaEmAtuacao>> | null =
     null;
   if (
@@ -37,31 +30,59 @@ export default async function AppLayout({
     if (contextoPca.status === "precisa_escolher") redirect("/selecionar-pca");
   }
 
-  const linksAdmin = [
-    { href: "/", label: "Aprovação de DFDs" },
-    { href: "/admin/demandas", label: "Demandas" },
-    { href: "/admin/consolidacao", label: "Consolidação Geral" },
-    { href: "/admin/unidades", label: "Unidades" },
-    { href: "/admin/usuarios", label: "Usuários das Unidades" },
-    { href: "/admin/setores-tecnicos", label: "Setores Técnicos" },
-    { href: "/admin/licitacoes", label: "Licitações" },
-    { href: "/admin/pesquisa-precos", label: "Pesquisa de Preços" },
-    { href: "/admin/planejamento", label: "Planejamento" },
-    { href: "/admin/agentes-contratacao", label: "Agentes de Contratação" },
-    { href: "/admin/execucao", label: "Execução" },
-    { href: "/admin/entrega", label: "Entrega de Bens" },
-    { href: "/admin/gestor-ata", label: "Gestão de Ata" },
-    { href: "/admin/pca", label: "PCA" },
-    { href: "/admin/contratos-sgc", label: "Contratos Vigentes (SGC)" },
-    { href: "/admin/categorias", label: "Categorias" },
-    { href: "/admin/catalogo", label: "Catálogo" },
-    { href: "/admin/solicitacoes", label: "Solicitações de Catálogo" },
-    {
-      href: "/admin/solicitacoes-cota-geral",
-      label: "Solicitações de Cota Geral (OP)",
-    },
-    { href: "/admin/parametros", label: "Parâmetros" },
-  ];
+  // Determina o subsistema ativo
+  const cookieStore = await cookies();
+  const cookieSub = cookieStore.get("proad_subsistema_ativo")?.value as SubsistemaCodigo | undefined;
+
+  let subsistemaAtivo: SubsistemaCodigo = "PCA";
+  if (sessao.tipo === "SETOR_TECNICO") subsistemaAtivo = "ETP_RISCOS";
+  else if (sessao.tipo === "PESQUISA_PRECOS") subsistemaAtivo = "PESQUISA_PRECOS";
+  else if (sessao.tipo === "PLANEJAMENTO") subsistemaAtivo = "TERMO_REFERENCIA";
+  else if (
+    sessao.tipo === "LICITACOES" ||
+    sessao.tipo === "AGENTE_CONTRATACAO" ||
+    sessao.tipo === "GESTOR_ATA"
+  ) {
+    subsistemaAtivo = "LICITACOES_MINUTAS";
+  } else if (sessao.tipo === "ADMIN" && cookieSub) {
+    subsistemaAtivo = cookieSub;
+  }
+
+  //Menus particionados da PROAD conforme o Subsistema ativo
+  const linksAdminPorSubsistema: Record<SubsistemaCodigo, { href: string; label: string }[]> = {
+    PCA: [
+      { href: "/", label: "Aprovação de DFDs" },
+      { href: "/admin/demandas", label: "Demandas" },
+      { href: "/admin/pca", label: "PCA e Publicação PNCP" },
+      { href: "/admin/unidades", label: "Unidades Demandantes" },
+      { href: "/admin/usuarios", label: "Usuários das Unidades" },
+      { href: "/admin/categorias", label: "Categorias e Competências" },
+      { href: "/admin/catalogo", label: "Catálogo de Itens" },
+      { href: "/admin/solicitacoes", label: "Solicitações de Catálogo" },
+      { href: "/admin/solicitacoes-cota-geral", label: "Solicitações de Cota Geral (OP)" },
+      { href: "/admin/contratos-sgc", label: "Contratos Vigentes (SGC)" },
+      { href: "/admin/parametros", label: "Parâmetros do PCA" },
+    ],
+    ETP_RISCOS: [
+      { href: "/admin/consolidacao", label: "Consolidação Técnica, ETP e Riscos" },
+      { href: "/admin/setores-tecnicos", label: "Setores Técnicos (STI, Patrimônio, SOBE, DAS...)" },
+      { href: "/admin/categorias", label: "Categorias por Competência" },
+    ],
+    PESQUISA_PRECOS: [
+      { href: "/admin/pesquisa-precos", label: "Fila de Pesquisa de Preços" },
+      { href: "/admin/consolidacao", label: "Processos e Itens Consolidados" },
+    ],
+    TERMO_REFERENCIA: [
+      { href: "/admin/planejamento", label: "Fila de Termo de Referência (Planejamento)" },
+      { href: "/admin/consolidacao", label: "Processos, ETPs e Pesquisas" },
+    ],
+    LICITACOES_MINUTAS: [
+      { href: "/admin/licitacoes", label: "Minutas, Fase Jurídica (PGE) e Homologação" },
+      { href: "/admin/agentes-contratacao", label: "Agentes de Contratação" },
+      { href: "/admin/gestor-ata", label: "Minutas e Gestão de Atas (ARP)" },
+      { href: "/admin/consolidacao", label: "Todos os Processos Licitatórios" },
+    ],
+  };
 
   const linksUnidade = [
     { href: "/", label: "Minhas Demandas" },
@@ -70,17 +91,17 @@ export default async function AppLayout({
       : []),
   ];
   const linksSetorInterno = [{ href: "/", label: "Minhas Demandas" }];
-  const linksSetorTecnico = [{ href: "/", label: "Consolidação" }];
-  const linksLicitacoes = [{ href: "/", label: "Processos Consolidados" }];
-  const linksPesquisaPrecos = [{ href: "/", label: "Pesquisa de Preços" }];
-  const linksPlanejamento = [{ href: "/", label: "Planejamento" }];
-  const linksAgenteContratacao = [{ href: "/", label: "Agente de Contratação" }];
+  const linksSetorTecnico = [{ href: "/", label: "Consolidação, ETP e Mapa de Riscos" }];
+  const linksLicitacoes = [{ href: "/", label: "Minutas, Fase Jurídica e Homologação" }];
+  const linksPesquisaPrecos = [{ href: "/", label: "Fila de Pesquisa de Preços" }];
+  const linksPlanejamento = [{ href: "/", label: "Fila de Termo de Referência (TR)" }];
+  const linksAgenteContratacao = [{ href: "/", label: "Minuta de Edital e Homologação" }];
   const linksExecucao = [{ href: "/", label: "Execução" }];
   const linksEntrega = [{ href: "/", label: "Entrega de Bens" }];
-  const linksGestorAta = [{ href: "/", label: "Gestão de Ata" }];
+  const linksGestorAta = [{ href: "/", label: "Minutas e Gestão de Atas (ARP)" }];
 
   const LINKS_POR_TIPO = {
-    ADMIN: linksAdmin,
+    ADMIN: linksAdminPorSubsistema[subsistemaAtivo] ?? linksAdminPorSubsistema.PCA,
     UNIDADE: linksUnidade,
     SETOR_INTERNO: linksSetorInterno,
     SETOR_TECNICO: linksSetorTecnico,
@@ -124,6 +145,7 @@ export default async function AppLayout({
         nome={sessao.nome}
         tipo={sessao.tipo}
         subtitulo={sessao.unidadeNome ?? null}
+        subsistemaAtivo={subsistemaAtivo}
         pcaAtuacao={
           contextoPca?.status === "resolvido"
             ? {
