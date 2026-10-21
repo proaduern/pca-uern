@@ -72,6 +72,14 @@ export default async function PcaPage() {
               ativo: pca.ativo,
               aberturaExtraGeral: pca.aberturaExtraGeral,
               concluido: pca.concluido,
+              cotaGeral: Number(pca.cotaGeral),
+              cotaOP: Number(pca.cotaOP),
+              dataAberturaIso: pca.dataAbertura
+                ? new Date(pca.dataAbertura).toISOString().slice(0, 10)
+                : "",
+              dataFechamentoIso: pca.dataFechamento
+                ? new Date(pca.dataFechamento).toISOString().slice(0, 10)
+                : "",
             }}
           />
 
@@ -97,7 +105,7 @@ export default async function PcaPage() {
                     <tbody className="divide-y divide-slate-100">
                       {doAno.map((c) => (
                         <tr key={c.id}>
-                          <td className="px-3 py-1.5 text-slate-900">{c.categoria.nome}</td>
+                          <td className="px-3 py-1.5 text-slate-900">{c.categoria?.nome ?? "—"}</td>
                           <td className="px-3 py-1.5 text-slate-600">{c.processoSEI}</td>
                           <td className="px-3 py-1.5">
                             <CodigoPcaInput

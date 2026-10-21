@@ -2,6 +2,9 @@ import { prisma } from "@/lib/prisma";
 import PendentesTabela from "./PendentesTabela";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import Link from "next/link";
+import DesfazerAprovacaoBotao from "./admin/demandas/DesfazerAprovacaoBotao";
+import BotaoExcluir from "./admin/BotaoExcluir";
+import { adminExcluirDfdAction } from "@/lib/actions/dfd";
 
 export default async function AdminAprovacaoPage() {
   try {
@@ -60,17 +63,34 @@ export default async function AdminAprovacaoPage() {
                   <th className="py-1 font-medium">Descrição</th>
                   <th className="py-1 font-medium">Unidade</th>
                   <th className="py-1 font-medium">Status</th>
+                  <th className="py-1 font-medium text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {historico.map((d) => (
                   <tr key={d.id}>
-                    <td className="py-1 text-slate-900">{d.descricaoSumaria}</td>
-                    <td className="py-1 text-slate-600">{d.unidade?.nome || "—"}</td>
-                    <td className="py-1 text-slate-600">
+                    <td className="py-2 text-slate-900">{d.descricaoSumaria}</td>
+                    <td className="py-2 text-slate-600">{d.unidade?.nome || "—"}</td>
+                    <td className="py-2 text-slate-600">
                       {d.status === "APROVADO"
                         ? "Aprovado"
                         : `Reprovado — ${d.motivoReprovacao || "Sem motivo registrado"}`}
+                    </td>
+                    <td className="py-2 text-right">
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <Link
+                          href={`/dfd/${d.id}`}
+                          className="text-xs font-medium text-[#003366] underline hover:text-[#002244]"
+                        >
+                          Ver / Editar
+                        </Link>
+                        {d.status === "APROVADO" && <DesfazerAprovacaoBotao dfdId={d.id} />}
+                        <BotaoExcluir
+                          action={adminExcluirDfdAction}
+                          id={d.id}
+                          confirmMessage="Excluir este DFD permanentemente?"
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}

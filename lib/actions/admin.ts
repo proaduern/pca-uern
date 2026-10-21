@@ -1097,6 +1097,32 @@ export async function criarTipificacaoAction(formData: FormData) {
   revalidatePath("/admin/parametros");
 }
 
+export async function atualizarTipificacaoAction(
+  id: string,
+  formData: FormData,
+): Promise<ResultadoAcao> {
+  await exigirAdmin();
+  const nome = String(formData.get("nome") ?? "").trim();
+  if (!nome) return { erro: "Informe o nome da tipificação." };
+  try {
+    await prisma.tipificacao.update({
+      where: { id },
+      data: { nome },
+    });
+  } catch (erro) {
+    if (
+      erro instanceof Prisma.PrismaClientKnownRequestError &&
+      erro.code === "P2002"
+    ) {
+      return { erro: "Já existe uma tipificação cadastrada com este nome." };
+    }
+    throw erro;
+  }
+  revalidatePath("/admin/parametros");
+  revalidatePath("/admin/demandas");
+  return {};
+}
+
 export async function excluirTipificacaoAction(id: string) {
   await exigirAdmin();
   await prisma.tipificacao.delete({ where: { id } });
@@ -1114,6 +1140,41 @@ export async function criarPrioridadeAction(formData: FormData) {
   if (!frase) throw new Error("Informe a frase de prioridade.");
   await prisma.prioridade.create({ data: { frase, nivel } });
   revalidatePath("/admin/parametros");
+}
+
+export async function atualizarPrioridadeAction(
+  id: string,
+  formData: FormData,
+): Promise<ResultadoAcao> {
+  await exigirAdmin();
+  const frase = String(formData.get("frase") ?? "").trim();
+  const nivel = String(formData.get("nivel") ?? "MEDIA") as
+    | "ALTISSIMA"
+    | "ALTA"
+    | "MEDIA"
+    | "BAIXA";
+  if (!frase) return { erro: "Informe a frase de prioridade." };
+  if (!["ALTISSIMA", "ALTA", "MEDIA", "BAIXA"].includes(nivel)) {
+    return { erro: "Selecione um nível de prioridade válido." };
+  }
+  try {
+    await prisma.prioridade.update({
+      where: { id },
+      data: { frase, nivel },
+    });
+  } catch (erro) {
+    if (
+      erro instanceof Prisma.PrismaClientKnownRequestError &&
+      erro.code === "P2002"
+    ) {
+      return { erro: "Já existe uma prioridade cadastrada com esta frase." };
+    }
+    throw erro;
+  }
+  revalidatePath("/admin/parametros");
+  revalidatePath("/admin/demandas");
+  revalidatePath("/");
+  return {};
 }
 
 export async function excluirPrioridadeAction(id: string) {
@@ -1142,6 +1203,7 @@ export async function aprovarDfdAction(dfdId: string): Promise<ResultadoAcao> {
     },
   });
   revalidatePath("/");
+  revalidatePath("/admin/demandas");
   return {};
 }
 
@@ -1165,6 +1227,7 @@ export async function reprovarDfdAction(
     },
   });
   revalidatePath("/");
+  revalidatePath("/admin/demandas");
   return {};
 }
 
@@ -1183,6 +1246,7 @@ export async function aprovarSelecionadosAction(
     },
   });
   revalidatePath("/");
+  revalidatePath("/admin/demandas");
   return {};
 }
 
@@ -1271,6 +1335,7 @@ export async function desfazerAprovacaoDfdAction(
   });
 
   revalidatePath("/");
+  revalidatePath("/admin/demandas");
   return {};
 }
 

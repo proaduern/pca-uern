@@ -155,6 +155,27 @@ async function main() {
         CONSTRAINT "DiligenciaJuridica_pkey" PRIMARY KEY ("id")
       );
     `);
+
+    // Reverte aprovação automática de teste de "Material de limpeza" anterior a 2026-10-21T11:55:00Z
+    await executarSilencioso(`
+      UPDATE ${schemaPrefix}"ItemDfd"
+      SET "consolidacaoTecnicaId" = NULL
+      WHERE "dfdId" IN (
+        SELECT "id" FROM ${schemaPrefix}"Dfd"
+        WHERE "descricaoSumaria" ILIKE '%Material de limpeza%'
+          AND "status" = 'APROVADO'
+          AND ("aprovadoEm" IS NULL OR "aprovadoEm" < '2026-10-21T11:55:00Z')
+      );
+    `);
+    await executarSilencioso(`
+      UPDATE ${schemaPrefix}"Dfd"
+      SET "status" = 'AGUARDANDO_APROVACAO',
+          "aprovadoEm" = NULL,
+          "enviadoParaAprovacaoEm" = COALESCE("enviadoParaAprovacaoEm", "createdAt")
+      WHERE "descricaoSumaria" ILIKE '%Material de limpeza%'
+        AND "status" = 'APROVADO'
+        AND ("aprovadoEm" IS NULL OR "aprovadoEm" < '2026-10-21T11:55:00Z');
+    `);
   }
 
   console.log("[Deploy Schema] Colunas e tabelas sincronizadas com sucesso!");

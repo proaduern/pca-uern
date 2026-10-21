@@ -7,6 +7,10 @@ import {
 } from "@/lib/actions/admin";
 import FormularioSimples from "../FormularioSimples";
 import BotaoExcluir from "../BotaoExcluir";
+import {
+  EditarTipificacaoForm,
+  EditarPrioridadeForm,
+} from "./EditarParametroForms";
 import { exigirAdminNaPagina } from "@/lib/auth";
 
 export default async function ParametrosPage() {
@@ -32,8 +36,11 @@ export default async function ParametrosPage() {
               <tbody className="divide-y divide-slate-100">
                 {tipificacoes.map((t) => (
                   <tr key={t.id}>
-                    <td className="px-4 py-2 text-slate-900">{t.nome}</td>
-                    <td className="px-4 py-2 text-right">
+                    <td className="px-4 py-2 text-slate-900">
+                      <div>{t.nome}</div>
+                      <EditarTipificacaoForm id={t.id} nomeAtual={t.nome} />
+                    </td>
+                    <td className="px-4 py-2 text-right align-top">
                       <BotaoExcluir action={excluirTipificacaoAction} id={t.id} />
                     </td>
                   </tr>
@@ -71,9 +78,16 @@ export default async function ParametrosPage() {
               <tbody className="divide-y divide-slate-100">
                 {prioridades.map((p) => (
                   <tr key={p.id}>
-                    <td className="px-4 py-2 text-slate-900">{p.frase}</td>
-                    <td className="px-4 py-2 text-slate-500">{p.nivel}</td>
-                    <td className="px-4 py-2 text-right">
+                    <td className="px-4 py-2 text-slate-900">
+                      <div>{p.frase}</div>
+                      <EditarPrioridadeForm
+                        id={p.id}
+                        fraseAtual={p.frase}
+                        nivelAtual={p.nivel}
+                      />
+                    </td>
+                    <td className="px-4 py-2 text-slate-500 align-top">{p.nivel}</td>
+                    <td className="px-4 py-2 text-right align-top">
                       <BotaoExcluir action={excluirPrioridadeAction} id={p.id} />
                     </td>
                   </tr>

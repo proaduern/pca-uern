@@ -19,7 +19,11 @@ export default async function DemandasPage() {
 
   const [dfds, tipificacoes] = await Promise.all([
     prisma.dfd.findMany({
-      include: { unidade: true, prioridade: true, itens: true },
+      include: {
+        unidade: true,
+        prioridade: true,
+        itens: { select: { id: true, valorTotal: true } },
+      },
       orderBy: { createdAt: "desc" },
     }),
     prisma.tipificacao.findMany(),
@@ -55,20 +59,20 @@ export default async function DemandasPage() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {dfds.map((d) => {
-              const total = d.itens.reduce((s, it) => s + Number(it.valorTotal), 0);
+              const total = (d.itens ?? []).reduce((s, it) => s + Number(it.valorTotal ?? 0), 0);
               return (
                 <tr key={d.id}>
-                  <td className="px-4 py-2 text-slate-600">{d.unidade.nome}</td>
+                  <td className="px-4 py-2 text-slate-600">{d.unidade?.nome ?? "—"}</td>
                   <td className="px-4 py-2 text-slate-900">
                     {d.descricaoSumaria || <span className="text-slate-400">(sem descrição)</span>}
                   </td>
                   <td className="px-4 py-2 text-slate-600">{nomeTipificacao(d.tipificacaoId)}</td>
-                  <td className="px-4 py-2 text-slate-600">{d.prioridade.frase}</td>
-                  <td className="px-4 py-2 text-slate-600">{d.itens.length}</td>
+                  <td className="px-4 py-2 text-slate-600">{d.prioridade?.frase ?? "—"}</td>
+                  <td className="px-4 py-2 text-slate-600">{d.itens?.length ?? 0}</td>
                   <td className="px-4 py-2 text-slate-600">{brl(total)}</td>
                   <td className="px-4 py-2">
                     <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700">
-                      {STATUS_LABEL[d.status]}
+                      {STATUS_LABEL[d.status] ?? d.status}
                     </span>
                   </td>
                   <td className="px-4 py-2">
