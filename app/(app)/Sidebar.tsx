@@ -71,7 +71,7 @@ export default function Sidebar({
           const Icone = ICONE_POR_HREF[link.href] ?? FileText;
           const ativo =
             pathname === link.href ||
-            (link.href !== "/" && pathname.startsWith(link.href));
+            Boolean(pathname && link.href !== "/" && pathname.startsWith(link.href));
           return (
             <Link
               key={link.href}
