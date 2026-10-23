@@ -27,6 +27,10 @@ import type { TipoSessao } from "@/lib/auth";
 
 const ICONE_POR_HREF: Record<string, typeof LayoutDashboard> = {
   "/": LayoutDashboard,
+  "/pesquisa-precos": Search,
+  "/etp-riscos": ClipboardCheck,
+  "/termo-referencia": BookOpen,
+  "/licitacoes": Gavel,
   "/admin/demandas": FileText,
   "/admin/consolidacao": Layers,
   "/admin/unidades": Building2,

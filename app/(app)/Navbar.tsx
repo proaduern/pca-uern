@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, User as UserIcon, ChevronDown, CalendarRange, Layers } from "lucide-react";
+import { LogOut, User as UserIcon, ChevronDown, CalendarRange, Layers, Building2 } from "lucide-react";
 import { logoutAction } from "@/lib/actions/auth";
 import type { TipoSessao } from "@/lib/auth";
 
@@ -30,28 +30,28 @@ export const INFO_SUBSISTEMA: Record<
     titulo: "Subsistema de ETP e Mapa de Riscos",
     subtitulo: "Consolidação Técnica por Competência, Estudo Técnico Preliminar e Gestão de Riscos",
     badge: "Subsistema 02 • Setor Técnico",
-    rotaInicialAdmin: "/",
+    rotaInicialAdmin: "/etp-riscos",
   },
   PESQUISA_PRECOS: {
     sigla: "PP",
     titulo: "Subsistema de Pesquisa de Preços",
     subtitulo: "Cotação Referencial de Mercado sobre a Lista Consolidada no ETP",
     badge: "Subsistema 03 • Pesquisa",
-    rotaInicialAdmin: "/",
+    rotaInicialAdmin: "/pesquisa-precos",
   },
   TERMO_REFERENCIA: {
     sigla: "TR",
     titulo: "Subsistema de Termo de Referência (TR)",
     subtitulo: "Planejamento da Contratação com Herança Automática do ETP e Pesquisa de Preços",
     badge: "Subsistema 04 • Planejamento",
-    rotaInicialAdmin: "/",
+    rotaInicialAdmin: "/termo-referencia",
   },
   LICITACOES_MINUTAS: {
     sigla: "LIC",
     titulo: "Subsistema de Minutas, Fase Jurídica e Licitações",
     subtitulo: "Minutas (Edital/Contrato/Ata), Análise AJUR/PGE, Edital Definitivo, PNCP e Homologação Real",
     badge: "Subsistema 05 • Licitações",
-    rotaInicialAdmin: "/",
+    rotaInicialAdmin: "/licitacoes",
   },
 };
 
@@ -114,6 +114,15 @@ export default function Navbar({
       </div>
 
       <div className="flex items-center space-x-3">
+        <a
+          href="https://portal-proad.vercel.app/hub"
+          className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-blue-700"
+          title="Voltar ao Painel Geral de Sistemas (Portal PROAD)"
+        >
+          <Building2 className="h-3.5 w-3.5 text-amber-600" />
+          <span className="hidden sm:inline">Portal PROAD</span>
+        </a>
+
         {tipo === "ADMIN" && (
           <div className="hidden lg:flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1">
             <Layers className="h-3.5 w-3.5 text-[#003366]" />

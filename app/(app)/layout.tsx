@@ -65,20 +65,20 @@ export default async function AppLayout({
       { href: "/admin/parametros", label: "Parâmetros do PCA" },
     ],
     ETP_RISCOS: [
-      { href: "/", label: "Consolidação Técnica, ETP e Riscos" },
+      { href: "/etp-riscos", label: "Consolidação Técnica, ETP e Riscos" },
       { href: "/admin/setores-tecnicos", label: "Setores Técnicos (STI, Patrimônio, SOBE, DAS...)" },
       { href: "/admin/categorias", label: "Categorias por Competência" },
     ],
     PESQUISA_PRECOS: [
-      { href: "/", label: "Fila de Pesquisa de Preços" },
+      { href: "/pesquisa-precos", label: "Fila de Pesquisa de Preços" },
       { href: "/admin/pesquisa-precos", label: "Servidores de Pesquisa de Preços" },
     ],
     TERMO_REFERENCIA: [
-      { href: "/", label: "Fila de Termo de Referência (TR)" },
+      { href: "/termo-referencia", label: "Fila de Termo de Referência (TR)" },
       { href: "/admin/planejamento", label: "Servidores de Planejamento (TR)" },
     ],
     LICITACOES_MINUTAS: [
-      { href: "/", label: "Processos, Minutas, PGE e Homologação" },
+      { href: "/licitacoes", label: "Processos, Minutas, PGE e Homologação" },
       { href: "/admin/agentes-contratacao", label: "Agentes de Contratação" },
       { href: "/admin/gestor-ata", label: "Setor de Gestão de Atas (ARP)" },
       { href: "/admin/licitacoes", label: "Acessos de Licitações e Contratos" },
@@ -92,11 +92,11 @@ export default async function AppLayout({
       : []),
   ];
   const linksSetorInterno = [{ href: "/", label: "Minhas Demandas" }];
-  const linksSetorTecnico = [{ href: "/", label: "Consolidação, ETP e Mapa de Riscos" }];
-  const linksLicitacoes = [{ href: "/", label: "Minutas, Fase Jurídica e Homologação" }];
-  const linksPesquisaPrecos = [{ href: "/", label: "Fila de Pesquisa de Preços" }];
-  const linksPlanejamento = [{ href: "/", label: "Fila de Termo de Referência (TR)" }];
-  const linksAgenteContratacao = [{ href: "/", label: "Minuta de Edital e Homologação" }];
+  const linksSetorTecnico = [{ href: "/etp-riscos", label: "Consolidação, ETP e Mapa de Riscos" }];
+  const linksLicitacoes = [{ href: "/licitacoes", label: "Minutas, Fase Jurídica e Homologação" }];
+  const linksPesquisaPrecos = [{ href: "/pesquisa-precos", label: "Fila de Pesquisa de Preços" }];
+  const linksPlanejamento = [{ href: "/termo-referencia", label: "Fila de Termo de Referência (TR)" }];
+  const linksAgenteContratacao = [{ href: "/licitacoes", label: "Minuta de Edital e Homologação" }];
   const linksExecucao = [{ href: "/", label: "Execução" }];
   const linksEntrega = [{ href: "/", label: "Entrega de Bens" }];
   const linksGestorAta = [{ href: "/", label: "Minutas e Gestão de Atas (ARP)" }];

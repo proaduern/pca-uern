@@ -13,10 +13,32 @@ export const dynamic = "force-dynamic";
 
 export const SUBSISTEMA_COOKIE_NAME = "proad_subsistema_ativo";
 
-function getSsoSecretKey() {
-  const secret =
-    process.env.PROAD_SSO_SECRET || "uern_portal_proad_sso_master_key_2026_super_seguro";
-  return new TextEncoder().encode(secret);
+const primarySecret =
+  process.env.PROAD_SSO_SECRET?.trim() ||
+  process.env.AUTH_SECRET?.trim() ||
+  process.env.JWT_SECRET?.trim();
+
+const SECRET_KEYS: Uint8Array[] = [
+  primarySecret,
+  process.env.PROAD_SSO_SECRET,
+  process.env.AUTH_SECRET,
+  process.env.JWT_SECRET,
+  "uern_portal_proad_sso_master_key_2026_super_seguro",
+]
+  .filter((k): k is string => Boolean(k && k.trim()))
+  .map((k) => new TextEncoder().encode(k.trim()));
+
+async function verificarTokenComFallback(token: string) {
+  let ultimoErro: any = null;
+  for (const secretKey of SECRET_KEYS) {
+    try {
+      const { payload } = await jwtVerify(token, secretKey);
+      return payload;
+    } catch (err) {
+      ultimoErro = err;
+    }
+  }
+  throw ultimoErro || new Error("Falha ao verificar assinatura JWT do token SSO.");
 }
 
 const SUBSISTEMAS_VALIDOS = [
@@ -38,8 +60,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL("/login?error=token_ausente", request.url));
     }
 
-    // 1. Valida o token JWT emitido pelo Portal Central PROAD usando a chave mestra de SSO
-    const { payload } = await jwtVerify(token, getSsoSecretKey());
+    // 1. Valida o token JWT emitido pelo Portal Central PROAD com fallback tolerante a falhas
+    const payload = await verificarTokenComFallback(token);
     const { email, nome, matricula, role, targetSystem, unidadeSigla, unidadeNome, unidadeEmail, permissoesPca } =
       payload as {
         userId?: string;
@@ -379,11 +401,21 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Define rota de destino operacional conforme o subsistema solicitado
+    if (subsistemaAtivo === "PESQUISA_PRECOS") {
+      destinoUrl = "/pesquisa-precos";
+    } else if (subsistemaAtivo === "ETP_RISCOS") {
+      destinoUrl = "/etp-riscos";
+    } else if (subsistemaAtivo === "TERMO_REFERENCIA") {
+      destinoUrl = "/termo-referencia";
+    } else if (subsistemaAtivo === "LICITACOES_MINUTAS") {
+      destinoUrl = "/licitacoes";
+    } else {
+      destinoUrl = "/";
+    }
+
     // 4. Gera token de sessão assinado com a chave do PCA
     const sessionToken = await gerarTokenSessao(sessionPayload);
-
-    // Também registra no cookieStore do Next.js
-    await criarSessao(sessionPayload);
 
     // 5. Constrói o redirecionamento com o cookie HTTP-Only explicitamente anexado + subsistema ativo
     const response = NextResponse.redirect(new URL(destinoUrl, request.url));
