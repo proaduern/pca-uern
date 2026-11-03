@@ -8,6 +8,7 @@ export interface ItemEtpParaPdf {
 export interface EtpParaPdf {
   processoSEI: string;
   categoriaNome: string;
+  setorTecnicoNome?: string;
   objeto: string;
   localEntregaPrestacao: string;
   necessidadeContratacao: string;

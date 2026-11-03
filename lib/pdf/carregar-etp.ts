@@ -14,6 +14,7 @@ export async function carregarEtpParaPdf(consolidacaoTecnicaId: string): Promise
     where: { id: consolidacaoTecnicaId },
     include: {
       categoria: true,
+      setorTecnico: true,
       itensDfd: true,
       itensTecnicos: true,
       estudoTecnicoPreliminar: true,
@@ -33,6 +34,7 @@ export async function carregarEtpParaPdf(consolidacaoTecnicaId: string): Promise
     etp: {
       processoSEI: consolidacao.processoSEI,
       categoriaNome: consolidacao.categoria.nome,
+      setorTecnicoNome: consolidacao.setorTecnico.nome,
       objeto: etp.objeto,
       localEntregaPrestacao: etp.localEntregaPrestacao,
       necessidadeContratacao: etp.necessidadeContratacao,

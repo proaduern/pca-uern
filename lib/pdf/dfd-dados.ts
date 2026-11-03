@@ -31,6 +31,7 @@ export interface DfdParaPdf {
   responsavelNome: string | null;
   responsavelMatricula: string | null;
   responsavelTelefone: string | null;
+  descricaoSumaria: string;
   tipificacaoNome: string | null;
   justificativa: string;
   tipoDemanda: "RENOVACAO" | "NOVA" | "FLUXO_CONTINUO";

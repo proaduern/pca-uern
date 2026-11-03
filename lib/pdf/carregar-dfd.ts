@@ -36,6 +36,7 @@ export async function carregarDfdParaPdf(dfdId: string): Promise<ResultadoCarreg
       responsavelNome: dfd.unidade.responsavelNome,
       responsavelMatricula: dfd.unidade.responsavelMatricula,
       responsavelTelefone: dfd.unidade.responsavelTelefone,
+      descricaoSumaria: dfd.descricaoSumaria,
       tipificacaoNome: tipificacao?.nome ?? null,
       justificativa: dfd.justificativa,
       tipoDemanda: dfd.tipoDemanda,

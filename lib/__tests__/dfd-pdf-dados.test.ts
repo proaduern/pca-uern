@@ -37,6 +37,7 @@ function dfd(itens: ItemParaPdf[]): DfdParaPdf {
     responsavelNome: "Fulano de Tal",
     responsavelMatricula: "12345",
     responsavelTelefone: "(84) 99999-9999",
+    descricaoSumaria: "Descrição sumária de teste.",
     tipificacaoNome: "Estrutural",
     justificativa: "Justificativa de teste.",
     tipoDemanda: "NOVA",
