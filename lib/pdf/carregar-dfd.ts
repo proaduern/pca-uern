@@ -4,6 +4,13 @@ import type { DfdParaPdf } from "./dfd-dados";
 
 export type ResultadoCarregarDfdPdf = { erro: string; status: 401 | 403 | 404 } | { dfd: DfdParaPdf };
 
+const ROTULOS_NIVEL_PRIORIDADE: Record<string, string> = {
+  ALTISSIMA: "Altíssima",
+  ALTA: "Alta",
+  MEDIA: "Média",
+  BAIXA: "Baixa",
+};
+
 /** Carrega e autoriza os dados de um DFD para geração de PDF/XLSX — Unidade
  * dona do DFD ou Admin (PROAD). Usado pelos Route Handlers de download. */
 export async function carregarDfdParaPdf(dfdId: string): Promise<ResultadoCarregarDfdPdf> {
@@ -27,6 +34,8 @@ export async function carregarDfdParaPdf(dfdId: string): Promise<ResultadoCarreg
     prisma.prioridade.findUniqueOrThrow({ where: { id: dfd.prioridadeId } }),
   ]);
 
+  const prioridadeNivelRotulo = prioridade ? (ROTULOS_NIVEL_PRIORIDADE[prioridade.nivel] ?? prioridade.nivel) : null;
+
   return {
     dfd: {
       numero: dfd.numero,
@@ -41,6 +50,8 @@ export async function carregarDfdParaPdf(dfdId: string): Promise<ResultadoCarreg
       justificativa: dfd.justificativa,
       tipoDemanda: dfd.tipoDemanda,
       data: dfd.tipoDemanda === "RENOVACAO" ? dfd.dataRenovacao : dfd.dataEntrega,
+      prioridadeNivel: prioridade.nivel,
+      prioridadeNivelRotulo,
       prioridadeFrase: prioridade.frase,
       criadoEm: dfd.createdAt,
       itens: dfd.itens.map((it) => ({

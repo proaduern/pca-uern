@@ -314,8 +314,15 @@ export function DfdDocumento({ dfd }: { dfd: DfdParaPdf }) {
           </View>
           <View style={styles.sectionContentBox}>
             <Text style={styles.sectionParagraph}>
-              {dfd.prioridadeFrase || "Prioridade definida nos termos do planejamento institucional."}
+              <Text style={styles.labelBold}>Nível de Prioridade: </Text>
+              {dfd.prioridadeNivelRotulo || "Média"}
             </Text>
+            {dfd.prioridadeFrase ? (
+              <Text style={[styles.sectionParagraph, { marginTop: 2 }]}>
+                <Text style={styles.labelBold}>Critério / Justificativa associada: </Text>
+                {dfd.prioridadeFrase}
+              </Text>
+            ) : null}
           </View>
         </View>
 

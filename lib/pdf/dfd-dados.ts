@@ -36,6 +36,8 @@ export interface DfdParaPdf {
   justificativa: string;
   tipoDemanda: "RENOVACAO" | "NOVA" | "FLUXO_CONTINUO";
   data: Date | null;
+  prioridadeNivel?: string | null;
+  prioridadeNivelRotulo?: string | null;
   prioridadeFrase: string;
   criadoEm: Date;
   itens: ItemParaPdf[];
