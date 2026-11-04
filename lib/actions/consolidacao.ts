@@ -242,3 +242,40 @@ export async function consolidarCategoriaAction(categoriaId: string, formData: F
 
   revalidatePath(`/consolidacao/${categoriaId}`);
 }
+
+
+export async function editarParametrosConsolidacaoAction(
+  consolidacaoId: string,
+  formData: FormData,
+) {
+  const sessao = await exigirSetorTecnico();
+  const consolidacao = await prisma.consolidacaoTecnica.findUnique({
+    where: { id: consolidacaoId },
+  });
+  if (!consolidacao) {
+    throw new Error("Consolidação não encontrada.");
+  }
+  if (sessao.tipo !== "ADMIN" && consolidacao.setorTecnicoId !== sessao.id) {
+    throw new Error("Você não tem permissão para editar esta consolidação.");
+  }
+
+  const prioridade = String(formData.get("prioridade") ?? "") as "ALTA" | "MEDIA" | "BAIXA";
+  const dataEsperadaConclusao = String(formData.get("dataEsperadaConclusao") ?? "");
+
+  if (!["ALTA", "MEDIA", "BAIXA"].includes(prioridade)) {
+    throw new Error("Selecione um nível de prioridade válido.");
+  }
+  if (!dataEsperadaConclusao) {
+    throw new Error("Informe a data de entrega consolidada.");
+  }
+
+  await prisma.consolidacaoTecnica.update({
+    where: { id: consolidacaoId },
+    data: {
+      prioridade,
+      dataEsperadaConclusao: new Date(dataEsperadaConclusao),
+    },
+  });
+
+  revalidatePath(`/consolidacao/${consolidacao.categoriaId}`);
+}

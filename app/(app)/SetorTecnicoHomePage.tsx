@@ -60,12 +60,12 @@ export default async function SetorTecnicoHomePage({
     <div className="space-y-6">
       <div>
         <h1 className="text-lg font-semibold text-slate-900">
-          Consolidação Técnica, ETP e Mapa de Riscos — Setor Técnico
+          Consolidação Técnica, DFD Consolidado, ETP e Mapa de Riscos — Setor Técnico
         </h1>
         <p className="text-sm text-slate-500">
           Consolidação final da lista de itens por competência (STI, Patrimônio, SOBE, DAS,
-          Almoxarifado, Transportes e Comitês) e elaboração do Estudo Técnico Preliminar (ETP) e
-          Mapa de Riscos.
+          Almoxarifado, Transportes e Comitês), emissão do DFD Consolidado e elaboração do Estudo
+          Técnico Preliminar (ETP) e Mapa de Riscos.
         </p>
       </div>
 
@@ -85,7 +85,7 @@ export default async function SetorTecnicoHomePage({
                   <th className="px-4 py-2 font-medium">Setor Técnico Competente</th>
                 )}
                 <th className="px-4 py-2 font-medium">Itens pendentes de consolidação</th>
-                <th className="px-4 py-2 font-medium">Processos consolidados (ETP / Riscos)</th>
+                <th className="px-4 py-2 font-medium">Processos consolidados (DFD / ETP / Riscos)</th>
                 <th className="px-4 py-2 font-medium">Ações</th>
               </tr>
             </thead>
@@ -111,7 +111,7 @@ export default async function SetorTecnicoHomePage({
                         href={`/consolidacao/${c.id}`}
                         className="rounded-lg bg-[#003366] px-3 py-1 text-xs font-semibold text-white hover:bg-[#002244]"
                       >
-                        Abrir ETP / Riscos
+                        Abrir DFD / ETP / Riscos
                       </Link>
                     </td>
                   </tr>

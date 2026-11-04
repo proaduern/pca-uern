@@ -6,6 +6,7 @@ import { brl, formatarData } from "@/lib/formato";
 import {
   adicionarItemTecnicoAction,
   consolidarCategoriaAction,
+  editarParametrosConsolidacaoAction,
   substituirItemAction,
 } from "@/lib/actions/consolidacao";
 
@@ -79,6 +80,7 @@ export default function PainelConsolidacao({
   const [mensagem, setMensagem] = useState<string | null>(null);
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [substituindo, setSubstituindo] = useState<ItemPendente | null>(null);
+  const [editandoConsolidacao, setEditandoConsolidacao] = useState<ConsolidacaoHistorico | null>(null);
   const [dataETP, setDataETP] = useState("");
 
   function executar(fn: () => Promise<unknown>, sucesso?: string) {
@@ -320,7 +322,9 @@ export default function PainelConsolidacao({
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-700">Nível de prioridade</label>
+                    <label className="mb-1 block text-xs font-medium text-slate-700">
+                      Nível de prioridade (Juízo do Setor Técnico)
+                    </label>
                     <select name="prioridade" required className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
                       <option value="ALTA">Alta</option>
                       <option value="MEDIA">Média</option>
@@ -344,7 +348,7 @@ export default function PainelConsolidacao({
                   </div>
                   <div className="sm:col-span-2">
                     <label className="mb-1 block text-xs font-medium text-slate-700">
-                      Data esperada de conclusão da demanda
+                      Data esperada de conclusão / entrega consolidada da demanda
                     </label>
                     <input
                       name="dataEsperadaConclusao"
@@ -354,7 +358,7 @@ export default function PainelConsolidacao({
                       className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
                     />
                     <p className="mt-1 text-xs text-slate-500">
-                      Deve ser no mínimo 60 dias após a data do ETP (prazo mínimo de licitação).
+                      Data de entrega única consolidada pelo Setor Técnico (mínimo de 60 dias após a data do ETP).
                     </p>
                   </div>
                 </div>
@@ -384,10 +388,10 @@ export default function PainelConsolidacao({
                   <th className="py-1 pr-2 font-medium">Data ETP</th>
                   <th className="py-1 pr-2 font-medium">Prioridade</th>
                   <th className="py-1 pr-2 font-medium">Tipo</th>
-                  <th className="py-1 pr-2 font-medium">Conclusão Esperada</th>
+                  <th className="py-1 pr-2 font-medium">Entrega Consolidada</th>
                   <th className="py-1 pr-2 font-medium">Código PCA</th>
                   <th className="py-1 pr-2 font-medium">Itens</th>
-                  <th className="py-1 font-medium">Documentos</th>
+                  <th className="py-1 font-medium">Documentos & Ajustes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -401,7 +405,22 @@ export default function PainelConsolidacao({
                     <td className="py-1.5 pr-2 text-slate-600">{c.codigoPca ?? "—"}</td>
                     <td className="py-1.5 pr-2 text-slate-600">{c.totalItens}</td>
                     <td className="py-1.5 text-xs">
-                      <div className="flex flex-col gap-0.5">
+                      <div className="flex flex-col gap-1">
+                        <a
+                          href={`/consolidacao/${categoriaId}/dfd/${c.id}/pdf`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-[#003366] underline hover:text-[#002244]"
+                        >
+                          📄 DFD Consolidado (PDF)
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => setEditandoConsolidacao(c)}
+                          className="text-left text-slate-600 underline hover:text-slate-900"
+                        >
+                          Ajustar Entrega / Prioridade
+                        </button>
                         <Link href={`/consolidacao/${categoriaId}/etp/${c.id}`} className="text-slate-600 underline">
                           ETP {c.statusEtp ? `(${STATUS_DOCUMENTO_LABEL[c.statusEtp]})` : "— elaborar"}
                         </Link>
@@ -418,9 +437,84 @@ export default function PainelConsolidacao({
         </div>
       )}
 
+      {/* Modal para ajustar Data de Entrega Consolidada e Prioridade */}
+      {editandoConsolidacao && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditandoConsolidacao(null);
+          }}
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <h2 className="mb-2 text-sm font-semibold text-slate-900">
+              Ajustar DFD Consolidado — Processo SEI {editandoConsolidacao.processoSEI}
+            </h2>
+            <p className="mb-3 text-xs text-slate-500">
+              Defina a data única consolidada de entrega/conclusão e o juízo técnico de prioridade
+              para esta consolidação.
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                executar(async () => {
+                  await editarParametrosConsolidacaoAction(editandoConsolidacao.id, formData);
+                  setEditandoConsolidacao(null);
+                }, "Data de entrega e prioridade consolidadas atualizadas com sucesso.");
+              }}
+              className="space-y-3"
+            >
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">
+                  Nível de Prioridade Consolidado (Juízo Técnico)
+                </label>
+                <select
+                  name="prioridade"
+                  defaultValue={editandoConsolidacao.prioridade}
+                  required
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                >
+                  <option value="ALTA">Alta</option>
+                  <option value="MEDIA">Média</option>
+                  <option value="BAIXA">Baixa</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">
+                  Data de Entrega / Conclusão Consolidada
+                </label>
+                <input
+                  type="date"
+                  name="dataEsperadaConclusao"
+                  defaultValue={editandoConsolidacao.dataEsperadaConclusao.slice(0, 10)}
+                  required
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="rounded-xl bg-[#003366] px-3 py-2 text-sm font-medium text-white hover:bg-[#002244] disabled:opacity-60"
+                >
+                  Salvar Ajustes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditandoConsolidacao(null)}
+                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {substituindo && (
         <div
-          className="fixed inset-0 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget) setSubstituindo(null);
           }}

@@ -50,11 +50,21 @@ export default async function EtpPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold text-slate-900">
-          Estudo Técnico Preliminar — {consolidacao.categoria.nome}
-        </h1>
-        <p className="text-sm text-slate-500">Processo SEI: {consolidacao.processoSEI}</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold text-slate-900">
+            Estudo Técnico Preliminar — {consolidacao.categoria.nome}
+          </h1>
+          <p className="text-sm text-slate-500">Processo SEI: {consolidacao.processoSEI}</p>
+        </div>
+        <a
+          href={`/consolidacao/${categoriaId}/dfd/${consolidacaoId}/pdf`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-xl border border-[#003366] bg-white px-3 py-2 text-xs font-semibold text-[#003366] hover:bg-slate-50"
+        >
+          📄 Baixar DFD Consolidado (PDF)
+        </a>
       </div>
 
       <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
