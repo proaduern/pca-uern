@@ -18,20 +18,20 @@ enum RoleUsuario {
 }
 
 model Usuario {
-  id              String      @id @default(cuid())
+  id              String  @id @default(cuid())
   nome            String
-  email           String      @unique
+  email           String  @unique
   senhaHash       String
-  senhaTemporaria Boolean     @default(true)
-  ativo           Boolean     @default(true)
+  senhaTemporaria Boolean @default(true)
+  ativo           Boolean @default(true)
   matricula       String?
   cargo           String?
   telefone        String?
 
-  role            RoleUsuario @default(UNIDADE)
+  role RoleUsuario @default(UNIDADE)
 
-  unidadeId       String?
-  unidade         Unidade?    @relation(fields: [unidadeId], references: [id], onDelete: Cascade)
+  unidadeId String?
+  unidade   Unidade? @relation(fields: [unidadeId], references: [id], onDelete: Cascade)
 
   // Permissões operacionais do usuário na unidade (gerenciadas pelo administrador)
   podeCriarDfd           Boolean @default(true)
@@ -191,19 +191,20 @@ model PesquisaPrecos {
 // Login do subsetor de Planejamento (elabora o Termo de Referência) —
 // mesmo esquema de vínculo do PesquisaPrecos.
 model Planejamento {
-  id              String      @id @default(cuid())
-  nome            String
-  matricula       String
-  funcao          String
-  vinculado       Boolean     @default(false)
-  licitacoesId    String?
-  licitacoes      Licitacoes? @relation(fields: [licitacoesId], references: [id])
-  email           String?     @unique
-  senhaHash       String?
-  senhaTemporaria Boolean     @default(true)
-  ativo           Boolean     @default(true)
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  id                   String                @id @default(cuid())
+  nome                 String
+  matricula            String
+  funcao               String
+  vinculado            Boolean               @default(false)
+  licitacoesId         String?
+  licitacoes           Licitacoes?           @relation(fields: [licitacoesId], references: [id])
+  email                String?               @unique
+  senhaHash            String?
+  senhaTemporaria      Boolean               @default(true)
+  ativo                Boolean               @default(true)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  consolidacaoTecnicas ConsolidacaoTecnica[]
 }
 
 // Login do Agente de Contratação — elabora a Minuta de Edital e, mais
@@ -608,8 +609,8 @@ model Dfd {
   criadoPorUsuarioId String?
   criadoPorUsuario   Usuario? @relation("DfdCriadoPorUsuario", fields: [criadoPorUsuarioId], references: [id], onDelete: SetNull)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   itens                            ItemDfd[]
   solicitacoesAutorizacaoCotaGeral SolicitacaoAutorizacaoCotaGeral[]
@@ -719,7 +720,7 @@ model ItemDfd {
   sgcNumeroAta           String?
   sgcFornecedorNome      String?
   sgcFornecedorCnpj      String?
-  sgcStatusExecucao      String?   // CONTRATADO, EM_EXECUCAO, RECEBIDO_PROVISORIO, RECEBIDO_DEFINITIVO, PAGO, REMETIDO_DEMANDANTE
+  sgcStatusExecucao      String? // CONTRATADO, EM_EXECUCAO, RECEBIDO_PROVISORIO, RECEBIDO_DEFINITIVO, PAGO, REMETIDO_DEMANDANTE
   sgcDataRecebimentoProv DateTime?
   sgcDataRecebimentoDef  DateTime?
   sgcDataAtesto          DateTime?
@@ -877,6 +878,25 @@ model ConsolidacaoTecnica {
   // além de elaborar a Minuta de Edital (que não depende desta designação).
   agenteContratacaoDesignadoId String?
   agenteContratacaoDesignado   AgenteContratacao? @relation(fields: [agenteContratacaoDesignadoId], references: [id])
+
+  // Fluxo Pós-ETP (DLC -> Agente de Contratação -> Análise Preliminar / Diligência Setor Técnico -> Pesquisa de Preços -> Contabilidade/Dotação -> Planejamento/TR)
+  etapaFluxoPosEtp                   String?
+  designadoAgenteEm                  DateTime?
+  analisePreliminarStatus            String? // PENDENTE, DILIGENCIA, APROVADO
+  analisePreliminarEm                DateTime?
+  analisePreliminarObservacao        String?
+  diligenciaAgenteMotivo             String?
+  diligenciaAgenteAlvo               String? // ETP, ITENS, AMBOS
+  diligenciaAgenteEm                 DateTime?
+  diligenciaAgenteAtendidaEm         DateTime?
+  pesquisaConcluidaRetornadaAgenteEm DateTime?
+  dotacaoSolicitadaContabilidadeEm   DateTime?
+  dotacaoSolicitadaObservacao        String?
+  dotacaoRecebidaEm                  DateTime?
+  dotacaoOrcamentariaTexto           String?
+  planejamentoDesignadoId            String?
+  planejamentoDesignado              Planejamento? @relation(fields: [planejamentoDesignadoId], references: [id])
+  encaminhadoPlanejamentoEm          DateTime?
 
   @@index([pcaAno, categoriaId])
 }
@@ -1118,14 +1138,14 @@ model MinutaContrato {
   consolidacaoTecnicaId String              @unique
   consolidacaoTecnica   ConsolidacaoTecnica @relation(fields: [consolidacaoTecnicaId], references: [id], onDelete: Cascade)
 
-  clausulaVigenciaProrrogacao String
-  clausulaDotacaoOrcamentaria String
-  clausulaReajusteRepactuacao String
-  clausulaGarantiaContratual  String
-  clausulaObrigacoesContratada String
+  clausulaVigenciaProrrogacao   String
+  clausulaDotacaoOrcamentaria   String
+  clausulaReajusteRepactuacao   String
+  clausulaGarantiaContratual    String
+  clausulaObrigacoesContratada  String
   clausulaObrigacoesContratante String
-  clausulaFiscalizacaoGestao  String
-  clausulaExtincaoForo        String
+  clausulaFiscalizacaoGestao    String
+  clausulaExtincaoForo          String
 
   status               StatusDocumentoTecnico @default(RASCUNHO)
   responsavelNome      String?
@@ -1147,14 +1167,14 @@ model MinutaAta {
   consolidacaoTecnicaId String              @unique
   consolidacaoTecnica   ConsolidacaoTecnica @relation(fields: [consolidacaoTecnicaId], references: [id], onDelete: Cascade)
 
-  clausulaValidadeAta                 String
+  clausulaValidadeAta                   String
   clausulaOrgaoGerenciadorParticipantes String
-  clausulaAdesaoCarona                String
-  clausulaRevisaoCancelamentoPrecos   String
-  clausulaCadastroReserva             String
-  clausulaCondicoesFornecimento       String
-  clausulaPenalidadesAta              String
-  clausulaDisposicoesFinais           String
+  clausulaAdesaoCarona                  String
+  clausulaRevisaoCancelamentoPrecos     String
+  clausulaCadastroReserva               String
+  clausulaCondicoesFornecimento         String
+  clausulaPenalidadesAta                String
+  clausulaDisposicoesFinais             String
 
   status               StatusDocumentoTecnico @default(RASCUNHO)
   responsavelNome      String?
@@ -1471,4 +1491,28 @@ model TrocaOP {
   solicitadoEm DateTime @default(now())
 
   @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Autenticação Pública de Documentos PDF Emitidos pelo Sistema
+// ---------------------------------------------------------------------------
+
+model DocumentoAutenticado {
+  id                   String   @id @default(cuid())
+  codigoVerificador    String   @unique
+  hashSha256           String
+  tipoDocumento        String
+  titulo               String
+  referenciaId         String
+  processoSEI          String?
+  unidadeOuSetor       String?
+  responsavelNome      String?
+  responsavelMatricula String?
+  valorTotal           Decimal? @db.Decimal(16, 2)
+  resumoJson           String?
+  emitidoEm            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([tipoDocumento, referenciaId])
+  @@index([codigoVerificador])
 }

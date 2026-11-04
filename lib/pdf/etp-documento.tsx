@@ -2,6 +2,8 @@ import React from "react";
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { brl, formatarData } from "../formato";
 import { type EtpParaPdf, totalItensEtp } from "./etp-dados";
+import type { DadosAutenticacaoPdf } from "./autenticacao";
+import { RodapeAutenticacaoPdf } from "./rodape-autenticacao";
 
 const BLUE = "#0000FF";
 const BORDER_COLOR = "#0000FF";
@@ -10,7 +12,9 @@ const WHITE = "#FFFFFF";
 
 const styles = StyleSheet.create({
   page: {
-    padding: 24,
+    paddingTop: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 46,
     fontSize: 8,
     fontFamily: "Helvetica",
     color: "#111827",
@@ -224,7 +228,13 @@ function extrairSubtopicosRequisitos(texto: string | undefined): SubtopicosRequi
   };
 }
 
-export function EtpDocumento({ etp }: { etp: EtpParaPdf }) {
+export function EtpDocumento({
+  etp,
+  autenticacao,
+}: {
+  etp: EtpParaPdf;
+  autenticacao?: DadosAutenticacaoPdf;
+}) {
   const subtopicos = extrairSubtopicosRequisitos(etp.requisitosContratacao);
   const dataHoje = etp.finalizadoEm ? formatarData(etp.finalizadoEm) : formatarData(new Date());
   const orgaoResponsavel = `UERN – Reitoria / Pró-Reitoria de Administração (PROAD)${
@@ -482,6 +492,7 @@ export function EtpDocumento({ etp }: { etp: EtpParaPdf }) {
             </View>
           </View>
         </View>
+        <RodapeAutenticacaoPdf autenticacao={autenticacao} />
       </Page>
 
       {/* Anexo de Itens se houver */}
@@ -530,6 +541,7 @@ export function EtpDocumento({ etp }: { etp: EtpParaPdf }) {
               </View>
             </View>
           </View>
+          <RodapeAutenticacaoPdf autenticacao={autenticacao} />
         </Page>
       )}
     </Document>

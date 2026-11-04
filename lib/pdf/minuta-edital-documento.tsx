@@ -2,9 +2,18 @@ import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { brl, formatarDataHora } from "../formato";
 import { SECOES_MINUTA } from "../minuta-edital";
 import { totalItensMinuta, type MinutaEditalParaPdf } from "./minuta-edital-dados";
+import type { DadosAutenticacaoPdf } from "./autenticacao";
+import { RodapeAutenticacaoPdf } from "./rodape-autenticacao";
 
 const s = StyleSheet.create({
-  page: { padding: 40, fontSize: 10, fontFamily: "Helvetica", color: "#1e293b" },
+  page: {
+    paddingTop: 40,
+    paddingHorizontal: 40,
+    paddingBottom: 52,
+    fontSize: 10,
+    fontFamily: "Helvetica",
+    color: "#1e293b",
+  },
   cabecalho: { fontSize: 9, textAlign: "center", marginBottom: 2 },
   titulo: { fontSize: 12, fontWeight: 700, textAlign: "center", marginTop: 8, marginBottom: 16 },
   secao: { marginTop: 12 },
@@ -23,7 +32,13 @@ const s = StyleSheet.create({
   totalLinha: { flexDirection: "row", backgroundColor: "#f1f5f9", fontWeight: 700 },
 });
 
-export function MinutaEditalDocumento({ minuta }: { minuta: MinutaEditalParaPdf }) {
+export function MinutaEditalDocumento({
+  minuta,
+  autenticacao,
+}: {
+  minuta: MinutaEditalParaPdf;
+  autenticacao?: DadosAutenticacaoPdf;
+}) {
   const totalAnexo = totalItensMinuta(minuta);
 
   return (
@@ -87,6 +102,7 @@ export function MinutaEditalDocumento({ minuta }: { minuta: MinutaEditalParaPdf 
             protocolado e assinado no SEI para compor o processo formal de contratação.
           </Text>
         </View>
+        <RodapeAutenticacaoPdf autenticacao={autenticacao} />
       </Page>
 
       <Page size="A4" style={s.page}>
@@ -105,7 +121,9 @@ export function MinutaEditalDocumento({ minuta }: { minuta: MinutaEditalParaPdf 
             <View key={i} style={s.tabelaLinha}>
               <Text style={[s.tabelaCelula, s.colItem]}>{it.nome}</Text>
               <Text style={[s.tabelaCelula, s.colQtd]}>{it.quantidade ?? "—"}</Text>
-              <Text style={[s.tabelaCelula, s.colValorUnit]}>{it.valorUnit != null ? brl(it.valorUnit) : "—"}</Text>
+              <Text style={[s.tabelaCelula, s.colValorUnit]}>
+                {it.valorUnit != null ? brl(it.valorUnit) : "—"}
+              </Text>
               <Text style={[s.tabelaCelula, s.colValorTotal]}>{brl(it.valorTotal)}</Text>
             </View>
           ))}
@@ -116,6 +134,7 @@ export function MinutaEditalDocumento({ minuta }: { minuta: MinutaEditalParaPdf 
             <Text style={[s.tabelaCelula, s.colValorTotal]}>{brl(totalAnexo)}</Text>
           </View>
         </View>
+        <RodapeAutenticacaoPdf autenticacao={autenticacao} />
       </Page>
     </Document>
   );

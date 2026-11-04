@@ -7,9 +7,18 @@ import {
   PROBABILIDADE_RISCO_LABEL,
 } from "../etp-riscos";
 import type { AnaliseRiscosParaPdf } from "./riscos-dados";
+import type { DadosAutenticacaoPdf } from "./autenticacao";
+import { RodapeAutenticacaoPdf } from "./rodape-autenticacao";
 
 const s = StyleSheet.create({
-  page: { padding: 40, fontSize: 10, fontFamily: "Helvetica", color: "#1e293b" },
+  page: {
+    paddingTop: 40,
+    paddingHorizontal: 40,
+    paddingBottom: 52,
+    fontSize: 10,
+    fontFamily: "Helvetica",
+    color: "#1e293b",
+  },
   cabecalho: { fontSize: 9, textAlign: "center", marginBottom: 2 },
   titulo: { fontSize: 12, fontWeight: 700, textAlign: "center", marginTop: 8, marginBottom: 16 },
   rodape: { marginTop: 24, textAlign: "center" },
@@ -22,7 +31,13 @@ const s = StyleSheet.create({
   trioItem: { flex: 1, fontSize: 9 },
 });
 
-export function RiscosDocumento({ riscos }: { riscos: AnaliseRiscosParaPdf }) {
+export function RiscosDocumento({
+  riscos,
+  autenticacao,
+}: {
+  riscos: AnaliseRiscosParaPdf;
+  autenticacao?: DadosAutenticacaoPdf;
+}) {
   return (
     <Document>
       <Page size="A4" style={s.page} wrap>
@@ -90,6 +105,7 @@ export function RiscosDocumento({ riscos }: { riscos: AnaliseRiscosParaPdf }) {
             protocolado e assinado no SEI para compor o processo formal de contratação.
           </Text>
         </View>
+        <RodapeAutenticacaoPdf autenticacao={autenticacao} />
       </Page>
     </Document>
   );

@@ -167,8 +167,8 @@ export async function GET(request: NextRequest) {
       destinoUrl = "/";
     } else if (subsistemaAtivo === "PESQUISA_PRECOS" || roleUpper.includes("PESQUISA_PRECOS")) {
       // Subsistema 3: Pesquisa de Preços
-      let pesq = await prisma.pesquisaPrecos.findFirst({
-        where: { OR: [{ email: emailLimpo }, { ativo: true }] },
+      let pesq = await prisma.pesquisaPrecos.findUnique({
+        where: { email: emailLimpo },
       });
       if (!pesq) {
         pesq = await prisma.pesquisaPrecos.create({
@@ -193,8 +193,8 @@ export async function GET(request: NextRequest) {
       destinoUrl = "/";
     } else if (subsistemaAtivo === "TERMO_REFERENCIA" || roleUpper.includes("PLANEJAMENTO")) {
       // Subsistema 4: Termo de Referência (Setor de Planejamento)
-      let plan = await prisma.planejamento.findFirst({
-        where: { OR: [{ email: emailLimpo }, { ativo: true }] },
+      let plan = await prisma.planejamento.findUnique({
+        where: { email: emailLimpo },
       });
       if (!plan) {
         plan = await prisma.planejamento.create({
@@ -220,8 +220,8 @@ export async function GET(request: NextRequest) {
     } else if (subsistemaAtivo === "LICITACOES_MINUTAS" || roleUpper.includes("LICITACOES") || roleUpper.includes("AGENTE_CONTRATACAO") || roleUpper.includes("GESTOR_ATA")) {
       // Subsistema 5: Minutas, Fase Jurídica e Licitações
       if (roleUpper.includes("AGENTE_CONTRATACAO")) {
-        let ag = await prisma.agenteContratacao.findFirst({
-          where: { OR: [{ email: emailLimpo }, { ativo: true }] },
+        let ag = await prisma.agenteContratacao.findUnique({
+          where: { email: emailLimpo },
         });
         if (!ag) {
           ag = await prisma.agenteContratacao.create({
@@ -244,8 +244,8 @@ export async function GET(request: NextRequest) {
           senhaTemporaria: false,
         };
       } else if (roleUpper.includes("GESTOR_ATA")) {
-        let ga = await prisma.acessoGestorAta.findFirst({
-          where: { OR: [{ email: emailLimpo }, { ativo: true }] },
+        let ga = await prisma.acessoGestorAta.findUnique({
+          where: { email: emailLimpo },
         });
         if (!ga) {
           ga = await prisma.acessoGestorAta.create({

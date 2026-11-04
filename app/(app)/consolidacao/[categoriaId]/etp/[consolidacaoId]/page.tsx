@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/auth";
 import { brl } from "@/lib/formato";
 import EtpForm from "./EtpForm";
+import BannerDiligenciaAgente from "./BannerDiligenciaAgente";
 import IniciarDocumentoBotao from "../../../../IniciarDocumentoBotao";
 import { criarEtpAction } from "@/lib/actions/etp-riscos";
 
@@ -66,6 +67,16 @@ export default async function EtpPage({
           📄 Baixar DFD Consolidado (PDF)
         </a>
       </div>
+
+      <BannerDiligenciaAgente
+        consolidacaoId={consolidacaoId}
+        etapaFluxoPosEtp={consolidacao.etapaFluxoPosEtp}
+        diligenciaAgenteAlvo={consolidacao.diligenciaAgenteAlvo}
+        diligenciaAgenteMotivo={consolidacao.diligenciaAgenteMotivo}
+        diligenciaAgenteEm={consolidacao.diligenciaAgenteEm?.toISOString() ?? null}
+        diligenciaAgenteAtendidaEm={consolidacao.diligenciaAgenteAtendidaEm?.toISOString() ?? null}
+        etpFinalizado={consolidacao.estudoTecnicoPreliminar?.status === "FINALIZADO"}
+      />
 
       <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">

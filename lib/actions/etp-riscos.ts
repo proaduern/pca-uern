@@ -137,12 +137,35 @@ export async function finalizarEtpAction(etpId: string, formData: FormData): Pro
   const erro = validarEtpParaFinalizar(dados, responsavelNome, responsavelMatricula);
   if (erro) return { erro };
 
-  await prisma.estudoTecnicoPreliminar.update({
-    where: { id: etpId },
-    data: { ...dados, responsavelNome, responsavelMatricula, status: "FINALIZADO", finalizadoEm: new Date() },
-  });
+  const consAtual = resultado.etp.consolidacaoTecnica;
+  const estavaEmDiligencia = consAtual.etapaFluxoPosEtp === "DILIGENCIA_SETOR_TECNICO";
+  const novaEtapaPosEtp = estavaEmDiligencia
+    ? "ANALISE_PRELIMINAR_AGENTE"
+    : consAtual.etapaFluxoPosEtp ?? (consAtual.agenteContratacaoDesignadoId ? "ANALISE_PRELIMINAR_AGENTE" : "AGUARDANDO_DESIGNACAO_DLC");
+
+  await prisma.$transaction([
+    prisma.estudoTecnicoPreliminar.update({
+      where: { id: etpId },
+      data: { ...dados, responsavelNome, responsavelMatricula, status: "FINALIZADO", finalizadoEm: new Date() },
+    }),
+    prisma.consolidacaoTecnica.update({
+      where: { id: consAtual.id },
+      data: {
+        etapaFluxoPosEtp: novaEtapaPosEtp,
+        ...(estavaEmDiligencia
+          ? {
+              analisePreliminarStatus: "PENDENTE",
+              diligenciaAgenteAtendidaEm: new Date(),
+            }
+          : {}),
+      },
+    }),
+  ]);
 
   revalidatePath(`/consolidacao/${resultado.etp.consolidacaoTecnica.categoriaId}/etp/${resultado.etp.consolidacaoTecnicaId}`);
+  revalidatePath(`/licitacoes/${consAtual.id}`);
+  revalidatePath(`/agente-contratacao/${consAtual.id}`);
+  revalidatePath("/");
   return {};
 }
 

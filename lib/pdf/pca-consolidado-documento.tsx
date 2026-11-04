@@ -1,9 +1,18 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { brl } from "@/lib/formato";
 import { totaisConsolidado, type LinhaConsolidado } from "@/lib/pca-consolidado";
+import type { DadosAutenticacaoPdf } from "./autenticacao";
+import { RodapeAutenticacaoPdf } from "./rodape-autenticacao";
 
 const s = StyleSheet.create({
-  page: { padding: 30, fontSize: 8, fontFamily: "Helvetica", color: "#1e293b" },
+  page: {
+    paddingTop: 30,
+    paddingHorizontal: 30,
+    paddingBottom: 48,
+    fontSize: 8,
+    fontFamily: "Helvetica",
+    color: "#1e293b",
+  },
   tituloOrgao: { fontSize: 10, fontWeight: 700, textAlign: "center" },
   tituloPca: { fontSize: 11, fontWeight: 700, textAlign: "center", marginBottom: 12 },
   tabela: { marginTop: 8, borderWidth: 1, borderColor: "#cbd5e1" },
@@ -20,7 +29,15 @@ const s = StyleSheet.create({
   resumoLinha: { flexDirection: "row", justifyContent: "space-between", maxWidth: 260, marginBottom: 2 },
 });
 
-export function PcaConsolidadoDocumento({ ano, linhas }: { ano: number; linhas: LinhaConsolidado[] }) {
+export function PcaConsolidadoDocumento({
+  ano,
+  linhas,
+  autenticacao,
+}: {
+  ano: number;
+  linhas: LinhaConsolidado[];
+  autenticacao?: DadosAutenticacaoPdf;
+}) {
   const totais = totaisConsolidado(linhas);
 
   return (
@@ -74,6 +91,7 @@ export function PcaConsolidadoDocumento({ ano, linhas }: { ano: number; linhas: 
             <Text>{brl(totais.total)}</Text>
           </View>
         </View>
+        <RodapeAutenticacaoPdf autenticacao={autenticacao} />
       </Page>
     </Document>
   );

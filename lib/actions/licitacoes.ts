@@ -43,7 +43,7 @@ async function exigirAcessoHomologacao(consolidacao: { agenteContratacaoDesignad
  * a poder registrar os resultados de homologação item a item. */
 export async function designarAgenteContratacaoAction(consolidacaoId: string, formData: FormData) {
   await exigirLicitacoes();
-  await obterConsolidacaoOuErro(consolidacaoId);
+  const consolidacao = await obterConsolidacaoOuErro(consolidacaoId);
 
   const agenteContratacaoId = String(formData.get("agenteContratacaoId") ?? "").trim() || null;
   if (agenteContratacaoId) {
@@ -51,12 +51,26 @@ export async function designarAgenteContratacaoAction(consolidacaoId: string, fo
     if (!agente || !agente.ativo) throw new Error("Agente de Contratação inválido ou inativo.");
   }
 
+  const deveEnviarParaAnalisePreliminar =
+    Boolean(agenteContratacaoId) &&
+    (!consolidacao.etapaFluxoPosEtp || consolidacao.etapaFluxoPosEtp === "AGUARDANDO_DESIGNACAO_DLC");
+
   await prisma.consolidacaoTecnica.update({
     where: { id: consolidacaoId },
-    data: { agenteContratacaoDesignadoId: agenteContratacaoId },
+    data: {
+      agenteContratacaoDesignadoId: agenteContratacaoId,
+      designadoAgenteEm: agenteContratacaoId ? new Date() : null,
+      ...(deveEnviarParaAnalisePreliminar
+        ? {
+            etapaFluxoPosEtp: "ANALISE_PRELIMINAR_AGENTE",
+            analisePreliminarStatus: "PENDENTE",
+          }
+        : {}),
+    },
   });
 
   revalidatePath(`/licitacoes/${consolidacaoId}`);
+  revalidatePath(`/agente-contratacao/${consolidacaoId}`);
   revalidatePath("/");
 }
 

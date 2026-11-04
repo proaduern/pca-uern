@@ -1,9 +1,18 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { brl } from "@/lib/formato";
 import { agruparPorCategoria, totalDosItens, type ItemParaRelatorio } from "@/lib/relatorio-unidade";
+import type { DadosAutenticacaoPdf } from "./autenticacao";
+import { RodapeAutenticacaoPdf } from "./rodape-autenticacao";
 
 const s = StyleSheet.create({
-  page: { padding: 40, fontSize: 10, fontFamily: "Helvetica", color: "#1e293b" },
+  page: {
+    paddingTop: 40,
+    paddingHorizontal: 40,
+    paddingBottom: 52,
+    fontSize: 10,
+    fontFamily: "Helvetica",
+    color: "#1e293b",
+  },
   titulo: { fontSize: 12, fontWeight: 700, textAlign: "center", marginBottom: 16 },
   tabela: { marginTop: 8, borderWidth: 1, borderColor: "#cbd5e1" },
   tabelaHeader: { flexDirection: "row", backgroundColor: "#f1f5f9", borderBottomWidth: 1, borderColor: "#cbd5e1" },
@@ -22,9 +31,11 @@ const s = StyleSheet.create({
 export function RelatorioItensDocumento({
   unidadeNome,
   itens,
+  autenticacao,
 }: {
   unidadeNome: string;
   itens: ItemParaRelatorio[];
+  autenticacao?: DadosAutenticacaoPdf;
 }) {
   const total = totalDosItens(itens);
   const grupos = agruparPorCategoria(itens);
@@ -73,6 +84,7 @@ export function RelatorioItensDocumento({
             <Text style={[s.tabelaCelula, s.colValorTotal]}>{brl(total)}</Text>
           </View>
         </View>
+        <RodapeAutenticacaoPdf autenticacao={autenticacao} />
       </Page>
     </Document>
   );

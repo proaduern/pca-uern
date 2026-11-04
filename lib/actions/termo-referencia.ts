@@ -56,7 +56,7 @@ export async function criarTermoReferenciaAction(consolidacaoTecnicaId: string):
       criteriosMedicaoPagamento: "",
       formaSelecaoFornecedor: "",
       exigenciasHabilitacao: "",
-      adequacaoOrcamentaria: "",
+      adequacaoOrcamentaria: consolidacao.dotacaoOrcamentariaTexto ?? "",
       garantiaExecucao: "",
     },
   });
@@ -115,10 +115,16 @@ export async function finalizarTermoReferenciaAction(
   const erro = validarTermoReferenciaParaFinalizar(dados, responsavelNome, responsavelMatricula);
   if (erro) return { erro };
 
-  await prisma.termoReferencia.update({
-    where: { id: termoReferenciaId },
-    data: { ...dados, responsavelNome, responsavelMatricula, status: "FINALIZADO", finalizadoEm: new Date() },
-  });
+  await prisma.$transaction([
+    prisma.termoReferencia.update({
+      where: { id: termoReferenciaId },
+      data: { ...dados, responsavelNome, responsavelMatricula, status: "FINALIZADO", finalizadoEm: new Date() },
+    }),
+    prisma.consolidacaoTecnica.update({
+      where: { id: resultado.tr.consolidacaoTecnicaId },
+      data: { etapaFluxoPosEtp: "TR_CONCLUIDO" },
+    }),
+  ]);
 
   await avancarStatusLicitacaoSeNecessario(resultado.tr.consolidacaoTecnicaId, "TERMO_REFERENCIA", responsavelNome);
 

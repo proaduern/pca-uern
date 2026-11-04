@@ -10,6 +10,8 @@ import {
   type DfdParaPdf,
   type ItemParaPdf,
 } from "./dfd-dados";
+import type { DadosAutenticacaoPdf } from "./autenticacao";
+import { RodapeAutenticacaoPdf } from "./rodape-autenticacao";
 
 const BLUE = "#0000FF";
 const BORDER_COLOR = "#0000FF";
@@ -18,7 +20,9 @@ const WHITE = "#FFFFFF";
 
 const styles = StyleSheet.create({
   page: {
-    padding: 24,
+    paddingTop: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 46,
     fontSize: 8,
     fontFamily: "Helvetica",
     color: "#111827",
@@ -223,7 +227,13 @@ function renderItemTable(itens: ItemParaPdf[], startIdx = 1) {
   );
 }
 
-export function DfdDocumento({ dfd }: { dfd: DfdParaPdf }) {
+export function DfdDocumento({
+  dfd,
+  autenticacao,
+}: {
+  dfd: DfdParaPdf;
+  autenticacao?: DadosAutenticacaoPdf;
+}) {
   const itensGeral = dfd.itens.filter((it) => it.enquadramento === "GERAL");
   const itensExtra = dfd.itens.filter((it) => it.enquadramento === "RECURSOS_EXTRA");
   const itensOp = dfd.itens.filter((it) => it.enquadramento === "OP");
@@ -471,6 +481,7 @@ export function DfdDocumento({ dfd }: { dfd: DfdParaPdf }) {
             Data de emissão: {formatarData(dfd.criadoEm)}
           </Text>
         </View>
+        <RodapeAutenticacaoPdf autenticacao={autenticacao} />
       </Page>
     </Document>
   );

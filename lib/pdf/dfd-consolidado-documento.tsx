@@ -2,6 +2,8 @@ import React from "react";
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { brl, formatarData } from "../formato";
 import type { DfdConsolidadoParaPdf, ItemConsolidadoPdf } from "./dfd-consolidado-dados";
+import type { DadosAutenticacaoPdf } from "./autenticacao";
+import { RodapeAutenticacaoPdf } from "./rodape-autenticacao";
 
 const BLUE = "#0000FF";
 const BORDER_COLOR = "#0000FF";
@@ -10,7 +12,9 @@ const WHITE = "#FFFFFF";
 
 const styles = StyleSheet.create({
   page: {
-    padding: 24,
+    paddingTop: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 46,
     fontSize: 8,
     fontFamily: "Helvetica",
     color: "#111827",
@@ -252,7 +256,13 @@ function renderTabelaConsolidada(itens: ItemConsolidadoPdf[], startIdx = 1) {
   );
 }
 
-export function DfdConsolidadoDocumento({ dados }: { dados: DfdConsolidadoParaPdf }) {
+export function DfdConsolidadoDocumento({
+  dados,
+  autenticacao,
+}: {
+  dados: DfdConsolidadoParaPdf;
+  autenticacao?: DadosAutenticacaoPdf;
+}) {
   const ordensEnquadramento: ("GERAL" | "RECURSOS_EXTRA" | "OP" | "CONVENIO")[] = [
     "GERAL",
     "RECURSOS_EXTRA",
@@ -474,6 +484,7 @@ export function DfdConsolidadoDocumento({ dados }: { dados: DfdConsolidadoParaPd
             Data de consolidação e emissão: {formatarData(dados.dataEmissao)}
           </Text>
         </View>
+        <RodapeAutenticacaoPdf autenticacao={autenticacao} />
       </Page>
 
       {/* PÁGINA 2: ANEXO DETALHADO POR UNIDADE E DFD DE ORIGEM */}
@@ -562,6 +573,7 @@ export function DfdConsolidadoDocumento({ dados }: { dados: DfdConsolidadoParaPd
             Fim do Anexo Analítico · Documento gerado eletronicamente para instrução do ETP (PCA-UERN)
           </Text>
         </View>
+        <RodapeAutenticacaoPdf autenticacao={autenticacao} />
       </Page>
     </Document>
   );

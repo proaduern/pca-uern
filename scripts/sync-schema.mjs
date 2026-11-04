@@ -37,6 +37,22 @@ const COLUNAS_CONSOLIDACAO = [
   `"aprovacaoAutoridadeData" TIMESTAMP(3)`,
   `"publicacaoPncpCodigo" TEXT`,
   `"publicacaoPncpData" TIMESTAMP(3)`,
+  `"etapaFluxoPosEtp" TEXT`,
+  `"designadoAgenteEm" TIMESTAMP(3)`,
+  `"analisePreliminarStatus" TEXT`,
+  `"analisePreliminarEm" TIMESTAMP(3)`,
+  `"analisePreliminarObservacao" TEXT`,
+  `"diligenciaAgenteMotivo" TEXT`,
+  `"diligenciaAgenteAlvo" TEXT`,
+  `"diligenciaAgenteEm" TIMESTAMP(3)`,
+  `"diligenciaAgenteAtendidaEm" TIMESTAMP(3)`,
+  `"pesquisaConcluidaRetornadaAgenteEm" TIMESTAMP(3)`,
+  `"dotacaoSolicitadaContabilidadeEm" TIMESTAMP(3)`,
+  `"dotacaoSolicitadaObservacao" TEXT`,
+  `"dotacaoRecebidaEm" TIMESTAMP(3)`,
+  `"dotacaoOrcamentariaTexto" TEXT`,
+  `"planejamentoDesignadoId" TEXT`,
+  `"encaminhadoPlanejamentoEm" TIMESTAMP(3)`,
 ];
 
 const VALORES_ENUM_STATUS_LICITACAO = [
@@ -156,25 +172,32 @@ async function main() {
       );
     `);
 
-    // Reverte aprovação automática de teste de "Material de limpeza" anterior a 2026-10-21T11:55:00Z
     await executarSilencioso(`
-      UPDATE ${schemaPrefix}"ItemDfd"
-      SET "consolidacaoTecnicaId" = NULL
-      WHERE "dfdId" IN (
-        SELECT "id" FROM ${schemaPrefix}"Dfd"
-        WHERE "descricaoSumaria" ILIKE '%Material de limpeza%'
-          AND "status" = 'APROVADO'
-          AND ("aprovadoEm" IS NULL OR "aprovadoEm" < '2026-10-21T11:55:00Z')
+      CREATE TABLE IF NOT EXISTS ${schemaPrefix}"DocumentoAutenticado" (
+        "id" TEXT NOT NULL,
+        "codigoVerificador" TEXT NOT NULL,
+        "hashSha256" TEXT NOT NULL,
+        "tipoDocumento" TEXT NOT NULL,
+        "titulo" TEXT NOT NULL,
+        "referenciaId" TEXT NOT NULL,
+        "processoSEI" TEXT,
+        "unidadeOuSetor" TEXT,
+        "responsavelNome" TEXT,
+        "responsavelMatricula" TEXT,
+        "valorTotal" DECIMAL(16,2),
+        "resumoJson" TEXT,
+        "emitidoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "DocumentoAutenticado_pkey" PRIMARY KEY ("id")
       );
     `);
     await executarSilencioso(`
-      UPDATE ${schemaPrefix}"Dfd"
-      SET "status" = 'AGUARDANDO_APROVACAO',
-          "aprovadoEm" = NULL,
-          "enviadoParaAprovacaoEm" = COALESCE("enviadoParaAprovacaoEm", "createdAt")
-      WHERE "descricaoSumaria" ILIKE '%Material de limpeza%'
-        AND "status" = 'APROVADO'
-        AND ("aprovadoEm" IS NULL OR "aprovadoEm" < '2026-10-21T11:55:00Z');
+      CREATE UNIQUE INDEX IF NOT EXISTS "DocumentoAutenticado_codigoVerificador_key"
+      ON ${schemaPrefix}"DocumentoAutenticado"("codigoVerificador");
+    `);
+    await executarSilencioso(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "DocumentoAutenticado_tipoDocumento_referenciaId_key"
+      ON ${schemaPrefix}"DocumentoAutenticado"("tipoDocumento", "referenciaId");
     `);
   }
 

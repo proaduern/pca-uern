@@ -347,28 +347,55 @@ export default function PainelLicitacao({
         </p>
       </div>
 
-      {/* Designação do Agente de Contratação */}
-      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
-        <h2 className="mb-2 text-sm font-semibold text-slate-900">Agente de Contratação Designado</h2>
-        <p className="mb-3 text-sm text-slate-700">
-          {agenteDesignado ? agenteDesignado.nome : "Nenhum agente designado ainda."}
+      {/* Designação do Agente de Contratação (Diretor da DLC) */}
+      <div className="rounded-2xl border border-blue-200 bg-white shadow-sm p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900">
+              Designação do Agente de Contratação (Diretor da DLC)
+            </h2>
+            <p className="text-xs text-slate-500">
+              Após o ETP, o Diretor da DLC escolhe o Agente de Contratação (lista alimentada automaticamente pelo autocadastro e homologação de perfil pelo Admin) e envia o processo para Análise Preliminar do Agente.
+            </p>
+          </div>
+          {agenteDesignado && (
+            <a
+              href={`/agente-contratacao/${consolidacaoId}`}
+              className="rounded-xl bg-[#003366] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#002244]"
+            >
+              Abrir Painel do Agente (Análise Preliminar / Dotação / TR)
+            </a>
+          )}
+        </div>
+        <p className="text-sm text-slate-700">
+          <b>Agente Designado:</b>{" "}
+          {agenteDesignado ? (
+            <span className="font-semibold text-emerald-800">{agenteDesignado.nome}</span>
+          ) : (
+            <span className="text-amber-700">Nenhum agente designado ainda (Aguardando designação da DLC).</span>
+          )}
         </p>
         {podeGerenciarStatus && (
           <form
             onSubmit={(e) => {
               e.preventDefault();
               const formData = new FormData(e.currentTarget);
-              executar(() => designarAgenteContratacaoAction(consolidacaoId, formData), "Agente de Contratação designado.");
+              executar(
+                () => designarAgenteContratacaoAction(consolidacaoId, formData),
+                "Agente de Contratação designado e processo encaminhado para Análise Preliminar do Agente!",
+              );
             }}
-            className="flex flex-wrap items-end gap-2"
+            className="flex flex-wrap items-end gap-2 pt-1"
           >
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Designar agente</label>
+              <label className="mb-1 block text-xs font-medium text-slate-700">
+                Selecionar Agente de Contratação homologado
+              </label>
               <select
                 name="agenteContratacaoId"
                 required
                 defaultValue={agenteDesignado?.id ?? ""}
-                className="w-full min-w-[16rem] rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                className="w-full min-w-[18rem] rounded-xl border border-slate-300 px-3 py-2 text-sm"
               >
                 <option value="" disabled>
                   Selecione um agente de contratação
@@ -383,9 +410,9 @@ export default function PainelLicitacao({
             <button
               type="submit"
               disabled={isPending}
-              className="rounded-xl border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100 disabled:opacity-60"
+              className="rounded-xl bg-[#003366] px-4 py-2 text-sm font-medium text-white hover:bg-[#002244] disabled:opacity-60"
             >
-              {agenteDesignado ? "Alterar Designação" : "Designar"}
+              {agenteDesignado ? "Alterar Designação e Reenviar ao Agente" : "Designar e Enviar ao Agente"}
             </button>
           </form>
         )}

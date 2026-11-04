@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { obterSessao } from "@/lib/auth";
+import { sincronizarPerfisHomologadosDoPortal } from "@/lib/sincronizar-perfis-portal";
 import {
   agruparItensParaHomologacao,
   agruparServicosValorPorCategoria,
@@ -58,6 +59,10 @@ export default async function LicitacaoDetalhePage({
     sessao.tipo === "LICITACOES" || sessao.tipo === "ADMIN" || sessao.tipo === "GESTOR_ATA";
   if (sessao.tipo === "AGENTE_CONTRATACAO" && consolidacao.agenteContratacaoDesignadoId !== sessao.id) {
     return null;
+  }
+
+  if (podeGerenciarStatus) {
+    await sincronizarPerfisHomologadosDoPortal();
   }
 
   const agentesContratacao = podeGerenciarStatus

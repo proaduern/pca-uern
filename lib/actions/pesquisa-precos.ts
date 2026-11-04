@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirPesquisaPrecos } from "@/lib/auth";
 import { extrairTextoPdf } from "@/lib/pdf-extrair-texto";
 import { validarPesquisaPrecosParaFinalizar, type DadosPesquisaPrecoItem } from "@/lib/pesquisa-precos";
+import { extrairCotacaoBancoPrecosXlsx } from "@/lib/pesquisa-precos-banco";
 import { avancarStatusLicitacaoSeNecessario } from "./avancar-status";
 import type { ResultadoAcao } from "./tipos";
 
@@ -12,14 +13,41 @@ export interface ResultadoIniciarPesquisaPrecos extends ResultadoAcao {
   pesquisaDePrecosId?: string;
 }
 
-/** Cria a Pesquisa de Preços da consolidação a partir do PDF enviado —
- * idempotente: se já existir, só devolve o id existente (sem reler o PDF).
- * O texto extraído do PDF é guardado apenas como referência/auditoria; os
- * itens são pré-carregados a partir da própria ConsolidacaoTecnica, com o
- * valor pesquisado zerado para o servidor preencher e confirmar. */
+export interface ResultadoImportarBancoPrecos extends ResultadoAcao {
+  itensAtualizados?: DadosPesquisaPrecoItem[];
+  responsavelNome?: string | null;
+  responsavelMatricula?: string | null;
+  metodologia?: string;
+  resumoImportacao?: string;
+}
+
+async function montarItensConsolidadosDaConsolidacao(consolidacaoTecnicaId: string) {
+  const [itensDfd, itensTecnicos] = await Promise.all([
+    prisma.itemDfd.findMany({ where: { consolidacaoTecnicaId } }),
+    prisma.itemTecnico.findMany({ where: { consolidacaoTecnicaId } }),
+  ]);
+
+  const mapa = new Map<string, number>();
+  for (const it of itensDfd) {
+    const nome = (it.itemCatalogoNome ?? it.itemNomeLivre ?? "(sem nome)").trim();
+    mapa.set(nome, (mapa.get(nome) ?? 0) + Number(it.quantidade ?? 1));
+  }
+  for (const it of itensTecnicos) {
+    const nome = it.item.trim();
+    mapa.set(nome, (mapa.get(nome) ?? 0) + Number(it.quantidade ?? 1));
+  }
+
+  return [...mapa.entries()].map(([item, quantidade]) => ({ item, quantidade }));
+}
+
+/**
+ * Cria a Pesquisa de Preços da consolidação (com ou sem PDF inicial) —
+ * idempotente: se já existir, só devolve o id existente.
+ * Os itens são pré-carregados e consolidados a partir da própria ConsolidacaoTecnica.
+ */
 export async function iniciarPesquisaPrecosAction(
   consolidacaoTecnicaId: string,
-  formData: FormData,
+  formData?: FormData,
 ): Promise<ResultadoIniciarPesquisaPrecos> {
   await exigirPesquisaPrecos();
 
@@ -29,43 +57,38 @@ export async function iniciarPesquisaPrecosAction(
   const existente = await prisma.pesquisaDePrecos.findUnique({ where: { consolidacaoTecnicaId } });
   if (existente) return { pesquisaDePrecosId: existente.id };
 
-  const arquivo = formData.get("arquivo");
-  if (!(arquivo instanceof File)) return { erro: "Selecione o PDF da pesquisa de preços." };
+  let arquivoPdfNome: string | null = null;
+  let textoExtraido: string | null = null;
 
-  let textoExtraido: string;
-  try {
-    textoExtraido = await extrairTextoPdf(arquivo);
-  } catch (e) {
-    return { erro: e instanceof Error ? e.message : "Não foi possível ler o PDF enviado." };
+  const arquivo = formData?.get("arquivo");
+  if (arquivo instanceof File && arquivo.size > 0) {
+    arquivoPdfNome = arquivo.name;
+    try {
+      textoExtraido = await extrairTextoPdf(arquivo);
+    } catch (e) {
+      return { erro: e instanceof Error ? e.message : "Não foi possível ler o PDF enviado." };
+    }
   }
 
-  const metodologia = String(formData.get("metodologia") ?? "").trim();
+  const metodologia =
+    String(formData?.get("metodologia") ?? "").trim() ||
+    "Pesquisa de preços realizada em conformidade com o art. 23 da Lei nº 14.133/2021 e IN SEGES/ME nº 65/2021, utilizando o Sistema Banco de Preços.";
 
-  const [itensDfd, itensTecnicos] = await Promise.all([
-    prisma.itemDfd.findMany({ where: { consolidacaoTecnicaId } }),
-    prisma.itemTecnico.findMany({ where: { consolidacaoTecnicaId } }),
-  ]);
-  const itens = [
-    ...itensDfd.map((it) => ({
-      item: it.itemCatalogoNome ?? it.itemNomeLivre ?? "(sem nome)",
-      quantidade: Number(it.quantidade),
-    })),
-    ...itensTecnicos.map((it) => ({ item: it.item, quantidade: Number(it.quantidade) })),
-  ];
+  const itens = await montarItensConsolidadosDaConsolidacao(consolidacaoTecnicaId);
   if (itens.length === 0) return { erro: "Esta consolidação não tem itens para pesquisar preços." };
 
   const pesquisa = await prisma.pesquisaDePrecos.create({
     data: {
       consolidacaoTecnicaId,
       metodologia,
-      arquivoPdfNome: arquivo.name,
+      arquivoPdfNome,
       arquivoPdfTexto: textoExtraido,
       itens: {
         create: itens.map((it, ordem) => ({
           ordem,
           item: it.item,
           quantidade: it.quantidade,
-          fontesConsultadas: "",
+          fontesConsultadas: "Sistema Banco de Preços",
         })),
       },
     },
@@ -87,15 +110,162 @@ async function obterPesquisaEditavelOuErro(pesquisaDePrecosId: string) {
   return { pesquisa };
 }
 
+function normalizarNomeComparacao(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * Importa a planilha de Relatório de Cotação gerada pelo Sistema Banco de Preços (.xlsx),
+ * extraindo o Preço Estimado da Coluna E para cada item correspondente do processo.
+ */
+export async function importarPlanilhaBancoPrecosAction(
+  pesquisaDePrecosId: string,
+  formData: FormData,
+): Promise<ResultadoImportarBancoPrecos> {
+  await exigirPesquisaPrecos();
+  const resultado = await obterPesquisaEditavelOuErro(pesquisaDePrecosId);
+  if ("erro" in resultado) return { erro: resultado.erro };
+
+  const arquivo = formData.get("arquivoXlsx");
+  if (!(arquivo instanceof File) || arquivo.size === 0) {
+    return { erro: "Selecione a planilha (.xlsx) gerada pelo Sistema Banco de Preços." };
+  }
+
+  let extraido;
+  try {
+    const arrayBuffer = await arquivo.arrayBuffer();
+    extraido = await extrairCotacaoBancoPrecosXlsx(arrayBuffer);
+  } catch (e) {
+    return {
+      erro: e instanceof Error ? e.message : "Não foi possível ler a planilha do Banco de Preços.",
+    };
+  }
+
+  const { pesquisa } = resultado;
+  const itensBanco = extraido.itensCotados;
+  const usados = new Set<number>();
+  let totalItensImportados = 0;
+
+  const fontePadrao = [
+    "Sistema Banco de Preços",
+    extraido.periodoPesquisa ? `(${extraido.periodoPesquisa})` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const novosDados = pesquisa.itens.map((itemSistema, idx) => {
+    const nomeNormSistema = normalizarNomeComparacao(itemSistema.item);
+
+    // 1º tenta casar pelo nome normalizado exato ou contido
+    let matchIdx = itensBanco.findIndex(
+      (ib, bIdx) =>
+        !usados.has(bIdx) &&
+        normalizarNomeComparacao(ib.nome) !== "" &&
+        (normalizarNomeComparacao(ib.nome) === nomeNormSistema ||
+          normalizarNomeComparacao(ib.nome).includes(nomeNormSistema) ||
+          nomeNormSistema.includes(normalizarNomeComparacao(ib.nome))),
+    );
+
+    // 2º se não casou por nome, casa pela ordem sequencial do item (Coluna A = Item 1, 2, 3...)
+    if (matchIdx === -1) {
+      matchIdx = itensBanco.findIndex((ib, bIdx) => !usados.has(bIdx) && ib.itemOrdem === idx + 1);
+    }
+
+    // 3º fallback por posição direta se a quantidade de itens for a mesma
+    if (matchIdx === -1 && idx < itensBanco.length && !usados.has(idx)) {
+      matchIdx = idx;
+    }
+
+    if (matchIdx !== -1) {
+      usados.add(matchIdx);
+      const cotado = itensBanco[matchIdx];
+      if (cotado.precoEstimadoColE > 0) {
+        totalItensImportados++;
+        return {
+          id: itemSistema.id,
+          item: itemSistema.item,
+          quantidade: Number(itemSistema.quantidade),
+          valorUnitarioPesquisado: cotado.precoEstimadoColE,
+          medianaPesquisada: cotado.precoEstimadoColE,
+          fontesConsultadas: itemSistema.fontesConsultadas?.trim() || fontePadrao,
+        };
+      }
+    }
+
+    return {
+      id: itemSistema.id,
+      item: itemSistema.item,
+      quantidade: Number(itemSistema.quantidade),
+      valorUnitarioPesquisado: Number(itemSistema.valorUnitarioPesquisado),
+      medianaPesquisada:
+        itemSistema.medianaPesquisada === null ? null : Number(itemSistema.medianaPesquisada),
+      fontesConsultadas: itemSistema.fontesConsultadas,
+    };
+  });
+
+  if (totalItensImportados === 0) {
+    return {
+      erro: "Nenhum preço estimado válido (maior que zero) foi encontrado na Coluna E para os itens deste processo.",
+    };
+  }
+
+  const novoResponsavelNome = pesquisa.responsavelNome || extraido.responsavelNome || null;
+  const novaResponsavelMatricula =
+    pesquisa.responsavelMatricula || extraido.responsavelMatricula || null;
+  const novaMetodologia =
+    pesquisa.metodologia?.trim() ||
+    `Pesquisa de preços realizada no Sistema Banco de Preços (art. 23 da Lei nº 14.133/2021). ${extraido.periodoPesquisa ?? ""} ${extraido.relatorioGerado ?? ""}`.trim();
+
+  await prisma.$transaction([
+    ...novosDados.map((d) =>
+      prisma.pesquisaPrecoItem.update({
+        where: { id: d.id },
+        data: {
+          valorUnitarioPesquisado: d.valorUnitarioPesquisado,
+          medianaPesquisada: d.medianaPesquisada,
+          fontesConsultadas: d.fontesConsultadas,
+        },
+      }),
+    ),
+    prisma.pesquisaDePrecos.update({
+      where: { id: pesquisa.id },
+      data: {
+        arquivoPdfNome: arquivo.name,
+        responsavelNome: novoResponsavelNome,
+        responsavelMatricula: novaResponsavelMatricula,
+        metodologia: novaMetodologia,
+      },
+    }),
+  ]);
+
+  revalidatePath(`/pesquisa-precos/${pesquisa.consolidacaoTecnicaId}`);
+
+  return {
+    itensAtualizados: novosDados.map((d) => ({
+      item: d.item,
+      quantidade: d.quantidade,
+      valorUnitarioPesquisado: d.valorUnitarioPesquisado,
+      medianaPesquisada: d.medianaPesquisada,
+      fontesConsultadas: d.fontesConsultadas,
+    })),
+    responsavelNome: novoResponsavelNome,
+    responsavelMatricula: novaResponsavelMatricula,
+    metodologia: novaMetodologia,
+    resumoImportacao: `Planilha "${arquivo.name}" importada com sucesso! ${totalItensImportados} de ${pesquisa.itens.length} item(ns) tiveram o Preço Estimado (Coluna E) preenchido automaticamente.`,
+  };
+}
+
 interface ItemEditavel {
   valorUnitarioPesquisado: number;
   medianaPesquisada: number | null;
   fontesConsultadas: string;
 }
 
-/** Faz o parse defensivo dos valores editáveis enviados pelo formulário —
- * item e quantidade nunca vêm do cliente, são sempre os já gravados no
- * banco (a lista de itens é a da própria ConsolidacaoTecnica). */
 function parseItensEditaveisJson(itensJson: string): { erro: string } | { itens: ItemEditavel[] } {
   let bruto: unknown;
   try {
@@ -174,8 +344,10 @@ export async function salvarPesquisaPrecosRascunhoAction(
   return {};
 }
 
-/** Valida todos os itens, a metodologia e o responsável, e finaliza a
- * Pesquisa de Preços (bloqueia edição futura). */
+/**
+ * Valida todos os itens, a metodologia e o responsável, conclui a Pesquisa de Preços
+ * e devolve o processo ao Agente de Contratação (para solicitação de dotação orçamentária à Contabilidade).
+ */
 export async function finalizarPesquisaPrecosAction(
   pesquisaDePrecosId: string,
   formData: FormData,
@@ -207,10 +379,19 @@ export async function finalizarPesquisaPrecosAction(
   const erroItens = await salvarValoresItens(resultado.pesquisa.itens, parse.itens);
   if (erroItens) return { erro: erroItens };
 
-  await prisma.pesquisaDePrecos.update({
-    where: { id: pesquisaDePrecosId },
-    data: { metodologia, responsavelNome, responsavelMatricula, status: "FINALIZADO", finalizadoEm: new Date() },
-  });
+  await prisma.$transaction([
+    prisma.pesquisaDePrecos.update({
+      where: { id: pesquisaDePrecosId },
+      data: { metodologia, responsavelNome, responsavelMatricula, status: "FINALIZADO", finalizadoEm: new Date() },
+    }),
+    prisma.consolidacaoTecnica.update({
+      where: { id: resultado.pesquisa.consolidacaoTecnicaId },
+      data: {
+        etapaFluxoPosEtp: "AGUARDANDO_DOTACAO_ORCAMENTARIA",
+        pesquisaConcluidaRetornadaAgenteEm: new Date(),
+      },
+    }),
+  ]);
 
   await avancarStatusLicitacaoSeNecessario(
     resultado.pesquisa.consolidacaoTecnicaId,
@@ -219,6 +400,8 @@ export async function finalizarPesquisaPrecosAction(
   );
 
   revalidatePath(`/pesquisa-precos/${resultado.pesquisa.consolidacaoTecnicaId}`);
+  revalidatePath(`/agente-contratacao/${resultado.pesquisa.consolidacaoTecnicaId}`);
   revalidatePath(`/licitacoes/${resultado.pesquisa.consolidacaoTecnicaId}`);
+  revalidatePath("/");
   return {};
 }

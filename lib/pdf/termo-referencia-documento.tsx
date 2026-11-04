@@ -2,9 +2,18 @@ import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { brl, formatarDataHora } from "../formato";
 import { SECOES_TR } from "../termo-referencia";
 import { totalItensTr, type TermoReferenciaParaPdf } from "./termo-referencia-dados";
+import type { DadosAutenticacaoPdf } from "./autenticacao";
+import { RodapeAutenticacaoPdf } from "./rodape-autenticacao";
 
 const s = StyleSheet.create({
-  page: { padding: 40, fontSize: 10, fontFamily: "Helvetica", color: "#1e293b" },
+  page: {
+    paddingTop: 40,
+    paddingHorizontal: 40,
+    paddingBottom: 52,
+    fontSize: 10,
+    fontFamily: "Helvetica",
+    color: "#1e293b",
+  },
   cabecalho: { fontSize: 9, textAlign: "center", marginBottom: 2 },
   titulo: { fontSize: 12, fontWeight: 700, textAlign: "center", marginTop: 8, marginBottom: 16 },
   secao: { marginTop: 12 },
@@ -23,9 +32,18 @@ const s = StyleSheet.create({
   totalLinha: { flexDirection: "row", backgroundColor: "#f1f5f9", fontWeight: 700 },
 });
 
-export function TermoReferenciaDocumento({ tr }: { tr: TermoReferenciaParaPdf }) {
+export function TermoReferenciaDocumento({
+  tr,
+  autenticacao,
+}: {
+  tr: TermoReferenciaParaPdf;
+  autenticacao?: DadosAutenticacaoPdf;
+}) {
   const totalAnexo = totalItensTr(tr);
-  const totalPesquisa = tr.itensPesquisa.reduce((soma, it) => soma + it.quantidade * it.valorUnitarioPesquisado, 0);
+  const totalPesquisa = tr.itensPesquisa.reduce(
+    (soma, it) => soma + it.quantidade * it.valorUnitarioPesquisado,
+    0,
+  );
 
   return (
     <Document>
@@ -63,7 +81,9 @@ export function TermoReferenciaDocumento({ tr }: { tr: TermoReferenciaParaPdf })
                 <Text style={[s.tabelaCelula, s.colItem]}>{it.item}</Text>
                 <Text style={[s.tabelaCelula, s.colQtd]}>{it.quantidade}</Text>
                 <Text style={[s.tabelaCelula, s.colValorUnit]}>{brl(it.valorUnitarioPesquisado)}</Text>
-                <Text style={[s.tabelaCelula, s.colValorTotal]}>{brl(it.quantidade * it.valorUnitarioPesquisado)}</Text>
+                <Text style={[s.tabelaCelula, s.colValorTotal]}>
+                  {brl(it.quantidade * it.valorUnitarioPesquisado)}
+                </Text>
               </View>
             ))}
             <View style={s.totalLinha}>
@@ -108,6 +128,7 @@ export function TermoReferenciaDocumento({ tr }: { tr: TermoReferenciaParaPdf })
             protocolado e assinado no SEI para compor o processo formal de contratação.
           </Text>
         </View>
+        <RodapeAutenticacaoPdf autenticacao={autenticacao} />
       </Page>
 
       <Page size="A4" style={s.page}>
@@ -126,7 +147,9 @@ export function TermoReferenciaDocumento({ tr }: { tr: TermoReferenciaParaPdf })
             <View key={i} style={s.tabelaLinha}>
               <Text style={[s.tabelaCelula, s.colItem]}>{it.nome}</Text>
               <Text style={[s.tabelaCelula, s.colQtd]}>{it.quantidade ?? "—"}</Text>
-              <Text style={[s.tabelaCelula, s.colValorUnit]}>{it.valorUnit != null ? brl(it.valorUnit) : "—"}</Text>
+              <Text style={[s.tabelaCelula, s.colValorUnit]}>
+                {it.valorUnit != null ? brl(it.valorUnit) : "—"}
+              </Text>
               <Text style={[s.tabelaCelula, s.colValorTotal]}>{brl(it.valorTotal)}</Text>
             </View>
           ))}
@@ -137,6 +160,7 @@ export function TermoReferenciaDocumento({ tr }: { tr: TermoReferenciaParaPdf })
             <Text style={[s.tabelaCelula, s.colValorTotal]}>{brl(totalAnexo)}</Text>
           </View>
         </View>
+        <RodapeAutenticacaoPdf autenticacao={autenticacao} />
       </Page>
     </Document>
   );

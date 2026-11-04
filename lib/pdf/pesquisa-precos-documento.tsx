@@ -1,9 +1,18 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { brl, formatarDataHora } from "../formato";
 import { totalPesquisaPrecosPdf, type PesquisaPrecosParaPdf } from "./pesquisa-precos-dados";
+import type { DadosAutenticacaoPdf } from "./autenticacao";
+import { RodapeAutenticacaoPdf } from "./rodape-autenticacao";
 
 const s = StyleSheet.create({
-  page: { padding: 40, fontSize: 10, fontFamily: "Helvetica", color: "#1e293b" },
+  page: {
+    paddingTop: 40,
+    paddingHorizontal: 40,
+    paddingBottom: 52,
+    fontSize: 10,
+    fontFamily: "Helvetica",
+    color: "#1e293b",
+  },
   cabecalho: { fontSize: 9, textAlign: "center", marginBottom: 2 },
   titulo: { fontSize: 12, fontWeight: 700, textAlign: "center", marginTop: 8, marginBottom: 16 },
   secao: { marginTop: 12 },
@@ -25,7 +34,13 @@ const s = StyleSheet.create({
   totalLinha: { flexDirection: "row", backgroundColor: "#f1f5f9", fontWeight: 700 },
 });
 
-export function PesquisaPrecosDocumento({ pesquisa }: { pesquisa: PesquisaPrecosParaPdf }) {
+export function PesquisaPrecosDocumento({
+  pesquisa,
+  autenticacao,
+}: {
+  pesquisa: PesquisaPrecosParaPdf;
+  autenticacao?: DadosAutenticacaoPdf;
+}) {
   const total = totalPesquisaPrecosPdf(pesquisa);
 
   return (
@@ -65,7 +80,9 @@ export function PesquisaPrecosDocumento({ pesquisa }: { pesquisa: PesquisaPrecos
               <Text style={[s.tabelaCelula, s.colMediana]}>
                 {it.medianaPesquisada === null ? "—" : brl(it.medianaPesquisada)}
               </Text>
-              <Text style={[s.tabelaCelula, s.colValorTotal]}>{brl(it.quantidade * it.valorUnitarioPesquisado)}</Text>
+              <Text style={[s.tabelaCelula, s.colValorTotal]}>
+                {brl(it.quantidade * it.valorUnitarioPesquisado)}
+              </Text>
             </View>
           ))}
           <View style={s.totalLinha}>
@@ -93,6 +110,7 @@ export function PesquisaPrecosDocumento({ pesquisa }: { pesquisa: PesquisaPrecos
             protocolado e assinado no SEI para compor o processo formal de contratação.
           </Text>
         </View>
+        <RodapeAutenticacaoPdf autenticacao={autenticacao} />
       </Page>
     </Document>
   );
