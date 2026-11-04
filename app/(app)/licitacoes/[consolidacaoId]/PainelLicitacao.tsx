@@ -160,6 +160,7 @@ interface EditalDefinitivoProp {
 export default function PainelLicitacao({
   consolidacaoId,
   podeGerenciarStatus,
+  podeRegistrarHomologacao = true,
   agenteDesignado,
   agentesContratacao,
   categoriaNome,
@@ -191,6 +192,7 @@ export default function PainelLicitacao({
 }: {
   consolidacaoId: string;
   podeGerenciarStatus: boolean;
+  podeRegistrarHomologacao?: boolean;
   agenteDesignado: { id: string; nome: string } | null;
   agentesContratacao: { id: string; nome: string }[];
   categoriaNome: string;
@@ -1084,6 +1086,13 @@ export default function PainelLicitacao({
             <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
               Todos os itens deste processo já têm resultado e Preço Real da Homologação registrados.
             </p>
+          ) : !podeRegistrarHomologacao ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-900">
+              <b>Fase de Homologação (Atuação exclusiva do Agente de Contratação):</b> Nesta etapa, o{" "}
+              <b>Agente de Contratação designado ({agenteDesignado?.nome ?? "Designado"})</b> é quem registra as
+              informações da homologação (preço real licitado e empresa vencedora) e realiza o despacho ao SGC,
+              encerrando a atuação operacional da Diretoria de Licitações neste processo.
+            </div>
           ) : (
             <>
               {gruposMaterial.map((grupo) => (
@@ -1181,6 +1190,10 @@ export default function PainelLicitacao({
                   <p className="font-bold">{statusSgc.statusExecucao || "Encaminhado ao SGC"}</p>
                 </div>
               </div>
+            </div>
+          ) : !podeRegistrarHomologacao ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+              Aguardando o Agente de Contratação concluir o lançamento da homologação e encaminhar os dados ao SGC.
             </div>
           ) : (
             <form

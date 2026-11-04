@@ -13,7 +13,7 @@ export default async function PlanejamentoDetalhePage({
   const { consolidacaoId } = await params;
   const sessao = await obterSessao();
   if (!sessao) redirect("/login");
-  if (sessao.tipo !== "PLANEJAMENTO" && sessao.tipo !== "ADMIN") redirect("/");
+  if (sessao.tipo !== "PLANEJAMENTO" && sessao.tipo !== "ADMIN" && sessao.tipo !== "LICITACOES") redirect("/");
 
   const consolidacao = await prisma.consolidacaoTecnica.findUnique({
     where: { id: consolidacaoId },

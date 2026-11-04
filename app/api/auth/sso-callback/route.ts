@@ -132,6 +132,34 @@ export async function GET(request: NextRequest) {
 
       // Redireciona diretamente para a fila operacional principal ("/") do Subsistema clicado no Portal PROAD
       destinoUrl = "/";
+    } else if (
+      roleUpper.includes("DIRETOR_LICITACOES") ||
+      roleUpper.includes("DIRETOR_DLC") ||
+      roleUpper === "LICITACOES"
+    ) {
+      // Diretor de Licitações (DLC) — atua desde o pós-ETP (designação do Agente, supervisão de Pesquisa/TR/Minutas/AJUR/Edital) até antes da Homologação
+      let lic = await prisma.licitacoes.findUnique({
+        where: { email: emailLimpo },
+      });
+      if (!lic) {
+        lic = await prisma.licitacoes.create({
+          data: {
+            nome: nome || "Diretor de Licitações (DLC)",
+            email: emailLimpo,
+            senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
+            senhaTemporaria: false,
+            ativo: true,
+          },
+        });
+      }
+      sessionPayload = {
+        tipo: "LICITACOES",
+        id: lic.id,
+        nome: lic.nome,
+        email: lic.email ?? emailLimpo,
+        senhaTemporaria: false,
+      };
+      destinoUrl = "/";
     } else if (subsistemaAtivo === "ETP_RISCOS" || roleUpper.includes("SETOR_TECNICO")) {
       // Subsistema 2: ETP e Mapa de Riscos (Setores Técnicos: STI, Patrimônio, SOBE, DAS, Almoxarifado, Transportes, Comitês)
       let setorTec = await prisma.setorTecnico.findFirst({

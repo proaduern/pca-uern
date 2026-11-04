@@ -93,7 +93,11 @@ export default async function AppLayout({
   ];
   const linksSetorInterno = [{ href: "/", label: "Minhas Demandas" }];
   const linksSetorTecnico = [{ href: "/etp-riscos", label: "Consolidação, ETP e Mapa de Riscos" }];
-  const linksLicitacoes = [{ href: "/licitacoes", label: "Minutas, Fase Jurídica e Homologação" }];
+  const linksLicitacoes = [
+    { href: "/licitacoes", label: "Processos Pós-ETP, Designação e Licitação" },
+    { href: "/pesquisa-precos", label: "Acompanhamento — Pesquisa de Preços" },
+    { href: "/termo-referencia", label: "Acompanhamento — Termo de Referência (TR)" },
+  ];
   const linksPesquisaPrecos = [{ href: "/pesquisa-precos", label: "Fila de Pesquisa de Preços" }];
   const linksPlanejamento = [{ href: "/termo-referencia", label: "Fila de Termo de Referência (TR)" }];
   const linksAgenteContratacao = [{ href: "/licitacoes", label: "Minuta de Edital e Homologação" }];
@@ -121,7 +125,7 @@ export default async function AppLayout({
     UNIDADE: "Unidade demandante",
     SETOR_INTERNO: "Setor interno",
     SETOR_TECNICO: "Setor técnico",
-    LICITACOES: "Licitações",
+    LICITACOES: "Diretor de Licitações (DLC)",
     PESQUISA_PRECOS: "Pesquisa de Preços",
     PLANEJAMENTO: "Planejamento",
     AGENTE_CONTRATACAO: "Agente de Contratação",

@@ -96,7 +96,7 @@ export async function aplicarSincronizacaoPerfilPca(dados: DadosPerfilHomologado
         },
       });
     }
-  } else if (perfil === "LICITACOES") {
+  } else if (perfil === "LICITACOES" || perfil === "DIRETOR_LICITACOES" || perfil === "DIRETOR_DLC") {
     const existente = await prisma.licitacoes.findUnique({ where: { email: emailLimpo } });
     if (existente) {
       await prisma.licitacoes.update({
@@ -135,7 +135,7 @@ export async function sincronizarPerfisHomologadosDoPortal(): Promise<void> {
     >(`
       SELECT "email", "nome", "matricula", "status"::text AS "status", "perfilPca"
       FROM public."portal_usuarios"
-      WHERE "perfilPca" IN ('AGENTE_CONTRATACAO', 'PLANEJAMENTO', 'PESQUISA_PRECOS', 'LICITACOES')
+      WHERE "perfilPca" IN ('AGENTE_CONTRATACAO', 'PLANEJAMENTO', 'PESQUISA_PRECOS', 'LICITACOES', 'DIRETOR_LICITACOES')
     `);
 
     if (Array.isArray(rows) && rows.length > 0) {

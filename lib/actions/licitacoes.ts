@@ -23,19 +23,19 @@ async function obterConsolidacaoOuErro(consolidacaoId: string) {
   return consolidacao;
 }
 
-/** Registro do resultado de homologação item a item pode ser feito por
- * Licitações ou pelo Agente de Contratação designado para este processo
- * específico (ver designarAgenteContratacaoAction) — as demais ações desta
- * unidade (status do processo, revisão de prioridade/prazo) continuam
- * restritas só a Licitações. */
+/** Registro do resultado de homologação item a item e envio ao SGC são feitos
+ * pelo Agente de Contratação designado para este processo específico (ou ADMIN).
+ * Na fase de Homologação, encerra-se a atuação operacional do Diretor de Licitações (DLC). */
 async function exigirAcessoHomologacao(consolidacao: { agenteContratacaoDesignadoId: string | null }) {
   const sessao = await obterSessao();
   if (!sessao) throw new Error("Não autenticado.");
-  if (sessao.tipo === "LICITACOES" || sessao.tipo === "ADMIN") return sessao;
+  if (sessao.tipo === "ADMIN") return sessao;
   if (sessao.tipo === "AGENTE_CONTRATACAO" && sessao.id === consolidacao.agenteContratacaoDesignadoId) {
     return sessao;
   }
-  throw new Error("Acesso restrito à unidade de licitações ou ao Agente de Contratação designado para este processo.");
+  throw new Error(
+    "Na fase de Homologação, o registro dos resultados homologados e envio ao SGC compete ao Agente de Contratação designado para este processo."
+  );
 }
 
 /** Licitações designa (ou remove) o Agente de Contratação responsável por

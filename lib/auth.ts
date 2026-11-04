@@ -211,7 +211,7 @@ export async function exigirLicitacoes(): Promise<SessionPayload> {
 
 export async function exigirPesquisaPrecos(): Promise<SessionPayload> {
   const sessao = await exigirSessao();
-  if (sessao.tipo !== "PESQUISA_PRECOS" && sessao.tipo !== "ADMIN") {
+  if (sessao.tipo !== "PESQUISA_PRECOS" && sessao.tipo !== "ADMIN" && sessao.tipo !== "LICITACOES") {
     throw new Error("Acesso restrito ao subsetor de Pesquisa de Preços.");
   }
   return sessao;
@@ -219,7 +219,7 @@ export async function exigirPesquisaPrecos(): Promise<SessionPayload> {
 
 export async function exigirPlanejamento(): Promise<SessionPayload> {
   const sessao = await exigirSessao();
-  if (sessao.tipo !== "PLANEJAMENTO" && sessao.tipo !== "ADMIN") {
+  if (sessao.tipo !== "PLANEJAMENTO" && sessao.tipo !== "ADMIN" && sessao.tipo !== "LICITACOES") {
     throw new Error("Acesso restrito ao subsetor de Planejamento.");
   }
   return sessao;

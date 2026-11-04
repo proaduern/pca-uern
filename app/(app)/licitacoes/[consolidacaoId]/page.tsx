@@ -55,19 +55,26 @@ export default async function LicitacaoDetalhePage({
   });
   if (!consolidacao) notFound();
 
+  const jaHomologou = consolidacao.statusLicitacao.some((s) => s.status === "HOMOLOGADO");
   const podeGerenciarStatus =
-    sessao.tipo === "LICITACOES" || sessao.tipo === "ADMIN" || sessao.tipo === "GESTOR_ATA";
+    sessao.tipo === "ADMIN" ||
+    sessao.tipo === "GESTOR_ATA" ||
+    (sessao.tipo === "LICITACOES" && !jaHomologou);
+  const podeRegistrarHomologacao =
+    sessao.tipo === "ADMIN" ||
+    (sessao.tipo === "AGENTE_CONTRATACAO" && consolidacao.agenteContratacaoDesignadoId === sessao.id);
   if (sessao.tipo === "AGENTE_CONTRATACAO" && consolidacao.agenteContratacaoDesignadoId !== sessao.id) {
     return null;
   }
 
-  if (podeGerenciarStatus) {
+  if (sessao.tipo === "LICITACOES" || sessao.tipo === "ADMIN") {
     await sincronizarPerfisHomologadosDoPortal();
   }
 
-  const agentesContratacao = podeGerenciarStatus
-    ? await prisma.agenteContratacao.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } })
-    : [];
+  const agentesContratacao =
+    sessao.tipo === "LICITACOES" || sessao.tipo === "ADMIN"
+      ? await prisma.agenteContratacao.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } })
+      : [];
 
   // Mapa de preço referencial da Pesquisa de Preços por nome do item (apenas informativo/teto)
   const mapaPrecoPesquisa = new Map<string, number>();
@@ -117,7 +124,6 @@ export default async function LicitacaoDetalhePage({
   });
 
   const statusAtual: StatusLicitacaoValor | null = consolidacao.statusLicitacao[0]?.status ?? null;
-  const jaHomologou = consolidacao.statusLicitacao.some((s) => s.status === "HOMOLOGADO");
   const proximos = proximosStatusLicitacao(statusAtual, consolidacao.tipoContratacao);
 
   const sgcItem = consolidacao.itensDfd.find((i) => i.sgcContratoId || i.sgcAtaId) || null;
@@ -136,6 +142,7 @@ export default async function LicitacaoDetalhePage({
       consolidacaoId={consolidacaoId}
       statusSgc={statusSgc}
       podeGerenciarStatus={podeGerenciarStatus}
+      podeRegistrarHomologacao={podeRegistrarHomologacao}
       agenteDesignado={
         consolidacao.agenteContratacaoDesignado
           ? { id: consolidacao.agenteContratacaoDesignado.id, nome: consolidacao.agenteContratacaoDesignado.nome }
