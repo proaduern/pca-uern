@@ -26,16 +26,25 @@ const s = StyleSheet.create({
   categoriaHeader: { backgroundColor: "#e2e8f0", padding: 4, fontSize: 9, fontWeight: 700 },
   subtotalLinha: { flexDirection: "row", backgroundColor: "#f8fafc", fontWeight: 700 },
   totalLinha: { flexDirection: "row", backgroundColor: "#f1f5f9", fontWeight: 700 },
+  signatureBlock: { marginTop: 24, alignItems: "center", textAlign: "center" },
+  signatureLine: { width: 220, borderTopWidth: 0.8, borderColor: "#94a3b8", marginBottom: 4 },
+  signatureName: { fontSize: 8.5, fontWeight: 700, color: "#0f172a" },
+  signatureRole: { fontSize: 7.5, color: "#475569" },
+  signatureSub: { fontSize: 7, color: "#64748b", marginTop: 1 },
 });
 
 export function RelatorioItensDocumento({
   unidadeNome,
   itens,
   autenticacao,
+  responsavelNome,
+  responsavelMatricula,
 }: {
   unidadeNome: string;
   itens: ItemParaRelatorio[];
   autenticacao?: DadosAutenticacaoPdf;
+  responsavelNome?: string;
+  responsavelMatricula?: string;
 }) {
   const total = totalDosItens(itens);
   const grupos = agruparPorCategoria(itens);
@@ -84,6 +93,18 @@ export function RelatorioItensDocumento({
             <Text style={[s.tabelaCelula, s.colValorTotal]}>{brl(total)}</Text>
           </View>
         </View>
+
+        <View style={s.signatureBlock} wrap={false}>
+          <View style={s.signatureLine} />
+          <Text style={s.signatureName}>{responsavelNome || "Responsável pela Unidade Demandante"}</Text>
+          <Text style={s.signatureRole}>
+            {responsavelMatricula ? `Matrícula nº ${responsavelMatricula} • ` : ""}{unidadeNome}
+          </Text>
+          <Text style={s.signatureSub}>
+            Documento emitido eletronicamente pelo Sistema PCA-UERN
+          </Text>
+        </View>
+
         <RodapeAutenticacaoPdf autenticacao={autenticacao} />
       </Page>
     </Document>

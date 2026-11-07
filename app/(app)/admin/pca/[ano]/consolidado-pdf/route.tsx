@@ -20,6 +20,8 @@ export async function GET(
     referenciaId: `PCA-${resultado.ano}`,
     titulo: `Plano de Contratações Anuais Consolidado — PCA ${resultado.ano}`,
     unidadeOuSetor: "PROAD / UERN",
+    responsavelNome: "Pedro Eloy de Paiva Farias",
+    responsavelMatricula: "012757-4",
     valorTotal: totais.total,
     resumo: {
       "Ano do PCA": resultado.ano,

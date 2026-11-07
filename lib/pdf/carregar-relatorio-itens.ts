@@ -5,7 +5,12 @@ import type { ItemParaRelatorio } from "@/lib/relatorio-unidade";
 
 export type ResultadoCarregarRelatorioItens =
   | { erro: string; status: 401 | 403 }
-  | { unidadeNome: string; itens: ItemParaRelatorio[] };
+  | {
+      unidadeNome: string;
+      responsavelNome?: string | null;
+      responsavelMatricula?: string | null;
+      itens: ItemParaRelatorio[];
+    };
 
 /** Itens de todos os DFDs que já comprometem orçamento da unidade logada
  * (aguardando aprovação ou aprovados) — mesmo recorte usado nos cômputos do
@@ -34,5 +39,5 @@ export async function carregarRelatorioItens(): Promise<ResultadoCarregarRelator
       valorTotal: Number(it.valorTotal),
     }));
 
-  return { unidadeNome: unidade.nome, itens };
+  return { unidadeNome: unidade.nome, responsavelNome: unidade.responsavelNome, responsavelMatricula: unidade.responsavelMatricula, itens };
 }

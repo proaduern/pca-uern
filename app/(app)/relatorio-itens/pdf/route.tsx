@@ -15,6 +15,8 @@ export async function GET() {
     referenciaId: resultado.unidadeNome,
     titulo: `Relatório Geral de Itens — ${resultado.unidadeNome}`,
     unidadeOuSetor: resultado.unidadeNome,
+    responsavelNome: resultado.responsavelNome || undefined,
+    responsavelMatricula: resultado.responsavelMatricula || undefined,
     valorTotal: totalDosItens(resultado.itens),
     resumo: {
       Unidade: resultado.unidadeNome,
@@ -27,6 +29,8 @@ export async function GET() {
       unidadeNome={resultado.unidadeNome}
       itens={resultado.itens}
       autenticacao={autenticacao}
+      responsavelNome={resultado.responsavelNome || undefined}
+      responsavelMatricula={resultado.responsavelMatricula || undefined}
     />,
   );
 

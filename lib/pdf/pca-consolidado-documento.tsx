@@ -27,16 +27,29 @@ const s = StyleSheet.create({
   totalLinha: { flexDirection: "row", backgroundColor: "#f1f5f9", fontWeight: 700 },
   resumo: { marginTop: 12 },
   resumoLinha: { flexDirection: "row", justifyContent: "space-between", maxWidth: 260, marginBottom: 2 },
+  signatureBlock: { marginTop: 24, alignItems: "center", textAlign: "center" },
+  signatureLine: { width: 220, borderTopWidth: 0.8, borderColor: "#94a3b8", marginBottom: 4 },
+  signatureName: { fontSize: 8.5, fontWeight: 700, color: "#0f172a" },
+  signatureRole: { fontSize: 7.5, color: "#475569" },
+  signatureSub: { fontSize: 7, color: "#64748b", marginTop: 1 },
 });
 
 export function PcaConsolidadoDocumento({
   ano,
   linhas,
   autenticacao,
+  responsavelNome = "Pedro Eloy de Paiva Farias",
+  responsavelMatricula = "012757-4",
+  responsavelCargo = "Diretoria de Administração e Serviços",
+  responsavelPortaria = "Portaria Nº 3827/2025-GP/FUERN",
 }: {
   ano: number;
   linhas: LinhaConsolidado[];
   autenticacao?: DadosAutenticacaoPdf;
+  responsavelNome?: string;
+  responsavelMatricula?: string;
+  responsavelCargo?: string;
+  responsavelPortaria?: string;
 }) {
   const totais = totaisConsolidado(linhas);
 
@@ -91,6 +104,18 @@ export function PcaConsolidadoDocumento({
             <Text>{brl(totais.total)}</Text>
           </View>
         </View>
+
+        <View style={s.signatureBlock} wrap={false}>
+          <View style={s.signatureLine} />
+          <Text style={s.signatureName}>{responsavelNome}</Text>
+          <Text style={s.signatureRole}>
+            Matrícula nº {responsavelMatricula} • {responsavelCargo}
+          </Text>
+          <Text style={s.signatureSub}>
+            {responsavelPortaria} • Pró-Reitoria de Administração (PROAD / UERN)
+          </Text>
+        </View>
+
         <RodapeAutenticacaoPdf autenticacao={autenticacao} />
       </Page>
     </Document>
