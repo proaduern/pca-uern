@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { obterSessao, obterSessaoReal } from "@/lib/auth";
 import { resolverPcaEmAtuacao } from "@/lib/pca-contexto";
-import VoltarParaAdminBotao from "./VoltarParaAdminBotao";
+import BarraImpersonacaoAdmin from "./BarraImpersonacaoAdmin";
 import Sidebar from "./Sidebar";
 import Navbar, { type SubsistemaCodigo } from "./Navbar";
 
@@ -137,15 +137,7 @@ export default async function AppLayout({
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {atuandoComo && (
-        <div className="flex flex-wrap items-center justify-between gap-2 bg-amber-500 px-4 py-2 text-sm text-white">
-          <span>
-            Atuando como: <b>{sessao.nome}</b> ({rotuloPerfil}) — sessão real:{" "}
-            {atuandoComo.nome}
-          </span>
-          <VoltarParaAdminBotao />
-        </div>
-      )}
+      <BarraImpersonacaoAdmin sessaoReal={sessaoReal} sessaoAtual={sessao} />
       <Navbar
         nome={sessao.nome}
         tipo={sessao.tipo}

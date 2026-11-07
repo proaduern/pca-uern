@@ -77,6 +77,46 @@ export async function iniciarAtuarComoUsuarioAction(usuarioId: string) {
   redirect("/");
 }
 
+
+export async function iniciarAtuarComoArquetipoAction(tipo: string) {
+  let id = '';
+  if (tipo === 'UNIDADE') {
+    const u = await prisma.unidade.findFirst({ orderBy: { nome: 'asc' } });
+    if (!u) throw new Error('Nenhuma unidade cadastrada.');
+    id = u.id;
+  } else if (tipo === 'SETOR_TECNICO') {
+    const st = await prisma.setorTecnico.findFirst({ orderBy: { nome: 'asc' } });
+    if (!st) throw new Error('Nenhum setor técnico cadastrado.');
+    id = st.id;
+  } else if (tipo === 'LICITACOES') {
+    const l = await prisma.licitacoes.findFirst({ orderBy: { nome: 'asc' } });
+    if (!l) throw new Error('Nenhum setor de licitações cadastrado.');
+    id = l.id;
+  } else if (tipo === 'PESQUISA_PRECOS') {
+    const pp = await prisma.pesquisaPrecos.findFirst({ orderBy: { nome: 'asc' } });
+    if (!pp) throw new Error('Nenhum servidor de pesquisa de preços.');
+    id = pp.id;
+  } else if (tipo === 'PLANEJAMENTO') {
+    const p = await prisma.planejamento.findFirst({ orderBy: { nome: 'asc' } });
+    if (!p) throw new Error('Nenhum servidor de planejamento.');
+    id = p.id;
+  } else if (tipo === 'AGENTE_CONTRATACAO') {
+    const ac = await prisma.agenteContratacao.findFirst({ orderBy: { nome: 'asc' } });
+    if (!ac) throw new Error('Nenhum agente de contratação.');
+    id = ac.id;
+  } else if (tipo === 'GESTOR_ATA') {
+    const ga = await prisma.acessoGestorAta.findFirst({ orderBy: { nome: 'asc' } });
+    if (!ga) throw new Error('Nenhum gestor de ata cadastrado.');
+    id = ga.id;
+  } else {
+    throw new Error('Tipo de perfil não suportado.');
+  }
+
+  await iniciarAtuarComo(tipo as any, id);
+  revalidatePath('/', 'layout');
+  redirect('/');
+}
+
 export async function encerrarAtuarComoAction() {
   await encerrarAtuarComo();
   redirect("/");
