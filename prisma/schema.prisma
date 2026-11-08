@@ -1516,3 +1516,21 @@ model DocumentoAutenticado {
   @@unique([tipoDocumento, referenciaId])
   @@index([codigoVerificador])
 }
+
+
+model ParametrosKpiLicitacao {
+  id                        String   @id @default("CONFIG_PADRAO")
+  demandanteEtpDias         Int      @default(15)
+  pesquisaPrecosDias        Int      @default(14)
+  termoReferenciaDias       Int      @default(14)
+  minutasDlcDias            Int      @default(10)
+  pgeReferencialDias        Int      @default(20)
+  agenteFaseExternaDias     Int      @default(35)
+  conferenciaDefinitivoDias Int      @default(10)
+  entregaDestinatarioDias   Int      @default(5)
+  limiarDiamante            Int      @default(90)
+  limiarOuro                Int      @default(75)
+  limiarPrata               Int      @default(50)
+  atualizadoPor             String?
+  updatedAt                 DateTime @updatedAt
+}

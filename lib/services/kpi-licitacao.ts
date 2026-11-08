@@ -11,6 +11,12 @@ export interface MetasSlaDias {
   entregaDestinatarioBens: number; // 5 dias
 }
 
+export interface LimiaresRating {
+  diamante: number; // 90
+  ouro: number; // 75
+  prata: number; // 50
+}
+
 export const METAS_SLA_PADRAO: MetasSlaDias = {
   demandanteEtp: 15,
   pesquisaPrecos: 14,
@@ -21,6 +27,116 @@ export const METAS_SLA_PADRAO: MetasSlaDias = {
   conferenciaDefinitivoBens: 10,
   entregaDestinatarioBens: 5,
 };
+
+export const LIMIARES_RATING_PADRAO: LimiaresRating = {
+  diamante: 90,
+  ouro: 75,
+  prata: 50,
+};
+
+export interface ParametrosCompletosLicitacao {
+  metas: MetasSlaDias;
+  limiares: LimiaresRating;
+  isCustomizado: boolean;
+  atualizadoPor?: string | null;
+  updatedAt?: string | null;
+}
+
+export async function obterParametrosKpiLicitacao(): Promise<ParametrosCompletosLicitacao> {
+  try {
+    const config = await prisma.parametrosKpiLicitacao.findUnique({
+      where: { id: "CONFIG_PADRAO" },
+    });
+
+    if (!config) {
+      return {
+        metas: { ...METAS_SLA_PADRAO },
+        limiares: { ...LIMIARES_RATING_PADRAO },
+        isCustomizado: false,
+      };
+    }
+
+    return {
+      metas: {
+        demandanteEtp: config.demandanteEtpDias,
+        pesquisaPrecos: config.pesquisaPrecosDias,
+        termoReferencia: config.termoReferenciaDias,
+        minutasDlc: config.minutasDlcDias,
+        pgeReferencial: config.pgeReferencialDias,
+        agenteFaseExterna: config.agenteFaseExternaDias,
+        conferenciaDefinitivoBens: config.conferenciaDefinitivoDias,
+        entregaDestinatarioBens: config.entregaDestinatarioDias,
+      },
+      limiares: {
+        diamante: config.limiarDiamante,
+        ouro: config.limiarOuro,
+        prata: config.limiarPrata,
+      },
+      isCustomizado: true,
+      atualizadoPor: config.atualizadoPor,
+      updatedAt: config.updatedAt?.toISOString(),
+    };
+  } catch (err) {
+    console.warn("Aviso ao carregar parametros de licitacao, usando padroes:", err);
+    return {
+      metas: { ...METAS_SLA_PADRAO },
+      limiares: { ...LIMIARES_RATING_PADRAO },
+      isCustomizado: false,
+    };
+  }
+}
+
+export async function salvarParametrosKpiLicitacao(
+  dados: {
+    metas: MetasSlaDias;
+    limiares: LimiaresRating;
+  },
+  atualizadoPor?: string
+) {
+  return await prisma.parametrosKpiLicitacao.upsert({
+    where: { id: "CONFIG_PADRAO" },
+    create: {
+      id: "CONFIG_PADRAO",
+      demandanteEtpDias: Math.max(1, Math.round(dados.metas.demandanteEtp)),
+      pesquisaPrecosDias: Math.max(1, Math.round(dados.metas.pesquisaPrecos)),
+      termoReferenciaDias: Math.max(1, Math.round(dados.metas.termoReferencia)),
+      minutasDlcDias: Math.max(1, Math.round(dados.metas.minutasDlc)),
+      pgeReferencialDias: Math.max(1, Math.round(dados.metas.pgeReferencial)),
+      agenteFaseExternaDias: Math.max(1, Math.round(dados.metas.agenteFaseExterna)),
+      conferenciaDefinitivoDias: Math.max(1, Math.round(dados.metas.conferenciaDefinitivoBens)),
+      entregaDestinatarioDias: Math.max(1, Math.round(dados.metas.entregaDestinatarioBens)),
+      limiarDiamante: Math.max(1, Math.min(100, Math.round(dados.limiares.diamante))),
+      limiarOuro: Math.max(1, Math.min(100, Math.round(dados.limiares.ouro))),
+      limiarPrata: Math.max(1, Math.min(100, Math.round(dados.limiares.prata))),
+      atualizadoPor: atualizadoPor || "Administrador PROAD",
+    },
+    update: {
+      demandanteEtpDias: Math.max(1, Math.round(dados.metas.demandanteEtp)),
+      pesquisaPrecosDias: Math.max(1, Math.round(dados.metas.pesquisaPrecos)),
+      termoReferenciaDias: Math.max(1, Math.round(dados.metas.termoReferencia)),
+      minutasDlcDias: Math.max(1, Math.round(dados.metas.minutasDlc)),
+      pgeReferencialDias: Math.max(1, Math.round(dados.metas.pgeReferencial)),
+      agenteFaseExternaDias: Math.max(1, Math.round(dados.metas.agenteFaseExterna)),
+      conferenciaDefinitivoDias: Math.max(1, Math.round(dados.metas.conferenciaDefinitivoBens)),
+      entregaDestinatarioDias: Math.max(1, Math.round(dados.metas.entregaDestinatarioBens)),
+      limiarDiamante: Math.max(1, Math.min(100, Math.round(dados.limiares.diamante))),
+      limiarOuro: Math.max(1, Math.min(100, Math.round(dados.limiares.ouro))),
+      limiarPrata: Math.max(1, Math.min(100, Math.round(dados.limiares.prata))),
+      atualizadoPor: atualizadoPor || "Administrador PROAD",
+    },
+  });
+}
+
+export async function restaurarParametrosKpiLicitacaoPadrao(atualizadoPor?: string) {
+  try {
+    await prisma.parametrosKpiLicitacao.delete({
+      where: { id: "CONFIG_PADRAO" },
+    });
+  } catch {
+    // Se não existia, sem problema
+  }
+  return { sucesso: true };
+}
 
 export type FaixaRating = "DIAMANTE" | "OURO" | "PRATA" | "BRONZE_CRITICO";
 
@@ -102,20 +218,24 @@ export interface KpisLicitacaoConsolidado {
   };
   execucaoBens: KpiExecucaoBens;
   processos: KpiProcessoLicitacao[];
+  parametrosVigentes: ParametrosCompletosLicitacao;
 }
 
-function calcularScoreERating(diasReais: number, meta: number): { score: number; faixa: FaixaRating; razao: number } {
+function calcularScoreERating(
+  diasReais: number,
+  meta: number,
+  limiares: LimiaresRating
+): { score: number; faixa: FaixaRating; razao: number } {
   if (meta <= 0) return { score: 100, faixa: "DIAMANTE", razao: 1 };
   const razao = Number((diasReais / meta).toFixed(2));
   let score = 100;
   if (razao > 1.0) {
-    // Para cada 10% de atraso em relação à meta, perde 10 pontos
     score = Math.max(0, Math.round(100 - (razao - 1.0) * 100));
   }
   let faixa: FaixaRating = "DIAMANTE";
-  if (score >= 90) faixa = "DIAMANTE";
-  else if (score >= 75) faixa = "OURO";
-  else if (score >= 50) faixa = "PRATA";
+  if (score >= limiares.diamante) faixa = "DIAMANTE";
+  else if (score >= limiares.ouro) faixa = "OURO";
+  else if (score >= limiares.prata) faixa = "PRATA";
   else faixa = "BRONZE_CRITICO";
 
   return { score, faixa, razao };
@@ -128,6 +248,10 @@ function diffEmDias(inicio: Date, fim: Date): number {
 }
 
 export async function obterKpisLicitacao(pcaAno?: number): Promise<KpisLicitacaoConsolidado> {
+  const paramsConfig = await obterParametrosKpiLicitacao();
+  const METAS = paramsConfig.metas;
+  const LIMIARES = paramsConfig.limiares;
+
   const whereConsolidacao: any = {};
   if (pcaAno) {
     whereConsolidacao.pcaAno = pcaAno;
@@ -256,27 +380,22 @@ export async function obterKpisLicitacao(pcaAno?: number): Promise<KpisLicitacao
       }
     }
 
-    // Se houve pesquisa
     if (diasPesquisa > 0 || history.some((h) => h.status === "PESQUISA_PRECOS")) {
       somaDiasPesquisa += diasPesquisa;
       countPesquisa++;
     }
-    // Se houve TR
     if (diasTr > 0 || history.some((h) => h.status === "TERMO_REFERENCIA")) {
       somaDiasTr += diasTr;
       countTr++;
     }
-    // Se houve Minutas
     if (diasMinutas > 0 || history.some((h) => h.status === "MINUTAS")) {
       somaDiasMinutas += diasMinutas;
       countMinutas++;
     }
-    // Se houve PGE
     if (diasPge > 0 || history.some((h) => h.status === "ANALISE_JURIDICA")) {
       somaDiasPge += diasPge;
       countPge++;
     }
-    // Se houve Agente
     if (diasAgente > 0 || history.some((h) => h.status === "SESSAO_MARCADA")) {
       somaDiasAgente += diasAgente;
       countAgente++;
@@ -286,26 +405,25 @@ export async function obterKpisLicitacao(pcaAno?: number): Promise<KpisLicitacao
     const diasTotalInternoUern = diasDemandante + diasPesquisa + diasTr + diasMinutas + diasAgente;
     const diasTotalGeral = diasTotalInternoUern + diasPge;
 
-    // Detectar gargalo específico do processo
+    // Detectar gargalo específico do processo com base nas metas vigentes
     const ratios = [
-      { setor: "Demandante (ETP/Riscos)", ratio: diasDemandante / METAS_SLA_PADRAO.demandanteEtp },
-      { setor: "Pesquisa de Preços", ratio: diasPesquisa / METAS_SLA_PADRAO.pesquisaPrecos },
-      { setor: "Termo de Referência", ratio: diasTr / METAS_SLA_PADRAO.termoReferencia },
-      { setor: "Minutas DLC", ratio: diasMinutas / METAS_SLA_PADRAO.minutasDlc },
-      { setor: "Agente de Contratação", ratio: diasAgente / METAS_SLA_PADRAO.agenteFaseExterna },
+      { setor: "Demandante (ETP/Riscos)", ratio: diasDemandante / METAS.demandanteEtp },
+      { setor: "Pesquisa de Preços", ratio: diasPesquisa / METAS.pesquisaPrecos },
+      { setor: "Termo de Referência", ratio: diasTr / METAS.termoReferencia },
+      { setor: "Minutas DLC", ratio: diasMinutas / METAS.minutasDlc },
+      { setor: "Agente de Contratação", ratio: diasAgente / METAS.agenteFaseExterna },
     ];
     ratios.sort((a, b) => b.ratio - a.ratio);
     const gargaloIdentificado = ratios[0].ratio > 1.0 ? ratios[0].setor : undefined;
 
-    // Score do processo
     const metaInternaEsperada =
-      METAS_SLA_PADRAO.demandanteEtp +
-      METAS_SLA_PADRAO.pesquisaPrecos +
-      METAS_SLA_PADRAO.termoReferencia +
-      METAS_SLA_PADRAO.minutasDlc +
-      METAS_SLA_PADRAO.agenteFaseExterna;
+      METAS.demandanteEtp +
+      METAS.pesquisaPrecos +
+      METAS.termoReferencia +
+      METAS.minutasDlc +
+      METAS.agenteFaseExterna;
 
-    const calcProcesso = calcularScoreERating(diasTotalInternoUern, metaInternaEsperada);
+    const calcProcesso = calcularScoreERating(diasTotalInternoUern, metaInternaEsperada, LIMIARES);
 
     // Itens e Homologação
     const todosItens = [...c.itensDfd, ...c.itensTecnicos];
@@ -375,21 +493,21 @@ export async function obterKpisLicitacao(pcaAno?: number): Promise<KpisLicitacao
   const mediaPge = countPge > 0 ? Number((somaDiasPge / countPge).toFixed(1)) : 0;
   const mediaAgente = countAgente > 0 ? Number((somaDiasAgente / countAgente).toFixed(1)) : 0;
 
-  const ratingDemandante = calcularScoreERating(mediaDemandante, METAS_SLA_PADRAO.demandanteEtp);
-  const ratingPesquisa = calcularScoreERating(mediaPesquisa, METAS_SLA_PADRAO.pesquisaPrecos);
-  const ratingTr = calcularScoreERating(mediaTr, METAS_SLA_PADRAO.termoReferencia);
-  const ratingMinutas = calcularScoreERating(mediaMinutas, METAS_SLA_PADRAO.minutasDlc);
-  const ratingAgente = calcularScoreERating(mediaAgente, METAS_SLA_PADRAO.agenteFaseExterna);
+  const ratingDemandante = calcularScoreERating(mediaDemandante, METAS.demandanteEtp, LIMIARES);
+  const ratingPesquisa = calcularScoreERating(mediaPesquisa, METAS.pesquisaPrecos, LIMIARES);
+  const ratingTr = calcularScoreERating(mediaTr, METAS.termoReferencia, LIMIARES);
+  const ratingMinutas = calcularScoreERating(mediaMinutas, METAS.minutasDlc, LIMIARES);
+  const ratingAgente = calcularScoreERating(mediaAgente, METAS.agenteFaseExterna, LIMIARES);
 
   // PGE: Calculado apenas como referência externa (sem penalizar rating UERN)
-  const ratingPge = calcularScoreERating(mediaPge, METAS_SLA_PADRAO.pgeReferencial);
+  const ratingPge = calcularScoreERating(mediaPge, METAS.pgeReferencial, LIMIARES);
 
   const ratingsSetoriais: RatingSetorialInfo[] = [
     {
       setorCodigo: "DEMANDANTE_ETP",
       setorNome: "Fase Interna Demandante / ETP & Riscos",
       responsavelPadrao: "Setores Técnicos e Unidades Demandantes",
-      metaDias: METAS_SLA_PADRAO.demandanteEtp,
+      metaDias: METAS.demandanteEtp,
       diasMediosReais: mediaDemandante,
       processosAvaliados: countDemandante,
       razaoEficiencia: ratingDemandante.razao,
@@ -401,7 +519,7 @@ export async function obterKpisLicitacao(pcaAno?: number): Promise<KpisLicitacao
       setorCodigo: "PESQUISA_PRECOS",
       setorNome: "Pesquisa de Preços de Mercado",
       responsavelPadrao: "Unidade de Pesquisa de Preços (DLC)",
-      metaDias: METAS_SLA_PADRAO.pesquisaPrecos,
+      metaDias: METAS.pesquisaPrecos,
       diasMediosReais: mediaPesquisa,
       processosAvaliados: countPesquisa,
       razaoEficiencia: ratingPesquisa.razao,
@@ -413,7 +531,7 @@ export async function obterKpisLicitacao(pcaAno?: number): Promise<KpisLicitacao
       setorCodigo: "TERMO_REFERENCIA",
       setorNome: "Elaboração de Termo de Referência (TR)",
       responsavelPadrao: "Unidade de Planejamento da Contratação",
-      metaDias: METAS_SLA_PADRAO.termoReferencia,
+      metaDias: METAS.termoReferencia,
       diasMediosReais: mediaTr,
       processosAvaliados: countTr,
       razaoEficiencia: ratingTr.razao,
@@ -425,7 +543,7 @@ export async function obterKpisLicitacao(pcaAno?: number): Promise<KpisLicitacao
       setorCodigo: "MINUTAS_DLC",
       setorNome: "Minutas de Edital, Contrato e Ata",
       responsavelPadrao: "Divisão de Licitações e Contratos (DLC)",
-      metaDias: METAS_SLA_PADRAO.minutasDlc,
+      metaDias: METAS.minutasDlc,
       diasMediosReais: mediaMinutas,
       processosAvaliados: countMinutas,
       razaoEficiencia: ratingMinutas.razao,
@@ -437,7 +555,7 @@ export async function obterKpisLicitacao(pcaAno?: number): Promise<KpisLicitacao
       setorCodigo: "PGE_REFERENCIAL",
       setorNome: "Análise Jurídica Externa (PGE-RN)",
       responsavelPadrao: "Procuradoria Geral do Estado (Órgão Externo)",
-      metaDias: METAS_SLA_PADRAO.pgeReferencial,
+      metaDias: METAS.pgeReferencial,
       diasMediosReais: mediaPge,
       processosAvaliados: countPge,
       razaoEficiencia: ratingPge.razao,
@@ -450,7 +568,7 @@ export async function obterKpisLicitacao(pcaAno?: number): Promise<KpisLicitacao
       setorCodigo: "AGENTE_FASE_EXTERNA",
       setorNome: "Fase Externa e Homologação",
       responsavelPadrao: "Agente de Contratação / Comissão",
-      metaDias: METAS_SLA_PADRAO.agenteFaseExterna,
+      metaDias: METAS.agenteFaseExterna,
       diasMediosReais: mediaAgente,
       processosAvaliados: countAgente,
       razaoEficiencia: ratingAgente.razao,
@@ -469,14 +587,14 @@ export async function obterKpisLicitacao(pcaAno?: number): Promise<KpisLicitacao
     setorGargaloPrincipal = setoresInternos[0].setorNome;
   }
 
-  // Score Geral de Eficiência UERN (média ponderada dos setores internos)
+  // Score Geral de Eficiência UERN (média dos setores internos)
   const somaScoreInterno = setoresInternos.reduce((acc, s) => acc + s.score, 0);
   const scoreGeralEficiencia =
     setoresInternos.length > 0 ? Math.round(somaScoreInterno / setoresInternos.length) : 100;
   let faixaGeral: FaixaRating = "DIAMANTE";
-  if (scoreGeralEficiencia >= 90) faixaGeral = "DIAMANTE";
-  else if (scoreGeralEficiencia >= 75) faixaGeral = "OURO";
-  else if (scoreGeralEficiencia >= 50) faixaGeral = "PRATA";
+  if (scoreGeralEficiencia >= LIMIARES.diamante) faixaGeral = "DIAMANTE";
+  else if (scoreGeralEficiencia >= LIMIARES.ouro) faixaGeral = "OURO";
+  else if (scoreGeralEficiencia >= LIMIARES.prata) faixaGeral = "PRATA";
   else faixaGeral = "BRONZE_CRITICO";
 
   // Sucesso de Licitações (RSL)
@@ -485,8 +603,8 @@ export async function obterKpisLicitacao(pcaAno?: number): Promise<KpisLicitacao
       ? Number(((totalHomologadosSucesso / totalItensDisputados) * 100).toFixed(1))
       : 100;
   let ratingSucesso: FaixaRating = "DIAMANTE";
-  if (taxaSucessoGeral >= 90) ratingSucesso = "DIAMANTE";
-  else if (taxaSucessoGeral >= 75) ratingSucesso = "OURO";
+  if (taxaSucessoGeral >= LIMIARES.diamante) ratingSucesso = "DIAMANTE";
+  else if (taxaSucessoGeral >= LIMIARES.ouro) ratingSucesso = "OURO";
   else if (taxaSucessoGeral >= 60) ratingSucesso = "PRATA";
   else ratingSucesso = "BRONZE_CRITICO";
 
@@ -542,7 +660,6 @@ export async function obterKpisLicitacao(pcaAno?: number): Promise<KpisLicitacao
 
     if (recebidoDef) {
       processosExecConcluidos++;
-      // Acompanha entregas
       for (const ent of pe.entregas) {
         const entFinal = ent.statusEntrega.find((se) => se.status === "ENTREGUE");
         if (entFinal) {
@@ -558,16 +675,15 @@ export async function obterKpisLicitacao(pcaAno?: number): Promise<KpisLicitacao
   const mediaDiasConfDef = countConfDef > 0 ? Number((somaDiasConfDef / countConfDef).toFixed(1)) : 0;
   const mediaDiasEntrega = countEntregaDest > 0 ? Number((somaDiasEntregaDest / countEntregaDest).toFixed(1)) : 0;
 
-  // Eficiência de Execução de Bens
   const pontualidadeFornec = countFornecedor > 0 ? Math.max(0, 100 - (atrasosFornecedor / countFornecedor) * 100) : 100;
-  const scoreConf = calcularScoreERating(mediaDiasConfDef, METAS_SLA_PADRAO.conferenciaDefinitivoBens).score;
-  const scoreEntr = calcularScoreERating(mediaDiasEntrega, METAS_SLA_PADRAO.entregaDestinatarioBens).score;
+  const scoreConf = calcularScoreERating(mediaDiasConfDef, METAS.conferenciaDefinitivoBens, LIMIARES).score;
+  const scoreEntr = calcularScoreERating(mediaDiasEntrega, METAS.entregaDestinatarioBens, LIMIARES).score;
   const scoreEficienciaExecucao = Math.round(pontualidadeFornec * 0.4 + scoreConf * 0.35 + scoreEntr * 0.25);
 
   let faixaExecucao: FaixaRating = "DIAMANTE";
-  if (scoreEficienciaExecucao >= 90) faixaExecucao = "DIAMANTE";
-  else if (scoreEficienciaExecucao >= 75) faixaExecucao = "OURO";
-  else if (scoreEficienciaExecucao >= 50) faixaExecucao = "PRATA";
+  if (scoreEficienciaExecucao >= LIMIARES.diamante) faixaExecucao = "DIAMANTE";
+  else if (scoreEficienciaExecucao >= LIMIARES.ouro) faixaExecucao = "OURO";
+  else if (scoreEficienciaExecucao >= LIMIARES.prata) faixaExecucao = "PRATA";
   else faixaExecucao = "BRONZE_CRITICO";
 
   const totalProc = consolidacoes.length;
@@ -610,5 +726,6 @@ export async function obterKpisLicitacao(pcaAno?: number): Promise<KpisLicitacao
       faixaExecucao,
     },
     processos: listaProcessosKpi,
+    parametrosVigentes: paramsConfig,
   };
 }

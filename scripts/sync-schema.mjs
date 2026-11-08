@@ -199,6 +199,26 @@ async function main() {
       CREATE UNIQUE INDEX IF NOT EXISTS "DocumentoAutenticado_tipoDocumento_referenciaId_key"
       ON ${schemaPrefix}"DocumentoAutenticado"("tipoDocumento", "referenciaId");
     `);
+
+    await executarSilencioso(`
+      CREATE TABLE IF NOT EXISTS ${schemaPrefix}"ParametrosKpiLicitacao" (
+        "id" TEXT NOT NULL DEFAULT 'CONFIG_PADRAO',
+        "demandanteEtpDias" INTEGER NOT NULL DEFAULT 15,
+        "pesquisaPrecosDias" INTEGER NOT NULL DEFAULT 14,
+        "termoReferenciaDias" INTEGER NOT NULL DEFAULT 14,
+        "minutasDlcDias" INTEGER NOT NULL DEFAULT 10,
+        "pgeReferencialDias" INTEGER NOT NULL DEFAULT 20,
+        "agenteFaseExternaDias" INTEGER NOT NULL DEFAULT 35,
+        "conferenciaDefinitivoDias" INTEGER NOT NULL DEFAULT 10,
+        "entregaDestinatarioDias" INTEGER NOT NULL DEFAULT 5,
+        "limiarDiamante" INTEGER NOT NULL DEFAULT 90,
+        "limiarOuro" INTEGER NOT NULL DEFAULT 75,
+        "limiarPrata" INTEGER NOT NULL DEFAULT 50,
+        "atualizadoPor" TEXT,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "ParametrosKpiLicitacao_pkey" PRIMARY KEY ("id")
+      );
+    `);
   }
 
   console.log("[Deploy Schema] Colunas e tabelas sincronizadas com sucesso!");

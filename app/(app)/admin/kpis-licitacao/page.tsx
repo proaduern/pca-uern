@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Info,
   Filter,
+  Sliders,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -85,7 +86,16 @@ export default async function KpisLicitacaoPage({
           </p>
         </div>
 
-        {/* Filtro por Ano */}
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href="/admin/kpis-licitacao/parametros"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:text-[#003366] hover:bg-slate-50 transition shadow-sm"
+          >
+            <Sliders className="w-3.5 h-3.5 text-[#003366]" />
+            Configurar Metas &amp; Prazos
+          </Link>
+
+          {/* Filtro por Ano */}
         <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
           <Filter className="w-4 h-4 text-slate-500" />
           <span className="text-xs font-bold text-slate-700">PCA:</span>
@@ -115,6 +125,7 @@ export default async function KpisLicitacaoPage({
               2025
             </Link>
           </div>
+        </div>
         </div>
       </div>
 
