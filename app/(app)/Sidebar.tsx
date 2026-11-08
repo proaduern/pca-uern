@@ -43,6 +43,7 @@ const ICONE_POR_HREF: Record<string, typeof LayoutDashboard> = {
   "/admin/entrega": PackageCheck,
   "/admin/gestor-ata": BookOpen,
   "/admin/pca": BarChart3,
+  "/admin/kpis-licitacao": BarChart3,
   "/admin/contratos-sgc": FileText,
   "/admin/categorias": Tags,
   "/admin/catalogo": ClipboardList,
