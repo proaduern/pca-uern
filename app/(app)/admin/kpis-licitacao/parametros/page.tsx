@@ -80,7 +80,7 @@ export default async function ParametrosKpiLicitacaoPage() {
               Metas de Prazos Setoriais da Licitação (Dias Corridos)
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Estes valores balizam o cálculo de razão de eficiência do Gargalômetro e o tempo médio esperado.
+              Estes valores balizam o cálculo de razão de eficiência do Controle de Desempenho e o tempo médio esperado.
             </p>
           </div>
 
@@ -336,7 +336,7 @@ export default async function ParametrosKpiLicitacaoPage() {
               <label className="block text-xs font-bold text-amber-900">
                 Corte Faixa Prata (Atenção)
               </label>
-              <p className="text-[11px] text-amber-700">Pontuação mínima para selo Prata (abaixo disso é Gargalo Crítico).</p>
+              <p className="text-[11px] text-amber-700">Pontuação mínima para selo Prata (abaixo disso é Desempenho Crítico).</p>
               <div className="flex items-center gap-2 pt-1">
                 <input
                   type="number"

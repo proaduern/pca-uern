@@ -62,7 +62,7 @@ export default async function AppLayout({
       { href: "/admin/solicitacoes", label: "Solicitações de Catálogo" },
       { href: "/admin/solicitacoes-cota-geral", label: "Solicitações de Cota Geral (OP)" },
       { href: "/admin/contratos-sgc", label: "Contratos Vigentes (SGC)" },
-      { href: "/admin/kpis-licitacao", label: "KPIs & Eficiência de Licitações" },
+      { href: "/admin/kpis-licitacao", label: "KPIs & Controle de Desempenho" },
       { href: "/admin/parametros", label: "Parâmetros do PCA" },
     ],
     ETP_RISCOS: [
@@ -83,7 +83,7 @@ export default async function AppLayout({
       { href: "/admin/agentes-contratacao", label: "Agentes de Contratação" },
       { href: "/admin/gestor-ata", label: "Setor de Gestão de Atas (ARP)" },
       { href: "/admin/licitacoes", label: "Acessos de Licitações e Contratos" },
-      { href: "/admin/kpis-licitacao", label: "KPIs & Gargalômetro" },
+      { href: "/admin/kpis-licitacao", label: "KPIs & Controle de Desempenho" },
     ],
   };
 
@@ -99,7 +99,7 @@ export default async function AppLayout({
     { href: "/licitacoes", label: "Processos Pós-ETP, Designação e Licitação" },
     { href: "/pesquisa-precos", label: "Acompanhamento — Pesquisa de Preços" },
     { href: "/termo-referencia", label: "Acompanhamento — Termo de Referência (TR)" },
-    { href: "/admin/kpis-licitacao", label: "KPIs & Gargalômetro" },
+
   ];
   const linksPesquisaPrecos = [{ href: "/pesquisa-precos", label: "Fila de Pesquisa de Preços" }];
   const linksPlanejamento = [{ href: "/termo-referencia", label: "Fila de Termo de Referência (TR)" }];
