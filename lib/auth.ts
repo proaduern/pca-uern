@@ -63,6 +63,8 @@ export interface SessionPayload {
   usuarioId?: string; // id do Usuario logado (pessoa fisica)
   unidadeId?: string; // id da Unidade vinculada
   unidadeNome?: string; // Nome da Unidade vinculada
+  unidadeSigla?: string; // Sigla da Unidade vinculada
+  perfisDisponiveis?: string[]; // Todos os perfis PCA concedidos pelo Admin ao usuario
   permissoes?: PermissoesUsuario;
 }
 
@@ -107,6 +109,8 @@ async function obterSessaoDoCookie(nomeCookie: string): Promise<SessionPayload |
       usuarioId: payload.usuarioId as string | undefined,
       unidadeId: payload.unidadeId as string | undefined,
       unidadeNome: payload.unidadeNome as string | undefined,
+      unidadeSigla: payload.unidadeSigla as string | undefined,
+      perfisDisponiveis: payload.perfisDisponiveis as string[] | undefined,
       permissoes:
         (payload.permissoes as PermissoesUsuario | undefined) ??
         (payload.tipo === "UNIDADE" ? PERMISSOES_TOTAL : undefined),

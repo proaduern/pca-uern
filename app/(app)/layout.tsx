@@ -146,6 +146,7 @@ export default async function AppLayout({
         tipo={sessao.tipo}
         subtitulo={sessao.unidadeNome ?? null}
         subsistemaAtivo={subsistemaAtivo}
+        perfisDisponiveis={sessao.perfisDisponiveis}
         pcaAtuacao={
           contextoPca?.status === "resolvido"
             ? {

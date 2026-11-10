@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
-import { prisma } from "@/lib/prisma";
 import {
   COOKIE_NAME,
   SESSION_DURATION_SECONDS,
   gerarTokenSessao,
-  criarSessao,
-  type SessionPayload,
 } from "@/lib/auth";
+import {
+  normalizarListaPerfisPca,
+  resolverSessaoPorPerfilPca,
+  obterDestinoPorSubsistema,
+} from "@/lib/resolver-sessao-perfil";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +51,48 @@ const SUBSISTEMAS_VALIDOS = [
   "LICITACOES_MINUTAS",
 ] as const;
 
+function escolherPerfilParaSubsistema(
+  roleToken: string | undefined,
+  perfisDisponiveis: string[],
+  subsistemaAtivo: string
+): string {
+  const roleLimpo = (roleToken || "").toUpperCase().trim();
+  if (roleLimpo && !roleLimpo.includes(",")) {
+    return roleLimpo;
+  }
+  if (perfisDisponiveis.includes("ADMIN")) return "ADMIN";
+
+  if (subsistemaAtivo === "ETP_RISCOS" && perfisDisponiveis.includes("SETOR_TECNICO")) {
+    return "SETOR_TECNICO";
+  }
+  if (subsistemaAtivo === "PESQUISA_PRECOS") {
+    if (perfisDisponiveis.includes("PESQUISA_PRECOS")) return "PESQUISA_PRECOS";
+    if (perfisDisponiveis.includes("DIRETOR_LICITACOES") || perfisDisponiveis.includes("LICITACOES")) {
+      return "DIRETOR_LICITACOES";
+    }
+  }
+  if (subsistemaAtivo === "TERMO_REFERENCIA") {
+    if (perfisDisponiveis.includes("PLANEJAMENTO")) return "PLANEJAMENTO";
+    if (perfisDisponiveis.includes("DIRETOR_LICITACOES") || perfisDisponiveis.includes("LICITACOES")) {
+      return "DIRETOR_LICITACOES";
+    }
+  }
+  if (subsistemaAtivo === "LICITACOES_MINUTAS") {
+    const match = perfisDisponiveis.find((p) =>
+      ["DIRETOR_LICITACOES", "LICITACOES", "AGENTE_CONTRATACAO", "GESTOR_ATA"].includes(p)
+    );
+    if (match) return match;
+  }
+  if (subsistemaAtivo === "PCA") {
+    const match = perfisDisponiveis.find((p) =>
+      ["UNIDADE", "SETOR_INTERNO", "EXECUCAO", "ENTREGA"].includes(p)
+    );
+    if (match) return match;
+  }
+
+  return perfisDisponiveis[0] || "UNIDADE";
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -62,19 +106,30 @@ export async function GET(request: NextRequest) {
 
     // 1. Valida o token JWT emitido pelo Portal Central PROAD com fallback tolerante a falhas
     const payload = await verificarTokenComFallback(token);
-    const { email, nome, matricula, role, targetSystem, unidadeSigla, unidadeNome, unidadeEmail, permissoesPca } =
-      payload as {
-        userId?: string;
-        email: string;
-        nome: string;
-        matricula?: string;
-        role?: string;
-        targetSystem: string;
-        unidadeSigla?: string;
-        unidadeNome?: string;
-        unidadeEmail?: string;
-        permissoesPca?: any;
-      };
+    const {
+      email,
+      nome,
+      matricula,
+      role,
+      perfisPca,
+      targetSystem,
+      unidadeSigla,
+      unidadeNome,
+      unidadeEmail,
+      permissoesPca,
+    } = payload as {
+      userId?: string;
+      email: string;
+      nome: string;
+      matricula?: string;
+      role?: string;
+      perfisPca?: string;
+      targetSystem: string;
+      unidadeSigla?: string;
+      unidadeNome?: string;
+      unidadeEmail?: string;
+      permissoesPca?: any;
+    };
 
     const targetUpper = (targetSystem || "").toUpperCase();
     if (!SUBSISTEMAS_VALIDOS.includes(targetUpper as any) || !email) {
@@ -86,366 +141,28 @@ export async function GET(request: NextRequest) {
       ? subsistemaQuery
       : targetUpper;
 
-    const emailLimpo = email.toLowerCase().trim();
-    const roleUpper = (role || "").toUpperCase();
+    const perfisDisponiveis = normalizarListaPerfisPca(perfisPca || role);
+    const perfilAlvo = escolherPerfilParaSubsistema(role, perfisDisponiveis, subsistemaAtivo);
 
-    let sessionPayload: SessionPayload;
-    let destinoUrl = "/";
+    const { sessionPayload } = await resolverSessaoPorPerfilPca({
+      email,
+      nome,
+      matricula,
+      perfilAlvo,
+      perfisDisponiveis,
+      subsistemaPreferido: subsistemaAtivo,
+      unidadeSigla,
+      unidadeNome,
+      unidadeEmail,
+      permissoesPca,
+    });
 
-    // 2. Fluxo ADMIN (Gestores da PROAD)
-    if (
-      roleUpper === "ADMIN" ||
-      roleUpper === "ADMIN_PROAD" ||
-      emailLimpo === "adj.proad@uern.br" ||
-      emailLimpo === "pedroreboucas@uern.br"
-    ) {
-      let usuarioDb = await prisma.usuario.findUnique({
-        where: { email: emailLimpo },
-      });
+    const destinoUrl = obterDestinoPorSubsistema(subsistemaAtivo);
 
-      if (!usuarioDb) {
-        usuarioDb = await prisma.usuario.create({
-          data: {
-            nome: nome || "Administrador PROAD",
-            email: emailLimpo,
-            senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
-            senhaTemporaria: false,
-            role: "ADMIN",
-            ativo: true,
-          },
-        });
-      } else if (usuarioDb.role !== "ADMIN") {
-        usuarioDb = await prisma.usuario.update({
-          where: { id: usuarioDb.id },
-          data: { role: "ADMIN", ativo: true },
-        });
-      }
-
-      sessionPayload = {
-        tipo: "ADMIN",
-        id: usuarioDb.id,
-        nome: usuarioDb.nome,
-        email: usuarioDb.email,
-        usuarioId: usuarioDb.id,
-        senhaTemporaria: false,
-      };
-
-      // Redireciona diretamente para a fila operacional principal ("/") do Subsistema clicado no Portal PROAD
-      destinoUrl = "/";
-    } else if (
-      roleUpper.includes("DIRETOR_LICITACOES") ||
-      roleUpper.includes("DIRETOR_DLC") ||
-      roleUpper === "LICITACOES"
-    ) {
-      // Diretor de Licitações (DLC) — atua desde o pós-ETP (designação do Agente, supervisão de Pesquisa/TR/Minutas/AJUR/Edital) até antes da Homologação
-      let lic = await prisma.licitacoes.findUnique({
-        where: { email: emailLimpo },
-      });
-      if (!lic) {
-        lic = await prisma.licitacoes.create({
-          data: {
-            nome: nome || "Diretor de Licitações (DLC)",
-            email: emailLimpo,
-            senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
-            senhaTemporaria: false,
-            ativo: true,
-          },
-        });
-      }
-      sessionPayload = {
-        tipo: "LICITACOES",
-        id: lic.id,
-        nome: lic.nome,
-        email: lic.email ?? emailLimpo,
-        senhaTemporaria: false,
-      };
-      destinoUrl = "/";
-    } else if (subsistemaAtivo === "ETP_RISCOS" || roleUpper.includes("SETOR_TECNICO")) {
-      // Subsistema 2: ETP e Mapa de Riscos (Setores Técnicos: STI, Patrimônio, SOBE, DAS, Almoxarifado, Transportes, Comitês)
-      let setorTec = await prisma.setorTecnico.findFirst({
-        where: {
-          OR: [
-            { email: emailLimpo },
-            ...(unidadeSigla ? [{ nome: { contains: unidadeSigla, mode: "insensitive" as const } }] : []),
-          ],
-          ativo: true,
-        },
-      });
-      if (!setorTec) {
-        setorTec = await prisma.setorTecnico.findFirst({ where: { ativo: true } });
-      }
-      if (!setorTec) {
-        setorTec = await prisma.setorTecnico.create({
-          data: {
-            nome: unidadeSigla || nome || "Setor Técnico",
-            email: emailLimpo,
-            senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
-            senhaTemporaria: false,
-            ativo: true,
-          },
-        });
-      }
-      sessionPayload = {
-        tipo: "SETOR_TECNICO",
-        id: setorTec.id,
-        nome: setorTec.nome,
-        email: setorTec.email ?? emailLimpo,
-        senhaTemporaria: false,
-      };
-      destinoUrl = "/";
-    } else if (subsistemaAtivo === "PESQUISA_PRECOS" || roleUpper.includes("PESQUISA_PRECOS")) {
-      // Subsistema 3: Pesquisa de Preços
-      let pesq = await prisma.pesquisaPrecos.findUnique({
-        where: { email: emailLimpo },
-      });
-      if (!pesq) {
-        pesq = await prisma.pesquisaPrecos.create({
-          data: {
-            nome: nome || "Servidor Pesquisa de Preços",
-            matricula: matricula || "00000",
-            funcao: "Pesquisa de Preços",
-            email: emailLimpo,
-            senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
-            senhaTemporaria: false,
-            ativo: true,
-          },
-        });
-      }
-      sessionPayload = {
-        tipo: "PESQUISA_PRECOS",
-        id: pesq.id,
-        nome: pesq.nome,
-        email: pesq.email ?? emailLimpo,
-        senhaTemporaria: false,
-      };
-      destinoUrl = "/";
-    } else if (subsistemaAtivo === "TERMO_REFERENCIA" || roleUpper.includes("PLANEJAMENTO")) {
-      // Subsistema 4: Termo de Referência (Setor de Planejamento)
-      let plan = await prisma.planejamento.findUnique({
-        where: { email: emailLimpo },
-      });
-      if (!plan) {
-        plan = await prisma.planejamento.create({
-          data: {
-            nome: nome || "Servidor Planejamento (TR)",
-            matricula: matricula || "00000",
-            funcao: "Planejamento",
-            email: emailLimpo,
-            senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
-            senhaTemporaria: false,
-            ativo: true,
-          },
-        });
-      }
-      sessionPayload = {
-        tipo: "PLANEJAMENTO",
-        id: plan.id,
-        nome: plan.nome,
-        email: plan.email ?? emailLimpo,
-        senhaTemporaria: false,
-      };
-      destinoUrl = "/";
-    } else if (subsistemaAtivo === "LICITACOES_MINUTAS" || roleUpper.includes("LICITACOES") || roleUpper.includes("AGENTE_CONTRATACAO") || roleUpper.includes("GESTOR_ATA")) {
-      // Subsistema 5: Minutas, Fase Jurídica e Licitações
-      if (roleUpper.includes("AGENTE_CONTRATACAO")) {
-        let ag = await prisma.agenteContratacao.findUnique({
-          where: { email: emailLimpo },
-        });
-        if (!ag) {
-          ag = await prisma.agenteContratacao.create({
-            data: {
-              nome: nome || "Agente de Contratação",
-              matricula: matricula || "00000",
-              funcao: "Agente de Contratação / Pregoeiro",
-              email: emailLimpo,
-              senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
-              senhaTemporaria: false,
-              ativo: true,
-            },
-          });
-        }
-        sessionPayload = {
-          tipo: "AGENTE_CONTRATACAO",
-          id: ag.id,
-          nome: ag.nome,
-          email: ag.email ?? emailLimpo,
-          senhaTemporaria: false,
-        };
-      } else if (roleUpper.includes("GESTOR_ATA")) {
-        let ga = await prisma.acessoGestorAta.findUnique({
-          where: { email: emailLimpo },
-        });
-        if (!ga) {
-          ga = await prisma.acessoGestorAta.create({
-            data: {
-              nome: nome || "Setor de Gestão de Atas",
-              email: emailLimpo,
-              senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
-              senhaTemporaria: false,
-              ativo: true,
-            },
-          });
-        }
-        sessionPayload = {
-          tipo: "GESTOR_ATA",
-          id: ga.id,
-          nome: ga.nome,
-          email: ga.email ?? emailLimpo,
-          senhaTemporaria: false,
-        };
-      } else {
-        let lic = await prisma.licitacoes.findFirst({
-          where: { OR: [{ email: emailLimpo }, { ativo: true }] },
-        });
-        if (!lic) {
-          lic = await prisma.licitacoes.create({
-            data: {
-              nome: nome || "Diretoria de Licitações e Contratos",
-              email: emailLimpo,
-              senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
-              senhaTemporaria: false,
-              ativo: true,
-            },
-          });
-        }
-        sessionPayload = {
-          tipo: "LICITACOES",
-          id: lic.id,
-          nome: lic.nome,
-          email: lic.email ?? emailLimpo,
-          senhaTemporaria: false,
-        };
-      }
-      destinoUrl = "/";
-    } else {
-      // 3. Verifica primeiro se o e-mail pertence a um Subsetor Interno (SetorInterno) cadastrado pelo Diretor da Unidade
-      const setorInternoDb = await prisma.setorInterno.findUnique({
-        where: { email: emailLimpo },
-        include: { unidade: true },
-      });
-
-      if (setorInternoDb && setorInternoDb.ativo) {
-        sessionPayload = {
-          tipo: "SETOR_INTERNO",
-          id: setorInternoDb.id,
-          nome: setorInternoDb.nome,
-          email: setorInternoDb.email,
-          unidadeId: setorInternoDb.unidadeId,
-          unidadeNome: setorInternoDb.unidade.nome,
-          senhaTemporaria: false,
-        };
-        destinoUrl = "/";
-      } else {
-        // 4. Fluxo UNIDADE (Diretor ou Servidor operando em nome de sua Unidade)
-        const siglaBusca = unidadeSigla || "PROAD";
-        const emailUnidadeOficial = unidadeEmail ? unidadeEmail.toLowerCase().trim() : null;
-        let unidadeDb = await prisma.unidade.findFirst({
-          where: {
-            OR: [
-              ...(emailUnidadeOficial ? [{ email: emailUnidadeOficial }] : []),
-              { email: emailLimpo },
-              { nome: { equals: siglaBusca, mode: "insensitive" as const } },
-              ...(unidadeNome ? [{ nome: { equals: unidadeNome, mode: "insensitive" as const } }] : []),
-              { nome: { contains: siglaBusca, mode: "insensitive" as const } },
-            ],
-          },
-        });
-
-        if (!unidadeDb) {
-          const emailUnidade = `${siglaBusca.toLowerCase()}_uern@uern.br`;
-          const unidadeExistenteEmail = await prisma.unidade.findUnique({
-            where: { email: emailUnidade },
-          });
-
-          if (unidadeExistenteEmail) {
-            unidadeDb = unidadeExistenteEmail;
-          } else {
-            unidadeDb = await prisma.unidade.create({
-              data: {
-                nome: siglaBusca,
-                email: emailUnidade,
-                senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
-                senhaTemporaria: false,
-                ativa: true,
-              },
-            });
-          }
-        }
-
-        const isDiretorOuEnvia = permissoesPca?.podeEnviarDfd ?? true;
-
-        let usuarioVinculado = await prisma.usuario.findUnique({
-          where: { email: emailLimpo },
-        });
-
-        if (!usuarioVinculado) {
-          usuarioVinculado = await prisma.usuario.create({
-            data: {
-              nome: nome || emailLimpo.split("@")[0],
-              email: emailLimpo,
-              matricula: matricula || null,
-              senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
-              senhaTemporaria: false,
-              role: "UNIDADE",
-              unidadeId: unidadeDb.id,
-              podeCriarDfd: permissoesPca?.podeCriarDfd ?? true,
-              podeEditarDfd: permissoesPca?.podeEditarDfd ?? true,
-              podeEnviarDfd: isDiretorOuEnvia,
-              podeExcluirDfd: permissoesPca?.podeExcluirDfd ?? isDiretorOuEnvia,
-              podeSolicitarCatalogo: permissoesPca?.podeSolicitarCatalogo ?? true,
-              podeSolicitarCotaGeral: permissoesPca?.podeSolicitarCotaGeral ?? false,
-              podeConfirmarEntrega: permissoesPca?.podeConfirmarEntrega ?? true,
-              podeGerenciarSetores: permissoesPca?.podeGerenciarSetores ?? isDiretorOuEnvia,
-              podeEditarDadosUnidade: permissoesPca?.podeEditarDadosUnidade ?? isDiretorOuEnvia,
-            },
-          });
-        }
-
-        const permissoesSessao = {
-          podeCriarDfd: usuarioVinculado.podeCriarDfd,
-          podeEditarDfd: usuarioVinculado.podeEditarDfd,
-          podeEnviarDfd: usuarioVinculado.podeEnviarDfd,
-          podeExcluirDfd: usuarioVinculado.podeExcluirDfd,
-          podeSolicitarCatalogo: usuarioVinculado.podeSolicitarCatalogo,
-          podeSolicitarCotaGeral: usuarioVinculado.podeSolicitarCotaGeral,
-          podeConfirmarEntrega: usuarioVinculado.podeConfirmarEntrega,
-          podeGerenciarSetores: usuarioVinculado.podeGerenciarSetores || usuarioVinculado.podeEnviarDfd,
-          podeEditarDadosUnidade: usuarioVinculado.podeEditarDadosUnidade || usuarioVinculado.podeEnviarDfd,
-        };
-
-        sessionPayload = {
-          tipo: "UNIDADE",
-          id: unidadeDb.id,
-          nome: unidadeDb.nome,
-          email: unidadeDb.email,
-          usuarioId: usuarioVinculado.id,
-          unidadeId: unidadeDb.id,
-          unidadeNome: unidadeDb.nome,
-          senhaTemporaria: false,
-          permissoes: permissoesSessao,
-        };
-
-        destinoUrl = "/";
-      }
-    }
-
-    // Define rota de destino operacional conforme o subsistema solicitado
-    if (subsistemaAtivo === "PESQUISA_PRECOS") {
-      destinoUrl = "/pesquisa-precos";
-    } else if (subsistemaAtivo === "ETP_RISCOS") {
-      destinoUrl = "/etp-riscos";
-    } else if (subsistemaAtivo === "TERMO_REFERENCIA") {
-      destinoUrl = "/termo-referencia";
-    } else if (subsistemaAtivo === "LICITACOES_MINUTAS") {
-      destinoUrl = "/licitacoes";
-    } else {
-      destinoUrl = "/";
-    }
-
-    // 4. Gera token de sessão assinado com a chave do PCA
+    // Gera token de sessão assinado com a chave do PCA
     const sessionToken = await gerarTokenSessao(sessionPayload);
 
-    // 5. Constrói o redirecionamento com o cookie HTTP-Only explicitamente anexado + subsistema ativo
+    // Constrói o redirecionamento com o cookie HTTP-Only explicitamente anexado + subsistema ativo
     const response = NextResponse.redirect(new URL(destinoUrl, request.url));
     response.cookies.set(COOKIE_NAME, sessionToken, {
       httpOnly: true,
@@ -454,6 +171,7 @@ export async function GET(request: NextRequest) {
       path: "/",
       maxAge: SESSION_DURATION_SECONDS,
     });
+    response.cookies.delete("pca_admin_impersonacao");
     response.cookies.set(SUBSISTEMA_COOKIE_NAME, subsistemaAtivo, {
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
@@ -462,7 +180,9 @@ export async function GET(request: NextRequest) {
       maxAge: SESSION_DURATION_SECONDS,
     });
 
-    console.log(`[SSO PCA] Autenticação concluída para ${emailLimpo} (${subsistemaAtivo}) -> ${destinoUrl}`);
+    console.log(
+      `[SSO PCA] Autenticação concluída para ${email} (${perfilAlvo} / ${subsistemaAtivo}) -> ${destinoUrl}`
+    );
     return response;
   } catch (err: any) {
     console.error("[SSO PCA] Erro no callback SSO do PCA:", err);

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, User as UserIcon, ChevronDown, CalendarRange, Layers, Building2 } from "lucide-react";
+import { LogOut, User as UserIcon, ChevronDown, CalendarRange, Layers, Building2, RefreshCw } from "lucide-react";
 import { logoutAction } from "@/lib/actions/auth";
 import type { TipoSessao } from "@/lib/auth";
 
@@ -55,16 +55,17 @@ export const INFO_SUBSISTEMA: Record<
   },
 };
 
-const ROTULO_POR_TIPO: Record<TipoSessao, string> = {
+const ROTULO_POR_TIPO: Record<string, string> = {
   ADMIN: "PROAD",
-  UNIDADE: "Unidade demandante",
-  SETOR_INTERNO: "Setor interno",
-  SETOR_TECNICO: "Setor técnico (ETP/Riscos)",
-  LICITACOES: "Licitações e Contratos",
+  UNIDADE: "Unidade Demandante (PCA)",
+  SETOR_INTERNO: "Setor Interno",
+  SETOR_TECNICO: "Setor Técnico (ETP/Riscos)",
+  LICITACOES: "Diretor de Licitações (DLC)",
+  DIRETOR_LICITACOES: "Diretor de Licitações (DLC)",
   PESQUISA_PRECOS: "Pesquisa de Preços",
   PLANEJAMENTO: "Planejamento (TR)",
   AGENTE_CONTRATACAO: "Agente de Contratação",
-  EXECUCAO: "Execução",
+  EXECUCAO: "Execução de Compras",
   ENTREGA: "Entrega de Bens",
   GESTOR_ATA: "Gestão de Atas (ARP)",
 };
@@ -75,21 +76,53 @@ export default function Navbar({
   subtitulo,
   pcaAtuacao,
   subsistemaAtivo = "PCA",
+  perfisDisponiveis,
 }: {
   nome: string;
   tipo: TipoSessao;
   subtitulo?: string | null;
   pcaAtuacao?: { ano: number; podeTrocar: boolean } | null;
   subsistemaAtivo?: SubsistemaCodigo;
+  perfisDisponiveis?: string[];
 }) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
+  const [alternandoPerfil, setAlternandoPerfil] = useState(false);
   const infoSub = INFO_SUBSISTEMA[subsistemaAtivo] ?? INFO_SUBSISTEMA.PCA;
+
+  const listaPerfis = Array.isArray(perfisDisponiveis) ? perfisDisponiveis : [];
+  const possuiMultiplosPerfis = tipo !== "ADMIN" && listaPerfis.length > 1;
+  const valorSelectAtual =
+    tipo === "LICITACOES" && listaPerfis.includes("DIRETOR_LICITACOES")
+      ? "DIRETOR_LICITACOES"
+      : tipo;
 
   function trocarSubsistemaAdmin(novo: SubsistemaCodigo) {
     document.cookie = `proad_subsistema_ativo=${novo}; path=/; max-age=${60 * 60 * 8}; SameSite=Lax`;
     router.push(INFO_SUBSISTEMA[novo].rotaInicialAdmin);
     router.refresh();
+  }
+
+  async function handleAlternarPerfil(novoPerfil: string) {
+    if (!novoPerfil || alternandoPerfil) return;
+    setAlternandoPerfil(true);
+    try {
+      const res = await fetch("/api/auth/alternar-perfil", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ perfilAlvo: novoPerfil }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Não foi possível alternar de perfil.");
+        setAlternandoPerfil(false);
+        return;
+      }
+      window.location.href = data.redirectUrl || "/";
+    } catch {
+      alert("Erro de comunicação ao alternar perfil.");
+      setAlternandoPerfil(false);
+    }
   }
 
   return (
@@ -122,6 +155,25 @@ export default function Navbar({
           <Building2 className="h-3.5 w-3.5 text-amber-600" />
           <span className="hidden sm:inline">Portal PROAD</span>
         </a>
+
+        {possuiMultiplosPerfis && (
+          <div className="hidden md:flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/80 px-2.5 py-1 shadow-xs">
+            <RefreshCw className={`h-3.5 w-3.5 text-indigo-700 ${alternandoPerfil ? "animate-spin" : ""}`} />
+            <span className="text-[11px] font-semibold text-indigo-900">Atuando como:</span>
+            <select
+              value={valorSelectAtual}
+              disabled={alternandoPerfil}
+              onChange={(e) => handleAlternarPerfil(e.target.value)}
+              className="bg-transparent text-xs font-bold text-indigo-800 focus:outline-none cursor-pointer disabled:opacity-50"
+            >
+              {listaPerfis.map((p) => (
+                <option key={p} value={p}>
+                  {ROTULO_POR_TIPO[p] || p}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {tipo === "ADMIN" && (
           <div className="hidden lg:flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1">
@@ -179,7 +231,7 @@ export default function Navbar({
           {aberto && (
             <div
               onMouseLeave={() => setAberto(false)}
-              className="absolute right-0 z-50 mt-2 w-64 rounded-2xl border border-slate-100 bg-white py-2 shadow-xl"
+              className="absolute right-0 z-50 mt-2 w-72 rounded-2xl border border-slate-100 bg-white py-2 shadow-xl"
             >
               <div className="border-b border-slate-100 px-4 py-2.5">
                 <p className="truncate text-xs font-semibold text-slate-800">{nome}</p>
@@ -190,6 +242,36 @@ export default function Navbar({
                   {ROTULO_POR_TIPO[tipo]}
                 </span>
               </div>
+
+              {possuiMultiplosPerfis && (
+                <div className="border-b border-slate-100 px-4 py-2.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                    Alternar Perfil de Atuação
+                  </p>
+                  <div className="space-y-1">
+                    {listaPerfis.map((p) => {
+                      const ativo = p === valorSelectAtual;
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          disabled={ativo || alternandoPerfil}
+                          onClick={() => handleAlternarPerfil(p)}
+                          className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-between ${
+                            ativo
+                              ? "bg-indigo-50 text-indigo-700 border border-indigo-200 cursor-default"
+                              : "text-slate-700 hover:bg-slate-100 cursor-pointer"
+                          }`}
+                        >
+                          <span>{ROTULO_POR_TIPO[p] || p}</span>
+                          {ativo && <span className="text-[10px] font-bold text-indigo-600">Ativo</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <form action={logoutAction} className="py-1">
                 <button className="flex w-full cursor-pointer items-center space-x-2 px-4 py-2 text-left text-xs font-semibold text-red-600 hover:bg-red-50">
                   <LogOut className="h-4 w-4" />
