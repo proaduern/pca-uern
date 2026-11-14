@@ -146,7 +146,12 @@ export async function resolverFaseItemPipelineDfd(itemId: string): Promise<FaseI
     return { label: "Concluído — Recebido em Definitivo e Atestado no SGC", badge: "ok", executado: true };
   }
   if (item.sgcStatusExecucao === "RECEBIDO_PROVISORIO") {
-    return { label: "SGC: Recebimento Provisório pelo Fiscal Técnico", badge: "warn", executado: false };
+    return { label: "SGC: Recebimento Provisório e Conferência pelo Fiscal Técnico / Almoxarifado", badge: "warn", executado: false };
+  }
+  if (item.sgcStatusExecucao === "EM_EXECUCAO") {
+    const docLabel = item.sgcTipoOrdem === "ORDEM_COMPRA" ? "Ordem de Compra" : "Ordem de Serviço";
+    const numDoc = item.sgcNumeroOrdem ? ` (${item.sgcNumeroOrdem})` : "";
+    return { label: `SGC: ${docLabel}${numDoc} Emitida — Em Execução pelo Fornecedor`, badge: "warn", executado: false };
   }
 
   const proc = item.processoExecucaoId
@@ -297,11 +302,21 @@ export async function construirTimelineItemDfd(itemId: string): Promise<EventoTi
       });
     }
 
+    if (item.sgcNumeroOrdem || item.sgcStatusExecucao === "EM_EXECUCAO") {
+      const docLabel = item.sgcTipoOrdem === "ORDEM_COMPRA" ? "Ordem de Compra" : "Ordem de Serviço";
+      const numDoc = item.sgcNumeroOrdem ? ` nº ${item.sgcNumeroOrdem}` : "";
+      eventos.push({
+        data: (item.sgcDataRecebimentoProv || cons?.createdAt || item.dfd.createdAt).toISOString(),
+        titulo: `${docLabel}${numDoc} Emitida no SGC`,
+        desc: `Demanda enviada ao fornecedor ${item.sgcFornecedorNome || ""}. Execução e prazo de entrega em andamento sob fiscalização do SGC.`,
+      });
+    }
+
     if (item.sgcDataRecebimentoProv) {
       eventos.push({
         data: item.sgcDataRecebimentoProv.toISOString(),
-        titulo: "Recebimento Provisório no SGC (Fiscal Técnico)",
-        desc: `Ateste provisório registrado para a Nota Fiscal nº ${item.sgcNumeroNotaFiscal || "S/N"}.`,
+        titulo: "Recebimento Provisório no SGC (Fiscal Técnico / Almoxarifado)",
+        desc: `Conferência física e ateste provisório registrado para a Nota Fiscal nº ${item.sgcNumeroNotaFiscal || "S/N"}.`,
       });
     }
 
@@ -310,7 +325,7 @@ export async function construirTimelineItemDfd(itemId: string): Promise<EventoTi
       eventos.push({
         data: dt.toISOString(),
         titulo: "Recebimento Definitivo / Atesto Final no SGC (Gestor)",
-        desc: "Despesa conferida, recebida em definitivo e aprovada para liquidação/pagamento.",
+        desc: "Despesa conferida, bens recebidos/tombados em definitivo e aprovados para liquidação/pagamento.",
       });
     }
   }

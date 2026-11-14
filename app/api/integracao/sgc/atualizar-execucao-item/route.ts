@@ -27,6 +27,8 @@ export async function POST(request: NextRequest) {
       dataRecebimentoDef,
       dataAtesto,
       numeroNotaFiscal,
+      numeroOrdem,
+      tipoOrdem,
     } = body;
 
     let targetItemIds: string[] = [];
@@ -74,6 +76,8 @@ export async function POST(request: NextRequest) {
     if (dataRecebimentoDef) updatePayload.sgcDataRecebimentoDef = new Date(dataRecebimentoDef);
     if (dataAtesto) updatePayload.sgcDataAtesto = new Date(dataAtesto);
     if (numeroNotaFiscal) updatePayload.sgcNumeroNotaFiscal = numeroNotaFiscal;
+    if (numeroOrdem) updatePayload.sgcNumeroOrdem = numeroOrdem;
+    if (tipoOrdem) updatePayload.sgcTipoOrdem = tipoOrdem;
 
     const resUpdate = await prisma.itemDfd.updateMany({
       where: { id: { in: targetItemIds } },

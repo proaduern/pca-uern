@@ -8,6 +8,9 @@ export type StatusLicitacaoValor =
   | "TERMO_REFERENCIA"
   | "DILIGENCIA_DEMANDANTE"
   | "MINUTAS"
+  | "MINUTA_CONTRATO"
+  | "MINUTA_ATA"
+  | "EDITAL_DEFINITIVO"
   | "ANALISE_JURIDICA"
   | "DILIGENCIAS_PGE"
   | "SESSAO_MARCADA"
@@ -57,6 +60,24 @@ export const STATUS_LICITACAO_OPCOES: StatusLicitacaoInfo[] = [
   {
     value: "MINUTAS",
     label: "Em Elaboração de Minutas de Contrato/Ata/Edital",
+    campos: ["responsavel"],
+    proximos: ["ANALISE_JURIDICA"],
+  },
+  {
+    value: "MINUTA_CONTRATO",
+    label: "Em Elaboração de Minuta de Contrato",
+    campos: ["responsavel"],
+    proximos: ["ANALISE_JURIDICA"],
+  },
+  {
+    value: "MINUTA_ATA",
+    label: "Em Elaboração de Minuta de Ata",
+    campos: ["responsavel"],
+    proximos: ["ANALISE_JURIDICA"],
+  },
+  {
+    value: "EDITAL_DEFINITIVO",
+    label: "Edital Definitivo",
     campos: ["responsavel"],
     proximos: ["ANALISE_JURIDICA"],
   },

@@ -725,6 +725,8 @@ model ItemDfd {
   sgcDataRecebimentoDef  DateTime?
   sgcDataAtesto          DateTime?
   sgcNumeroNotaFiscal    String?
+  sgcNumeroOrdem         String? // Ex: "01/2026 - SGC UERN"
+  sgcTipoOrdem           String? // ORDEM_COMPRA | ORDEM_SERVICO
 
   createdAt DateTime @default(now())
 
@@ -1217,6 +1219,9 @@ enum StatusLicitacaoValor {
   TERMO_REFERENCIA
   DILIGENCIA_DEMANDANTE
   MINUTAS
+  MINUTA_CONTRATO
+  MINUTA_ATA
+  EDITAL_DEFINITIVO
   ANALISE_JURIDICA
   DILIGENCIAS_PGE
   SESSAO_MARCADA
