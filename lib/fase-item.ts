@@ -151,7 +151,16 @@ export async function resolverFaseItemPipelineDfd(itemId: string): Promise<FaseI
   if (item.sgcStatusExecucao === "EM_EXECUCAO") {
     const docLabel = item.sgcTipoOrdem === "ORDEM_COMPRA" ? "Ordem de Compra" : "Ordem de Serviço";
     const numDoc = item.sgcNumeroOrdem ? ` (${item.sgcNumeroOrdem})` : "";
+    if (item.sgcDataEnvioFornecedor) {
+      const prazoTexto = item.sgcPrazoDiasEntrega ? ` — Prazo: ${item.sgcPrazoDiasEntrega} dias` : "";
+      return { label: `SGC: ${docLabel}${numDoc} Remetida ao Fornecedor${prazoTexto}`, badge: "warn", executado: false };
+    }
     return { label: `SGC: ${docLabel}${numDoc} Emitida — Em Execução pelo Fornecedor`, badge: "warn", executado: false };
+  }
+  if (item.sgcStatusExecucao === "ORDEM_EMITIDA") {
+    const docLabel = item.sgcTipoOrdem === "ORDEM_COMPRA" ? "Ordem de Compra" : "Ordem de Serviço";
+    const numDoc = item.sgcNumeroOrdem ? ` (${item.sgcNumeroOrdem})` : "";
+    return { label: `SGC: ${docLabel}${numDoc} Emitida pela Administração — Aguardando Envio pelo Fiscal Técnico`, badge: "warn", executado: false };
   }
 
   const proc = item.processoExecucaoId
@@ -302,14 +311,26 @@ export async function construirTimelineItemDfd(itemId: string): Promise<EventoTi
       });
     }
 
-    if (item.sgcNumeroOrdem || item.sgcStatusExecucao === "EM_EXECUCAO") {
+    if (item.sgcNumeroOrdem || item.sgcStatusExecucao === "ORDEM_EMITIDA" || item.sgcStatusExecucao === "EM_EXECUCAO") {
       const docLabel = item.sgcTipoOrdem === "ORDEM_COMPRA" ? "Ordem de Compra" : "Ordem de Serviço";
       const numDoc = item.sgcNumeroOrdem ? ` nº ${item.sgcNumeroOrdem}` : "";
       eventos.push({
-        data: (item.sgcDataRecebimentoProv || cons?.createdAt || item.dfd.createdAt).toISOString(),
-        titulo: `${docLabel}${numDoc} Emitida no SGC`,
-        desc: `Demanda enviada ao fornecedor ${item.sgcFornecedorNome || ""}. Execução e prazo de entrega em andamento sob fiscalização do SGC.`,
+        data: (item.sgcDataEnvioFornecedor || item.sgcDataRecebimentoProv || cons?.createdAt || item.dfd.createdAt).toISOString(),
+        titulo: `${docLabel}${numDoc} Emitida pela Administração (SGC)`,
+        desc: `Instrução realizada no SGC pelo Fiscal Administrativo / Gestor. ${item.sgcTipoOrdem === "ORDEM_COMPRA" ? "Itens discriminados com prazo e endereço de entrega, encaminhada ao Fiscal Técnico." : "Ordem de serviço formalizada e encaminhada para execução."}`,
       });
+
+      if (item.sgcDataEnvioFornecedor) {
+        const dtLimiteStr = item.sgcDataLimiteEntrega 
+          ? ` (Data limite: ${new Date(item.sgcDataLimiteEntrega).toLocaleDateString("pt-BR")})` 
+          : "";
+        const seiStr = item.sgcComprovanteEnvioSei ? ` (SEI nº ${item.sgcComprovanteEnvioSei})` : "";
+        eventos.push({
+          data: item.sgcDataEnvioFornecedor.toISOString(),
+          titulo: `Demanda Remetida ao Fornecedor pelo Fiscal Técnico`,
+          desc: `Ordem remetida formalmente ao fornecedor ${item.sgcFornecedorNome || ""}${seiStr}. Prazo de entrega contratual: ${item.sgcPrazoDiasEntrega || 30} dias corridos${dtLimiteStr}. Contagem de prazo em andamento.`,
+        });
+      }
     }
 
     if (item.sgcDataRecebimentoProv) {

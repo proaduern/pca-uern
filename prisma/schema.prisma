@@ -727,6 +727,10 @@ model ItemDfd {
   sgcNumeroNotaFiscal    String?
   sgcNumeroOrdem         String? // Ex: "01/2026 - SGC UERN"
   sgcTipoOrdem           String? // ORDEM_COMPRA | ORDEM_SERVICO
+  sgcDataEnvioFornecedor DateTime?
+  sgcPrazoDiasEntrega    Int?
+  sgcDataLimiteEntrega   DateTime?
+  sgcComprovanteEnvioSei String?
 
   createdAt DateTime @default(now())
 
