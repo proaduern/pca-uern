@@ -237,30 +237,52 @@ export async function criarRascunhoDfdAction(): Promise<ResultadoCriarDfd> {
   // Número sequencial do DFD dentro da unidade/ano (ex.: "0007/2027"), usado
   // no cabeçalho do PDF oficial — atribuído uma única vez, aqui, e nunca
   // reaproveitado mesmo se um DFD anterior da sequência for excluído.
-  const dfd = await prisma.$transaction(async (tx) => {
-    const ultimo = await tx.dfd.findFirst({
-      where: { unidadeId: ctx.unidadeId, ano: pca.ano },
-      orderBy: { numero: "desc" },
-      select: { numero: true },
-    });
-    return tx.dfd.create({
-      data: {
-        unidadeId: ctx.unidadeId,
-        setorInternoId: ctx.setorInternoId,
-        ano: pca.ano,
-        numero: (ultimo?.numero ?? 0) + 1,
-        descricaoSumaria: "",
-        prioridadeId: prioridade.id,
-        justificativa: "",
-        tipoDemanda: "NOVA",
-        status: "RASCUNHO",
-        criadoPorId: sessao.id,
-        criadoPorUsuarioId: sessao.usuarioId ?? null,
-      },
-    });
-  }, { timeout: 15000 });
+  // Blindado com lock de linha na Unidade (FOR UPDATE) + auto-retry contra colisão P2002.
+  let dfdCriado: { id: string } | null = null;
+  for (let tentativa = 0; tentativa < 5; tentativa++) {
+    try {
+      dfdCriado = await prisma.$transaction(
+        async (tx) => {
+          await tx.$queryRaw`SELECT id FROM "Unidade" WHERE id = ${ctx.unidadeId} FOR UPDATE`;
+          const ultimo = await tx.dfd.findFirst({
+            where: { unidadeId: ctx.unidadeId, ano: pca.ano },
+            orderBy: { numero: "desc" },
+            select: { numero: true },
+          });
+          return tx.dfd.create({
+            data: {
+              unidadeId: ctx.unidadeId,
+              setorInternoId: ctx.setorInternoId,
+              ano: pca.ano,
+              numero: (ultimo?.numero ?? 0) + 1,
+              descricaoSumaria: "",
+              prioridadeId: prioridade.id,
+              justificativa: "",
+              tipoDemanda: "NOVA",
+              status: "RASCUNHO",
+              criadoPorId: sessao.id,
+              criadoPorUsuarioId: sessao.usuarioId ?? null,
+            },
+            select: { id: true },
+          });
+        },
+        { timeout: 15000 },
+      );
+      break;
+    } catch (err: any) {
+      if (err?.code === "P2002" && tentativa < 4) {
+        await new Promise((r) => setTimeout(r, 40 * (tentativa + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
 
-  return { dfdId: dfd.id };
+  if (!dfdCriado) {
+    return { erro: "Não foi possível alocar o número sequencial do DFD. Tente novamente." };
+  }
+
+  return { dfdId: dfdCriado.id };
 }
 
 function validarDadosGerais(
@@ -986,15 +1008,135 @@ export async function enviarParaAprovacaoAction(
   const erroConteudo = validarConteudoParaEnvio(dfd);
   if (erroConteudo) return { erro: erroConteudo };
 
-  await prisma.dfd.update({
-    where: { id: dfdId },
-    data: {
-      status: "AGUARDANDO_APROVACAO",
-      enviadoParaAprovacaoEm: new Date(),
-      motivoReprovacao: null,
-      reprovadoEm: null,
+  // Revalidação atômica dos tetos orçamentários (Unidade, OP, Categoria e PCA Geral)
+  // com lock de linha na Unidade (FOR UPDATE) para impedir que envios simultâneos estourem a cota.
+  const resultadoEnvio = await prisma.$transaction(
+    async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Unidade" WHERE id = ${sessao.id} FOR UPDATE`;
+
+      const unidade = await tx.unidade.findUniqueOrThrow({ where: { id: sessao.id } });
+      const pca = await tx.pca.findUniqueOrThrow({ where: { ano: dfd.ano } });
+
+      const itensComprometidosUnidade = await tx.itemDfd.findMany({
+        where: {
+          dfd: {
+            unidadeId: sessao.id,
+            status: { in: STATUS_COMPROMETEM_ORCAMENTO },
+            id: { not: dfdId },
+          },
+        },
+        select: { enquadramento: true, valorTotal: true },
+      });
+      const gastoUnidade = calcularGastos(
+        itensComprometidosUnidade.map((it) => ({
+          enquadramento: it.enquadramento,
+          valorTotal: Number(it.valorTotal),
+        })),
+      );
+
+      const itensComprometidosPca = await tx.itemDfd.findMany({
+        where: {
+          dfd: {
+            ano: dfd.ano,
+            status: { in: STATUS_COMPROMETEM_ORCAMENTO },
+            id: { not: dfdId },
+          },
+        },
+        select: { enquadramento: true, valorTotal: true, categoria: { select: { ignoraPCA: true } } },
+      });
+      const gastoPca = calcularGastos(
+        itensComprometidosPca
+          .filter((it) => !it.categoria?.ignoraPCA)
+          .map((it) => ({
+            enquadramento: it.enquadramento,
+            valorTotal: Number(it.valorTotal),
+          })),
+      );
+
+      const categoriasIds = Array.from(new Set(dfd.itens.map((it) => it.categoriaId)));
+      const categoriasMap = new Map(
+        (
+          await tx.categoria.findMany({
+            where: { id: { in: categoriasIds } },
+          })
+        ).map((c) => [c.id, c]),
+      );
+
+      // Soma do próprio DFD sendo enviado
+      const gastoDfd = calcularGastos(
+        dfd.itens.map((it) => ({
+          enquadramento: it.enquadramento,
+          valorTotal: Number(it.valorTotal),
+        })),
+      );
+
+      const gastoDfdContabilizaPca = calcularGastos(
+        dfd.itens
+          .filter((it) => !categoriasMap.get(it.categoriaId)?.ignoraPCA)
+          .map((it) => ({
+            enquadramento: it.enquadramento,
+            valorTotal: Number(it.valorTotal),
+          })),
+      );
+
+      if (gastoDfd.op > 0) {
+        const saldoOP = saldoUnidadeOP(Number(unidade.cotaOP), gastoUnidade.op);
+        if (gastoDfd.op > saldoOP) {
+          return {
+            erro: `O total de itens em Cota OP deste DFD (${brl(gastoDfd.op)}) excede o saldo de Cota OP disponível da unidade no momento (${brl(saldoOP)}).`,
+          };
+        }
+        if (gastoDfdContabilizaPca.op > 0) {
+          const saldoOPPCA = saldoUnidadeOP(Number(pca.cotaOP), gastoPca.op);
+          if (gastoDfdContabilizaPca.op > saldoOPPCA) {
+            return {
+              erro: `O total em Cota OP (${brl(gastoDfdContabilizaPca.op)}) excede o subsaldo OP disponível no PCA (${brl(saldoOPPCA)}).`,
+            };
+          }
+        }
+      }
+
+      if (gastoDfd.geral > 0) {
+        const temTetoNaUnidade =
+          (!unidade.elegivelCotaOP && unidade.cotaTipo === "FECHADA") ||
+          (unidade.elegivelCotaOP && Number(unidade.cotaGeral) > 0);
+        if (temTetoNaUnidade) {
+          const saldoGeralU = saldoUnidadeGeral(Number(unidade.cotaGeral), gastoUnidade.geral);
+          if (gastoDfd.geral > saldoGeralU) {
+            return {
+              erro: `O total de itens em Cota Geral deste DFD (${brl(gastoDfd.geral)}) excede o saldo de Cota Geral disponível da unidade no momento (${brl(saldoGeralU)}).`,
+            };
+          }
+        }
+      }
+
+      if (gastoDfdContabilizaPca.total > 0) {
+        const saldoPCAAtual = saldoPCA(Number(pca.cotaGeral), gastoPca.total);
+        if (gastoDfdContabilizaPca.total > saldoPCAAtual) {
+          return {
+            erro: `O valor total do DFD (${brl(gastoDfdContabilizaPca.total)}) excede o saldo disponível da Cota PCA Geral (${brl(saldoPCAAtual)}).`,
+          };
+        }
+      }
+
+      await tx.dfd.update({
+        where: { id: dfdId },
+        data: {
+          status: "AGUARDANDO_APROVACAO",
+          enviadoParaAprovacaoEm: new Date(),
+          motivoReprovacao: null,
+          reprovadoEm: null,
+        },
+      });
+
+      return { ok: true };
     },
-  });
+    { timeout: 15000 },
+  );
+
+  if ("erro" in resultadoEnvio && resultadoEnvio.erro) {
+    return { erro: resultadoEnvio.erro };
+  }
 
   revalidatePath("/");
   redirect("/");
