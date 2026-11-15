@@ -31,6 +31,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Perfil alvo não informado." }, { status: 400 });
     }
 
+    if (perfilAlvo === "EXECUCAO" || perfilAlvo === "ENTREGA") {
+      return NextResponse.json(
+        { error: "Os módulos de Execução e Entrega foram migrados para o SGC." },
+        { status: 400 }
+      );
+    }
+
     const perfisDisponiveis = normalizarListaPerfisPca(sessao.perfisDisponiveis);
     const isAdmin = sessao.tipo === "ADMIN" || sessaoReal?.tipo === "ADMIN";
 

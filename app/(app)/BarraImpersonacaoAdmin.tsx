@@ -56,8 +56,6 @@ export default function BarraImpersonacaoAdmin({
     PESQUISA_PRECOS: 'Pesquisa de Preços',
     PLANEJAMENTO: 'Planejamento (TR)',
     AGENTE_CONTRATACAO: 'Agente de Contratação',
-    EXECUCAO: 'Execução Contratual',
-    ENTREGA: 'Entrega de Bens',
     GESTOR_ATA: 'Gestão de Atas (ARP)',
   };
 

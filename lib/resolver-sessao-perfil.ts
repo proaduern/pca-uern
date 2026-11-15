@@ -37,7 +37,9 @@ export function normalizarListaPerfisPca(raw?: string | string[] | null): string
         ? "ADMIN"
         : p;
     if (!normalizados.includes(canon)) {
-      normalizados.push(canon);
+      if (canon !== "EXECUCAO" && canon !== "ENTREGA") {
+        normalizados.push(canon);
+      }
     }
   }
   return normalizados;
@@ -392,92 +394,14 @@ export async function resolverSessaoPorPerfilPca(
     };
   }
 
-  // 8. ENTREGA (Patrimônio / Almoxarifado)
-  if (roleUpper === "ENTREGA") {
-    let ent = await prisma.acessoEntrega.findUnique({
-      where: { email: emailLimpo },
-    });
-    if (!ent && unidadeDb) {
-      ent = await prisma.acessoEntrega.findFirst({
-        where: { unidadeId: unidadeDb.id, ativo: true },
-      });
+  // 8. ENTREGA / EXECUCAO (Legados descontinuados no PCA -> Migrados integralmente para o SGC)
+  if (roleUpper === "ENTREGA" || roleUpper === "EXECUCAO") {
+    // Redireciona para o papel pré-contratual legítimo da unidade (SETOR_TECNICO se for técnico, ou UNIDADE)
+    const ehTecnico = (siglaBusca || "").includes("PATRIMONIO") || (siglaBusca || "").includes("ALMOX");
+    if (ehTecnico && perfisDisponiveis.includes("SETOR_TECNICO")) {
+      return resolverSessaoPorPerfilPca({ ...opcoes, perfilAlvo: "SETOR_TECNICO" });
     }
-    const textoRef = `${siglaBusca || ""} ${nomeUnidadeBusca || ""} ${nome}`.toUpperCase();
-    const subperfil = textoRef.includes("ALMOX") ? "ALMOXARIFADO" : "PATRIMONIO";
-    if (!ent) {
-      ent = await prisma.acessoEntrega.findFirst({
-        where: { subperfil, ativo: true },
-      });
-    }
-    if (!ent) {
-      ent = await prisma.acessoEntrega.create({
-        data: {
-          nome: siglaBusca || nome || `Entrega (${subperfil})`,
-          subperfil,
-          vinculado: Boolean(unidadeDb),
-          unidadeId: unidadeDb?.id || null,
-          email: emailLimpo,
-          senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
-          senhaTemporaria: false,
-          ativo: true,
-        },
-      });
-    }
-    return {
-      sessionPayload: {
-        tipo: "ENTREGA",
-        id: ent.id,
-        nome: ent.nome,
-        email: ent.email ?? emailLimpo,
-        ...baseUnidadeMeta,
-        senhaTemporaria: false,
-      },
-      subsistemaAtivo: "PCA",
-      destinoUrl: "/",
-    };
-  }
-
-  // 9. EXECUCAO
-  if (roleUpper === "EXECUCAO") {
-    let exec = await prisma.acessoExecucao.findUnique({
-      where: { email: emailLimpo },
-    });
-    if (!exec && unidadeDb) {
-      exec = await prisma.acessoExecucao.findFirst({
-        where: { unidadeId: unidadeDb.id, ativo: true },
-      });
-    }
-    if (!exec) {
-      exec = await prisma.acessoExecucao.findFirst({
-        where: { ativo: true },
-      });
-    }
-    if (!exec) {
-      exec = await prisma.acessoExecucao.create({
-        data: {
-          nome: siglaBusca || nome || "Execução de Compras e Contratações",
-          subperfil: "MATERIAIS_PATRIMONIO",
-          vinculado: Boolean(unidadeDb),
-          unidadeId: unidadeDb?.id || null,
-          email: emailLimpo,
-          senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
-          senhaTemporaria: false,
-          ativo: true,
-        },
-      });
-    }
-    return {
-      sessionPayload: {
-        tipo: "EXECUCAO",
-        id: exec.id,
-        nome: exec.nome,
-        email: exec.email ?? emailLimpo,
-        ...baseUnidadeMeta,
-        senhaTemporaria: false,
-      },
-      subsistemaAtivo: "PCA",
-      destinoUrl: "/",
-    };
+    return resolverSessaoPorPerfilPca({ ...opcoes, perfilAlvo: "UNIDADE" });
   }
 
   // 10. SETOR_INTERNO ou UNIDADE (Demandante)

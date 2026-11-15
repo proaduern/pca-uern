@@ -54,11 +54,28 @@ export default async function HomePage() {
   if (sessao.tipo === "AGENTE_CONTRATACAO") {
     return <AgenteContratacaoHomePage agenteContratacaoId={sessao.id} />;
   }
-  if (sessao.tipo === "EXECUCAO") {
-    return <ExecucaoHomePage acessoExecucaoId={sessao.id} />;
-  }
-  if (sessao.tipo === "ENTREGA") {
-    return <EntregaHomePage acessoEntregaId={sessao.id} />;
+  if (sessao.tipo === "EXECUCAO" || sessao.tipo === "ENTREGA") {
+    return (
+      <div className="mx-auto max-w-2xl mt-12 p-8 bg-white border border-blue-200 rounded-2xl shadow-sm text-center space-y-4">
+        <div className="w-12 h-12 bg-blue-50 text-blue-700 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+          SGC
+        </div>
+        <h2 className="text-lg font-bold text-slate-800">
+          Módulo de Execução e Entrega Migrado para o SGC
+        </h2>
+        <p className="text-sm text-slate-600 leading-relaxed">
+          A emissão de ordens de compra, acompanhamento de prazos, remessa ao fornecedor e conferência/entrega de bens e materiais agora são operadas exclusivamente no <strong>Sistema de Gestão de Contratos e Execução (SGC)</strong>.
+        </p>
+        <div className="pt-2">
+          <a
+            href="https://sgc-uern.vercel.app/execucao"
+            className="inline-flex items-center px-5 py-2.5 bg-[#003366] text-white text-xs font-bold rounded-xl hover:bg-[#002244] shadow transition"
+          >
+            Acessar Módulo de Execução no SGC &rarr;
+          </a>
+        </div>
+      </div>
+    );
   }
   if (sessao.tipo === "GESTOR_ATA") {
     return <GestorAtaHomePage />;

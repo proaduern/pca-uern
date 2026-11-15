@@ -660,19 +660,15 @@ export async function autenticar(email: string, senha: string): Promise<Resultad
     const ok = await bcrypt.compare(senha, unidade.senhaHash);
     if (!ok || !unidade.ativa) return null;
 
-    const [setoresVinculados, licitacoesVinculadas, execucoesVinculadas, entregasVinculadas, gestorAtaVinculadas] = await Promise.all([
+    const [setoresVinculados, licitacoesVinculadas, gestorAtaVinculadas] = await Promise.all([
       prisma.setorTecnico.findMany({ where: { vinculado: true, unidadeId: unidade.id, ativo: true } }),
       prisma.licitacoes.findMany({ where: { vinculado: true, unidadeId: unidade.id, ativo: true } }),
-      prisma.acessoExecucao.findMany({ where: { vinculado: true, unidadeId: unidade.id, ativo: true } }),
-      prisma.acessoEntrega.findMany({ where: { vinculado: true, unidadeId: unidade.id, ativo: true } }),
       prisma.acessoGestorAta.findMany({ where: { vinculado: true, unidadeId: unidade.id, ativo: true } }),
     ]);
 
     if (
       setoresVinculados.length === 0 &&
       licitacoesVinculadas.length === 0 &&
-      execucoesVinculadas.length === 0 &&
-      entregasVinculadas.length === 0 &&
       gestorAtaVinculadas.length === 0
     ) {
       return {
@@ -691,8 +687,6 @@ export async function autenticar(email: string, senha: string): Promise<Resultad
       { tipo: "UNIDADE", id: unidade.id, nome: unidade.nome },
       ...setoresVinculados.map((s) => ({ tipo: "SETOR_TECNICO" as const, id: s.id, nome: s.nome })),
       ...licitacoesVinculadas.map((l) => ({ tipo: "LICITACOES" as const, id: l.id, nome: l.nome })),
-      ...execucoesVinculadas.map((e) => ({ tipo: "EXECUCAO" as const, id: e.id, nome: e.nome })),
-      ...entregasVinculadas.map((e) => ({ tipo: "ENTREGA" as const, id: e.id, nome: e.nome })),
       ...gestorAtaVinculadas.map((a) => ({ tipo: "GESTOR_ATA" as const, id: a.id, nome: a.nome })),
     ];
     await criarPreLogin(opcoes);

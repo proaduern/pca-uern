@@ -65,8 +65,6 @@ const ROTULO_POR_TIPO: Record<string, string> = {
   PESQUISA_PRECOS: "Pesquisa de Preços",
   PLANEJAMENTO: "Planejamento (TR)",
   AGENTE_CONTRATACAO: "Agente de Contratação",
-  EXECUCAO: "Execução de Compras",
-  ENTREGA: "Entrega de Bens",
   GESTOR_ATA: "Gestão de Atas (ARP)",
 };
 
@@ -90,7 +88,9 @@ export default function Navbar({
   const [alternandoPerfil, setAlternandoPerfil] = useState(false);
   const infoSub = INFO_SUBSISTEMA[subsistemaAtivo] ?? INFO_SUBSISTEMA.PCA;
 
-  const listaPerfis = Array.isArray(perfisDisponiveis) ? perfisDisponiveis : [];
+  const listaPerfis = (Array.isArray(perfisDisponiveis) ? perfisDisponiveis : []).filter(
+    (p) => p !== "EXECUCAO" && p !== "ENTREGA"
+  );
   const possuiMultiplosPerfis = tipo !== "ADMIN" && listaPerfis.length > 1;
   const valorSelectAtual =
     tipo === "LICITACOES" && listaPerfis.includes("DIRETOR_LICITACOES")

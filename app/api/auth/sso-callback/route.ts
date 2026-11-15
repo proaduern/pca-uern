@@ -85,7 +85,7 @@ function escolherPerfilParaSubsistema(
   }
   if (subsistemaAtivo === "PCA") {
     const match = perfisDisponiveis.find((p) =>
-      ["UNIDADE", "SETOR_INTERNO", "EXECUCAO", "ENTREGA"].includes(p)
+      ["UNIDADE", "SETOR_INTERNO"].includes(p)
     );
     if (match) return match;
   }
