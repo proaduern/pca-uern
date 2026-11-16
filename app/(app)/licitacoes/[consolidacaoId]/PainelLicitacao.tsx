@@ -1235,17 +1235,20 @@ export default function PainelLicitacao({
               </div>
 
               {tipoContratacao === "NORMAL" && (
-                <div className="flex items-center gap-2 pt-1">
+                <div className="flex items-start gap-2.5 pt-1 p-2.5 rounded-xl bg-indigo-50/60 border border-indigo-200">
                   <input
                     type="checkbox"
                     id="empenhoSubstituiContrato"
                     name="empenhoSubstituiContrato"
                     value="true"
-                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                   />
-                  <label htmlFor="empenhoSubstituiContrato" className="text-slate-700">
-                    Entrega imediata apenas com Nota de Empenho (sem termo formal de contrato — essa opção também poderá
-                    ser confirmada pelo Setor de Empenho no SGC)
+                  <label htmlFor="empenhoSubstituiContrato" className="text-slate-700 leading-snug cursor-pointer">
+                    <strong className="text-indigo-950">Nota de Empenho substitui o Termo de Contrato (Art. 95 da Lei 14.133/2021):</strong>{" "}
+                    aplicável tanto para <strong>aquisição de bens de entrega única</strong> quanto para{" "}
+                    <strong>prestação pontual de serviços sem obrigações futuras</strong> (ex.: cursos de capacitação,
+                    treinamentos, palestras ou serviços de execução única). Essa definição também poderá ser confirmada
+                    pelo Setor de Empenho no SGC.
                   </label>
                 </div>
               )}
