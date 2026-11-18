@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get("authorization");
     const serviceKey = process.env.PROAD_SERVICE_KEY || "proad_interop_internal_service_key_2026_uern";
 
-    if (authHeader && authHeader !== `Bearer ${serviceKey}`) {
+    if (!authHeader || authHeader !== `Bearer ${serviceKey}`) {
       return NextResponse.json({ error: "Chave de integração PROAD inválida ou ausente." }, { status: 401 });
     }
 

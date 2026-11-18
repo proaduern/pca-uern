@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { obterSessao } from "@/lib/auth";
+import { obterSessao, gerarHashSsoSeguro } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
           data: {
             nome: "PROAD",
             email: "proad@uern.br",
-            senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
+            senhaHash: await gerarHashSsoSeguro(),
             senhaTemporaria: false,
             ativa: true,
           },

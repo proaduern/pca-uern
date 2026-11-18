@@ -15,6 +15,12 @@ import {
   type OpcaoPerfil,
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  getActionClientIp,
+  verificarBloqueioLogin,
+  registrarFalhaLogin,
+  limparTentativasLogin,
+} from "@/lib/rate-limit";
 
 export interface LoginState {
   erro?: string;
@@ -22,17 +28,32 @@ export interface LoginState {
 }
 
 export async function loginAction(_prevState: LoginState, formData: FormData): Promise<LoginState> {
-  const email = String(formData.get("email") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const senha = String(formData.get("senha") ?? "");
 
   if (!email || !senha) {
     return { erro: "Informe email e senha." };
   }
 
+  const ip = await getActionClientIp();
+  const bloqueio = await verificarBloqueioLogin(email, ip);
+  if (bloqueio.bloqueado) {
+    return {
+      erro: `Muitas tentativas falhas de acesso. Aguarde ${bloqueio.minutosRestantes} minuto(s) antes de tentar novamente.`,
+    };
+  }
+
   const resultado = await autenticar(email, senha);
   if (!resultado) {
-    return { erro: "Email ou senha inválidos." };
+    const resFalha = await registrarFalhaLogin(email, ip);
+    return {
+      erro: resFalha.bloqueadoAgora
+        ? `Acesso bloqueado por ${resFalha.minutosBloqueio} minutos após 5 tentativas inválidas.`
+        : `Email ou senha inválidos. (${resFalha.tentativasRestantes} tentativa(s) restante(s)).`,
+    };
   }
+
+  await limparTentativasLogin(email, ip);
 
   if (resultado.resultado === "escolher_perfil") {
     return { escolherPerfil: resultado.opcoes };

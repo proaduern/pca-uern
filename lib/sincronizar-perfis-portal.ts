@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { gerarHashSsoSeguro } from "@/lib/auth";
 
 export interface DadosPerfilHomologado {
   email: string;
@@ -49,7 +50,7 @@ export async function aplicarSincronizacaoPerfilPca(dados: DadosPerfilHomologado
             matricula,
             funcao: dados.funcao || "Agente de Contratação",
             email: emailLimpo,
-            senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
+            senhaHash: await gerarHashSsoSeguro(),
             senhaTemporaria: false,
             ativo: true,
           },
@@ -73,7 +74,7 @@ export async function aplicarSincronizacaoPerfilPca(dados: DadosPerfilHomologado
             matricula,
             funcao: dados.funcao || "Planejamento (Termo de Referência)",
             email: emailLimpo,
-            senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
+            senhaHash: await gerarHashSsoSeguro(),
             senhaTemporaria: false,
             ativo: true,
           },
@@ -97,7 +98,7 @@ export async function aplicarSincronizacaoPerfilPca(dados: DadosPerfilHomologado
             matricula,
             funcao: dados.funcao || "Pesquisa de Preços",
             email: emailLimpo,
-            senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
+            senhaHash: await gerarHashSsoSeguro(),
             senhaTemporaria: false,
             ativo: true,
           },
@@ -115,7 +116,7 @@ export async function aplicarSincronizacaoPerfilPca(dados: DadosPerfilHomologado
           data: {
             nome,
             email: emailLimpo,
-            senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
+            senhaHash: await gerarHashSsoSeguro(),
             senhaTemporaria: false,
             ativo: true,
           },

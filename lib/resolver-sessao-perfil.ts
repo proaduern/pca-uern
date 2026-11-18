@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { type SessionPayload, PERMISSOES_TOTAL } from "@/lib/auth";
+import { type SessionPayload, PERMISSOES_TOTAL, gerarHashSsoSeguro } from "@/lib/auth";
 
 export interface OpcoesResolverSessaoPerfil {
   email: string;
@@ -115,7 +115,7 @@ export async function resolverSessaoPorPerfilPca(
         data: {
           nome: nome || "Administrador PROAD",
           email: emailLimpo,
-          senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
+          senhaHash: await gerarHashSsoSeguro(),
           senhaTemporaria: false,
           role: "ADMIN",
           ativo: true,
@@ -164,7 +164,7 @@ export async function resolverSessaoPorPerfilPca(
           nome: nome || "Diretor de Licitações (DLC)",
           email: emailLimpo,
           unidadeId: unidadeDb?.id || null,
-          senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
+          senhaHash: await gerarHashSsoSeguro(),
           senhaTemporaria: false,
           ativo: true,
         },
@@ -234,7 +234,7 @@ export async function resolverSessaoPorPerfilPca(
             vinculado: Boolean(unidadeDb),
             unidadeId: unidadeDb?.id || null,
             email: emailLimpo,
-            senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
+            senhaHash: await gerarHashSsoSeguro(),
             senhaTemporaria: false,
             ativo: true,
           },
@@ -269,7 +269,7 @@ export async function resolverSessaoPorPerfilPca(
           matricula: matricula || "00000",
           funcao: "Pesquisa de Preços",
           email: emailLimpo,
-          senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
+          senhaHash: await gerarHashSsoSeguro(),
           senhaTemporaria: false,
           ativo: true,
         },
@@ -305,7 +305,7 @@ export async function resolverSessaoPorPerfilPca(
           matricula: matricula || "00000",
           funcao: "Planejamento",
           email: emailLimpo,
-          senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
+          senhaHash: await gerarHashSsoSeguro(),
           senhaTemporaria: false,
           ativo: true,
         },
@@ -337,7 +337,7 @@ export async function resolverSessaoPorPerfilPca(
           matricula: matricula || "00000",
           funcao: "Agente de Contratação / Pregoeiro",
           email: emailLimpo,
-          senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
+          senhaHash: await gerarHashSsoSeguro(),
           senhaTemporaria: false,
           ativo: true,
         },
@@ -374,7 +374,7 @@ export async function resolverSessaoPorPerfilPca(
           vinculado: Boolean(unidadeDb),
           unidadeId: unidadeDb?.id || null,
           email: emailLimpo,
-          senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
+          senhaHash: await gerarHashSsoSeguro(),
           senhaTemporaria: false,
           ativo: true,
         },
@@ -442,7 +442,7 @@ export async function resolverSessaoPorPerfilPca(
         data: {
           nome: siglaFinal,
           email: emailUnidade,
-          senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
+          senhaHash: await gerarHashSsoSeguro(),
           senhaTemporaria: false,
           ativa: true,
         },
@@ -459,7 +459,7 @@ export async function resolverSessaoPorPerfilPca(
         nome: nome || emailLimpo.split("@")[0],
         email: emailLimpo,
         matricula: matricula || null,
-        senhaHash: "SSO_CENTRAL_UERN_AUTHENTICATED",
+        senhaHash: await gerarHashSsoSeguro(),
         senhaTemporaria: false,
         role: "UNIDADE",
         unidadeId: unidadeDb.id,

@@ -1,8 +1,13 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+
+export async function gerarHashSsoSeguro(): Promise<string> {
+  return bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12);
+}
 
 export const COOKIE_NAME = "pca_session";
 export const SESSION_DURATION_SECONDS = 60 * 60 * 8; // 8 horas
