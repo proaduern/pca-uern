@@ -35,11 +35,13 @@ export default function MinutaEditalForm({
   tr,
   minuta,
   pdfHref,
+  docxHref,
 }: {
   etp: DadosEtpPulled;
   tr: DadosTrPulled;
   minuta: MinutaDados;
   pdfHref: string;
+  docxHref?: string;
 }) {
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -174,9 +176,23 @@ export default function MinutaEditalForm({
             </button>
           </>
         )}
-        <a href={pdfHref} className="rounded-xl border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100">
-          Baixar PDF
+        <a
+          href={pdfHref}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-xl border border-red-300 bg-red-50 text-red-700 px-3 py-2 text-sm font-medium hover:bg-red-100"
+        >
+          Baixar Edital em PDF
         </a>
+        {docxHref && (
+          <a
+            href={docxHref}
+            download
+            className="rounded-xl border border-blue-300 bg-blue-50 text-blue-700 px-3 py-2 text-sm font-medium hover:bg-blue-100"
+          >
+            Baixar Edital em DOCX (Nativo SEI)
+          </a>
+        )}
       </div>
     </form>
   );

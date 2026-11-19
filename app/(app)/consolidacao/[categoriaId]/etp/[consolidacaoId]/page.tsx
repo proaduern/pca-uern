@@ -123,6 +123,8 @@ export default async function EtpPage({
       ) : (
         <EtpForm
           pdfHref={`/consolidacao/${categoriaId}/etp/${consolidacaoId}/pdf`}
+          docxHref={`/consolidacao/${categoriaId}/etp/${consolidacaoId}/docx`}
+          imrHref={`/consolidacao/${categoriaId}/imr/${consolidacaoId}`}
           etp={{
             id: consolidacao.estudoTecnicoPreliminar.id,
             objeto: consolidacao.estudoTecnicoPreliminar.objeto,

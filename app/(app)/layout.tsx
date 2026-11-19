@@ -80,6 +80,7 @@ export default async function AppLayout({
     ],
     LICITACOES_MINUTAS: [
       { href: "/licitacoes", label: "Processos, Minutas, PGE e Homologação" },
+      { href: "/licitacoes/modelos-agu", label: "Modelos Oficiais AGU (Upload .docx)" },
       { href: "/admin/agentes-contratacao", label: "Agentes de Contratação" },
       { href: "/admin/gestor-ata", label: "Setor de Gestão de Atas (ARP)" },
       { href: "/admin/licitacoes", label: "Acessos de Licitações e Contratos" },
@@ -97,6 +98,7 @@ export default async function AppLayout({
   const linksSetorTecnico = [{ href: "/etp-riscos", label: "Consolidação, ETP e Mapa de Riscos" }];
   const linksLicitacoes = [
     { href: "/licitacoes", label: "Processos Pós-ETP, Designação e Licitação" },
+    { href: "/licitacoes/modelos-agu", label: "Modelos Oficiais AGU (Upload .docx)" },
     { href: "/pesquisa-precos", label: "Acompanhamento — Pesquisa de Preços" },
     { href: "/termo-referencia", label: "Acompanhamento — Termo de Referência (TR)" },
 

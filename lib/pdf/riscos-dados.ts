@@ -5,6 +5,7 @@ export type RiscoItemParaPdf = DadosRiscoItem;
 export interface AnaliseRiscosParaPdf {
   processoSEI: string;
   categoriaNome: string;
+  sequencialTexto?: string;
   status: "RASCUNHO" | "FINALIZADO";
   responsavelNome: string | null;
   responsavelMatricula: string | null;

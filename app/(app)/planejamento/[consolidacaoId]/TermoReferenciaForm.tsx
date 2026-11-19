@@ -43,11 +43,15 @@ export default function TermoReferenciaForm({
   pesquisa,
   tr,
   pdfHref,
+  docxHref,
+  consolidacaoId,
 }: {
   etp: DadosEtpPulled;
   pesquisa: DadosPesquisaPulled;
   tr: TrDados;
   pdfHref: string;
+  docxHref?: string;
+  consolidacaoId?: string;
 }) {
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -209,9 +213,43 @@ export default function TermoReferenciaForm({
             </button>
           </>
         )}
-        <a href={pdfHref} className="rounded-xl border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100">
-          Baixar PDF
+        <a
+          href={pdfHref}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-xl border border-red-300 bg-red-50 text-red-700 px-3 py-2 text-sm font-medium hover:bg-red-100 flex items-center gap-1.5"
+        >
+          Baixar TR em PDF
         </a>
+        {docxHref && (
+          <a
+            href={docxHref}
+            download
+            className="rounded-xl border border-blue-300 bg-blue-50 text-blue-700 px-3 py-2 text-sm font-medium hover:bg-blue-100 flex items-center gap-1.5"
+          >
+            Baixar TR em DOCX (Nativo SEI)
+          </a>
+        )}
+        {consolidacaoId && (
+          <div className="flex flex-wrap items-center gap-1.5 ml-auto">
+            <a
+              href={`/planejamento/${consolidacaoId}/contrato/docx`}
+              download
+              className="rounded-xl border border-slate-300 bg-slate-50 px-2.5 py-1.5 text-xs font-medium hover:bg-slate-100"
+              title="Baixar Minuta de Contrato em DOCX"
+            >
+              Minuta Contrato (DOCX)
+            </a>
+            <a
+              href={`/planejamento/${consolidacaoId}/ata/docx`}
+              download
+              className="rounded-xl border border-slate-300 bg-slate-50 px-2.5 py-1.5 text-xs font-medium hover:bg-slate-100"
+              title="Baixar Minuta de Ata em DOCX"
+            >
+              Minuta Ata (DOCX)
+            </a>
+          </div>
+        )}
       </div>
     </form>
   );

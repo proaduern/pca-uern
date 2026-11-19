@@ -1,3 +1,4 @@
+import React from "react";
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatarDataHora } from "../formato";
 import {
@@ -9,26 +10,42 @@ import {
 import type { AnaliseRiscosParaPdf } from "./riscos-dados";
 import type { DadosAutenticacaoPdf } from "./autenticacao";
 import { RodapeAutenticacaoPdf } from "./rodape-autenticacao";
+import { CabecalhoInstitucionalPdf } from "./cabecalho-institucional-pdf";
 
 const s = StyleSheet.create({
   page: {
-    paddingTop: 40,
-    paddingHorizontal: 40,
-    paddingBottom: 52,
-    fontSize: 10,
+    paddingTop: 32,
+    paddingHorizontal: 36,
+    paddingBottom: 48,
+    fontSize: 9,
     fontFamily: "Helvetica",
     color: "#1e293b",
   },
-  cabecalho: { fontSize: 9, textAlign: "center", marginBottom: 2 },
-  titulo: { fontSize: 12, fontWeight: 700, textAlign: "center", marginTop: 8, marginBottom: 16 },
-  rodape: { marginTop: 24, textAlign: "center" },
-  nota: { fontSize: 8, fontStyle: "italic", color: "#475569", marginTop: 4 },
-  cartao: { marginBottom: 10, borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 4, padding: 8 },
-  cartaoTitulo: { fontSize: 9, fontWeight: 700, marginBottom: 4 },
-  linha: { fontSize: 9, marginBottom: 2, lineHeight: 1.4 },
-  label: { fontWeight: 700 },
-  linhaTrio: { flexDirection: "row", marginBottom: 2 },
-  trioItem: { flex: 1, fontSize: 9 },
+  secaoTitulo: { fontSize: 10, fontWeight: "bold", color: "#1e3a8a", marginTop: 10, marginBottom: 4 },
+  cartao: {
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 3,
+    padding: 6,
+    backgroundColor: "#ffffff",
+  },
+  cartaoHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    backgroundColor: "#f1f5f9",
+    padding: 3,
+    borderBottomWidth: 1,
+    borderBottomColor: "#cbd5e1",
+    marginBottom: 4,
+  },
+  cartaoTitulo: { fontSize: 8.5, fontWeight: "bold", color: "#1e3a8a" },
+  cartaoBadge: { fontSize: 8, fontWeight: "bold" },
+  linha: { fontSize: 8, marginBottom: 2, lineHeight: 1.3 },
+  label: { fontWeight: "bold", color: "#334155" },
+  linhaTrio: { flexDirection: "row", marginBottom: 3 },
+  trioItem: { flex: 1, fontSize: 8 },
+  rodape: { marginTop: 20, textAlign: "center", fontSize: 7.5, color: "#64748b" },
 });
 
 export function RiscosDocumento({
@@ -41,18 +58,31 @@ export function RiscosDocumento({
   return (
     <Document>
       <Page size="A4" style={s.page} wrap>
-        <Text style={s.cabecalho}>UNIVERSIDADE DO ESTADO DO RIO GRANDE DO NORTE</Text>
-        <Text style={s.cabecalho}>Processo nº {riscos.processoSEI}</Text>
-        <Text style={s.titulo}>MAPA DE RISCOS DA CONTRATAÇÃO — {riscos.categoriaNome}</Text>
+        <CabecalhoInstitucionalPdf
+          tituloDocumento="MAPA DE GERENCIAMENTO DE RISCOS"
+          processoSEI={riscos.processoSEI}
+          categoriaNome={riscos.categoriaNome}
+          numeroSequencial={riscos.sequencialTexto}
+        />
+
+        <Text style={{ fontSize: 8, color: "#475569", marginBottom: 8, textAlign: "justify" }}>
+          Matriz de riscos estruturada conforme os parâmetros da Lei nº 14.133/2021 e modelo oficial UERN
+          (Processo SEI nº 04410277.001088/2025-87 / Doc. SEI 38206661), com identificação de probabilidade,
+          impacto, ações preventivas e contingenciais.
+        </Text>
 
         {riscos.itens.map((it, i) => (
           <View key={i} style={s.cartao} wrap={false}>
-            <Text style={s.cartaoTitulo}>Risco nº {i + 1}</Text>
-            <View style={s.linhaTrio}>
-              <Text style={s.trioItem}>
-                <Text style={s.label}>Fase: </Text>
-                {FASE_RISCO_LABEL[it.fase]}
+            <View style={s.cartaoHeader}>
+              <Text style={s.cartaoTitulo}>
+                RISCO Nº {(i + 1).toString().padStart(2, "0")} — {FASE_RISCO_LABEL[it.fase].toUpperCase()}
               </Text>
+              <Text style={s.cartaoBadge}>
+                {NIVEL_ACEITACAO_RISCO_LABEL[it.nivelAceitacao]}
+              </Text>
+            </View>
+
+            <View style={s.linhaTrio}>
               <Text style={s.trioItem}>
                 <Text style={s.label}>Probabilidade: </Text>
                 {PROBABILIDADE_RISCO_LABEL[it.probabilidade]}
@@ -61,36 +91,33 @@ export function RiscosDocumento({
                 <Text style={s.label}>Impacto: </Text>
                 {IMPACTO_RISCO_LABEL[it.impacto]}
               </Text>
+              <Text style={s.trioItem}>
+                <Text style={s.label}>Responsável: </Text>
+                {it.responsavel}
+              </Text>
             </View>
+
             <Text style={s.linha}>
-              <Text style={s.label}>Descrição do risco: </Text>
+              <Text style={s.label}>Descrição do evento de risco: </Text>
               {it.descricao}
             </Text>
             <Text style={s.linha}>
-              <Text style={s.label}>Danos: </Text>
+              <Text style={s.label}>Danos e consequências: </Text>
               {it.danos}
             </Text>
             <Text style={s.linha}>
-              <Text style={s.label}>Nível de aceitação: </Text>
-              {NIVEL_ACEITACAO_RISCO_LABEL[it.nivelAceitacao]}
-            </Text>
-            <Text style={s.linha}>
-              <Text style={s.label}>Ações preventivas: </Text>
+              <Text style={s.label}>Ação preventiva: </Text>
               {it.acoesPreventivas}
             </Text>
             <Text style={s.linha}>
-              <Text style={s.label}>Ações contingenciais: </Text>
+              <Text style={s.label}>Ação contingencial: </Text>
               {it.acoesContingenciais}
-            </Text>
-            <Text style={s.linha}>
-              <Text style={s.label}>Responsável: </Text>
-              {it.responsavel}
             </Text>
           </View>
         ))}
 
         <View style={s.rodape}>
-          <Text>Documento elaborado eletronicamente pelo sistema PCA-UERN</Text>
+          <Text>Documento elaborado eletronicamente pelo Sistema de Planejamento de Contratações (PCA-UERN)</Text>
           <Text>
             {riscos.responsavelNome ?? "—"}
             {riscos.responsavelMatricula ? ` — Matrícula ${riscos.responsavelMatricula}` : ""}
@@ -98,13 +125,10 @@ export function RiscosDocumento({
           <Text>
             {riscos.status === "FINALIZADO" && riscos.finalizadoEm
               ? `Finalizado em: ${formatarDataHora(riscos.finalizadoEm)}`
-              : "RASCUNHO — ainda não finalizado"}
-          </Text>
-          <Text style={s.nota}>
-            Este documento não possui assinatura digital com certificação ICP-Brasil — deve ser
-            protocolado e assinado no SEI para compor o processo formal de contratação.
+              : "RASCUNHO — em elaboração"}
           </Text>
         </View>
+
         <RodapeAutenticacaoPdf autenticacao={autenticacao} />
       </Page>
     </Document>

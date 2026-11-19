@@ -47,6 +47,7 @@ export default async function RiscosPage({
       ) : (
         <RiscosForm
           pdfHref={`/consolidacao/${categoriaId}/riscos/${consolidacaoId}/pdf`}
+          docxHref={`/consolidacao/${categoriaId}/riscos/${consolidacaoId}/docx`}
           analiseRiscosId={consolidacao.analiseRiscos.id}
           status={consolidacao.analiseRiscos.status}
           responsavelNome={consolidacao.analiseRiscos.responsavelNome}

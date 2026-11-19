@@ -861,14 +861,28 @@ model ConsolidacaoTecnica {
   // Referência real ao ETP elaborado no sistema pelo Setor Técnico — não
   // existe mais um campo de texto livre com um "ID do documento" digitado à
   // mão na consolidação (ver Fase E6).
-  estudoTecnicoPreliminar EstudoTecnicoPreliminar?
-  analiseRiscos           AnaliseRiscos?
-  pesquisaDePrecos        PesquisaDePrecos?
-  termoReferencia         TermoReferencia?
-  minutaEdital            MinutaEdital?
-  minutaContrato          MinutaContrato?
-  minutaAta               MinutaAta?
-  diligenciasJuridicas    DiligenciaJuridica[]
+  estudoTecnicoPreliminar       EstudoTecnicoPreliminar?
+  analiseRiscos                 AnaliseRiscos?
+  instrumentoMedicaoResultado   InstrumentoMedicaoResultado?
+  pesquisaDePrecos              PesquisaDePrecos?
+  termoReferencia               TermoReferencia?
+  minutaEdital                  MinutaEdital?
+  minutaContrato                MinutaContrato?
+  minutaAta                     MinutaAta?
+  diligenciasJuridicas          DiligenciaJuridica[]
+  itensEtp                      ItemEtp[]
+
+  // Kit de Documentos Definitivos Pós-PGE (Edital Definitivo, TR, ETP, IMR, Riscos, Contrato/Ata)
+  kitDefinitivoAprovadoEm     DateTime?
+  kitDefinitivoParecerSei     String?
+  kitDefinitivoAgenteNome     String?
+  editalNumeroFormatado       String?
+  trNumeroFormatado           String?
+  etpNumeroFormatado          String?
+  riscosNumeroFormatado       String?
+  imrNumeroFormatado          String?
+  contratoNumeroFormatado     String?
+  ataNumeroFormatado          String?
 
   // Edital Definitivo + Registro da Aprovação da Autoridade (no SEI) + Publicação no PNCP
   editalDefinitivoGeradoEm    DateTime?
@@ -1542,4 +1556,117 @@ model ParametrosKpiLicitacao {
   limiarPrata               Int      @default(50)
   atualizadoPor             String?
   updatedAt                 DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Lista Consolidada de Itens do ETP (Ajustável na fase de ETP / Diligências)
+// Alimenta a Pesquisa de Preços e o Termo de Referência
+// ---------------------------------------------------------------------------
+
+model ItemEtp {
+  id                    String              @id @default(cuid())
+  consolidacaoTecnicaId String
+  consolidacaoTecnica   ConsolidacaoTecnica @relation(fields: [consolidacaoTecnicaId], references: [id], onDelete: Cascade)
+
+  ordem                 Int
+  item                  String              // Descrição técnica detalhada
+  especificacaoCompleta String?             @db.Text
+  quantidade            Decimal             @db.Decimal(14, 2)
+  unidadeMedida         String              @default("UN")
+  valorUnitarioEstimado Decimal             @default(0) @db.Decimal(14, 2)
+  valorTotalEstimado    Decimal             @default(0) @db.Decimal(14, 2)
+  divisivel             Boolean             @default(true) // Se divisível e > R$ 200k, aplica Cota 75% Ampla / 25% ME/EPP (LC 675/2020)
+  tipoBem               TipoBem?
+  unidadesDemandantes   String?             // Siglas das unidades demandantes separadas por vírgula (rastreabilidade do DFD)
+  catmatOuCatser        String?
+  observacoes           String?
+
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  @@index([consolidacaoTecnicaId])
+}
+
+// ---------------------------------------------------------------------------
+// Instrumento de Medição de Resultado - IMR
+// Padrão A: Serviços Terceirizados / Dedicação Exclusiva de Mão de Obra (ZELO)
+// Padrão B: Serviços em Geral (sem mão de obra exclusiva)
+// ---------------------------------------------------------------------------
+
+model InstrumentoMedicaoResultado {
+  id                    String              @id @default(cuid())
+  consolidacaoTecnicaId String              @unique
+  consolidacaoTecnica   ConsolidacaoTecnica @relation(fields: [consolidacaoTecnicaId], references: [id], onDelete: Cascade)
+
+  tipoImr               String              @default("SERVICOS_GERAIS") // DEDICACAO_EXCLUSIVA | SERVICOS_GERAIS | NAO_APLICAVEL
+  status                StatusDocumentoTecnico @default(RASCUNHO)
+  objetoContratual      String?
+  contratoNumero        String?
+  contratadaNome        String?
+  mesCompetencia        String?
+  localCampus           String?
+  observacoes           String?             @db.Text
+  responsavelNome       String?
+  responsavelMatricula  String?
+  finalizadoEm          DateTime?
+
+  itens                 ImrItem[]
+
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+}
+
+model ImrItem {
+  id              String                      @id @default(cuid())
+  imrId           String
+  imr             InstrumentoMedicaoResultado @relation(fields: [imrId], references: [id], onDelete: Cascade)
+
+  ordem           Int
+  indicadorNumero String                      // Ex: "Indicador nº 01"
+  indicadorNome   String                      // Ex: "Execução dos serviços" ou "Prazos, Cronograma e SLA"
+  servicoEscopo   String                      // Ex: "LIMPEZA E CONSERVAÇÃO", "GERAL", "MANUTENÇÃO", "TI"
+  descricao       String                      @db.Text
+  pontuacaoPrevista Decimal                   @db.Decimal(5, 2)
+  pontuacaoTexto  String?                     // Ex: "0,5 ponto", "2,0 pontos"
+  aplicadaSimNao  Boolean?
+  pontuacaoAplicada Decimal?                  @db.Decimal(5, 2)
+  documentoSei    String?
+
+  @@index([imrId])
+}
+
+// ---------------------------------------------------------------------------
+// Gestão de Modelos AGU (Upload e Versionamento pelo Diretor de Licitações)
+// ---------------------------------------------------------------------------
+
+model ModeloDocumentoAgu {
+  id              String   @id @default(cuid())
+  tipo            String   // TR, EDITAL, CONTRATO, ATA_RP, LISTA_VERIFICACAO, TERMO_JUSTIFICATIVAS_ENG
+  objetoNatureza  String   // COMPRAS, SERVICOS_SEM_MAO_DE_OBRA, SERVICOS_COM_MAO_DE_OBRA, OBRAS_ENGENHARIA, MENOR_PRECO_MAIOR_DESCONTO, TECNICA_E_PRECO, GERAL
+  titulo          String
+  descricao       String?
+  versaoAgu       String   // Ex: "DEZ/2025", "MAI/2026", "ABR/2026", "SET/2024"
+  arquivoDocxNome String?
+  conteudoTexto   String?  @db.Text
+  ativo           Boolean  @default(true)
+  atualizadoPor   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([tipo, objetoNatureza])
+}
+
+// ---------------------------------------------------------------------------
+// Sequencial Automático Padrão SGC/UERN para o Sistema Pré-Contratual (PCA)
+// ---------------------------------------------------------------------------
+
+model SequencialDocumentoPca {
+  id           String   @id @default(cuid())
+  tipo         String   // EDITAL, TERMO_REFERENCIA, ETP, MAPA_RISCOS, IMR, MINUTA_CONTRATO, MINUTA_ATA
+  ano          Int
+  ultimoNumero Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([tipo, ano])
+  @@map("sequenciais_documentos_pca")
 }

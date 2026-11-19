@@ -113,6 +113,8 @@ export default async function PlanejamentoDetalhePage({
       ) : (
         <TermoReferenciaForm
           pdfHref={`/planejamento/${consolidacaoId}/pdf`}
+          docxHref={`/planejamento/${consolidacaoId}/docx`}
+          consolidacaoId={consolidacaoId}
           etp={{
             objeto: etp!.objeto,
             necessidadeContratacao: etp!.necessidadeContratacao,

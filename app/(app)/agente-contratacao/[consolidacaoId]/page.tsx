@@ -6,6 +6,7 @@ import IniciarDocumentoBotao from "../../IniciarDocumentoBotao";
 import { criarMinutaEditalAction } from "@/lib/actions/minuta-edital";
 import MinutaEditalForm from "./MinutaEditalForm";
 import PainelFluxoAgente, { type ItemResumoAgente } from "./PainelFluxoAgente";
+import PainelKitDefinitivoAgente from "./PainelKitDefinitivoAgente";
 
 export default async function AgenteContratacaoDetalhePage({
   params,
@@ -164,6 +165,7 @@ export default async function AgenteContratacaoDetalhePage({
         ) : (
           <MinutaEditalForm
             pdfHref={`/agente-contratacao/${consolidacaoId}/pdf`}
+            docxHref={`/agente-contratacao/${consolidacaoId}/docx`}
             etp={{ objeto: etp!.objeto }}
             tr={{
               formaSelecaoFornecedor: tr!.formaSelecaoFornecedor,
@@ -188,6 +190,24 @@ export default async function AgenteContratacaoDetalhePage({
           />
         )}
       </div>
+
+      {/* Etapa 4: Parecer Jurídico PGE, Diligências e Kit de Documentos Definitivos */}
+      <PainelKitDefinitivoAgente
+        consolidacaoId={consolidacaoId}
+        categoriaId={consolidacao.categoriaId}
+        trFinalizado={trFinalizado}
+        minutaFinalizada={consolidacao.minutaEdital?.status === "FINALIZADO"}
+        kitDefinitivoAprovadoEm={consolidacao.kitDefinitivoAprovadoEm?.toISOString() ?? null}
+        kitDefinitivoParecerSei={consolidacao.kitDefinitivoParecerSei}
+        kitDefinitivoAgenteNome={consolidacao.kitDefinitivoAgenteNome}
+        editalNumeroFormatado={consolidacao.editalNumeroFormatado}
+        trNumeroFormatado={consolidacao.trNumeroFormatado}
+        etpNumeroFormatado={consolidacao.etpNumeroFormatado}
+        riscosNumeroFormatado={consolidacao.riscosNumeroFormatado}
+        imrNumeroFormatado={consolidacao.imrNumeroFormatado}
+        contratoNumeroFormatado={consolidacao.contratoNumeroFormatado}
+        ataNumeroFormatado={consolidacao.ataNumeroFormatado}
+      />
     </div>
   );
 }

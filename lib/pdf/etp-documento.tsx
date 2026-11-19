@@ -1,9 +1,10 @@
 import React from "react";
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Page, StyleSheet, Text, View, Image } from "@react-pdf/renderer";
 import { brl, formatarData } from "../formato";
 import { type EtpParaPdf, totalItensEtp } from "./etp-dados";
 import type { DadosAutenticacaoPdf } from "./autenticacao";
 import { RodapeAutenticacaoPdf } from "./rodape-autenticacao";
+import { obterBrasaoUernDataUrl } from "./brasao-data-url";
 
 const BLUE = "#0000FF";
 const BORDER_COLOR = "#0000FF";
@@ -249,6 +250,9 @@ export function EtpDocumento({
         {/* Cabeçalho Institucional */}
         <View style={styles.etpHeaderBox}>
           <View style={styles.etpHeaderTop}>
+            {obterBrasaoUernDataUrl() ? (
+              <Image src={obterBrasaoUernDataUrl()} style={{ width: 34, height: 52, marginBottom: 4 }} />
+            ) : null}
             <Text style={styles.etpHeaderUniName}>
               FUNDAÇÃO UNIVERSIDADE DO ESTADO DO RIO GRANDE DO NORTE – FUERN
             </Text>

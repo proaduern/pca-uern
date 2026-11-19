@@ -26,7 +26,17 @@ interface EtpDados {
   responsavelMatricula: string | null;
 }
 
-export default function EtpForm({ etp, pdfHref }: { etp: EtpDados; pdfHref: string }) {
+export default function EtpForm({
+  etp,
+  pdfHref,
+  docxHref,
+  imrHref,
+}: {
+  etp: EtpDados;
+  pdfHref: string;
+  docxHref?: string;
+  imrHref?: string;
+}) {
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
   const [mensagem, setMensagem] = useState<string | null>(null);
@@ -157,9 +167,31 @@ export default function EtpForm({ etp, pdfHref }: { etp: EtpDados; pdfHref: stri
             </button>
           </>
         )}
-        <a href={pdfHref} className="rounded-xl border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100">
-          Baixar PDF
+        <a
+          href={pdfHref}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-xl border border-red-300 bg-red-50 text-red-700 px-3 py-2 text-sm font-medium hover:bg-red-100"
+        >
+          Baixar ETP em PDF
         </a>
+        {docxHref && (
+          <a
+            href={docxHref}
+            download
+            className="rounded-xl border border-blue-300 bg-blue-50 text-blue-700 px-3 py-2 text-sm font-medium hover:bg-blue-100"
+          >
+            Baixar ETP em DOCX (Nativo SEI)
+          </a>
+        )}
+        {imrHref && (
+          <a
+            href={imrHref}
+            className="rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 px-3 py-2 text-sm font-medium hover:bg-emerald-100 ml-auto"
+          >
+            Acessar IMR da Contratação →
+          </a>
+        )}
       </div>
     </form>
   );

@@ -10,6 +10,7 @@ export interface ItemMinutaParaPdf {
 export interface MinutaEditalParaPdf extends DadosMinutaEdital {
   processoSEI: string;
   categoriaNome: string;
+  sequencialTexto?: string;
 
   // Puxado do ETP (já finalizado)
   objeto: string;

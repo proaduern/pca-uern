@@ -5,6 +5,8 @@ export interface ItemTrParaPdf {
   quantidade: number | null;
   valorUnit: number | null;
   valorTotal: number;
+  divisivel?: boolean;
+  tipoCota?: "EXCLUSIVA_ME_EPP" | "COTA_RESERVADA_ME_EPP" | "AMPLA_CONCORRENCIA";
 }
 
 export interface ItemPesquisaTrParaPdf {
@@ -16,6 +18,7 @@ export interface ItemPesquisaTrParaPdf {
 export interface TermoReferenciaParaPdf extends DadosTermoReferencia {
   processoSEI: string;
   categoriaNome: string;
+  sequencialTexto?: string;
 
   // Puxado do ETP (já finalizado)
   objeto: string;

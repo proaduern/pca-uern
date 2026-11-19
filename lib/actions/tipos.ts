@@ -8,5 +8,6 @@
  * Em vez disso, a action captura o próprio erro e retorna { erro }.
  */
 export interface ResultadoAcao {
+  sucesso?: boolean;
   erro?: string;
 }
