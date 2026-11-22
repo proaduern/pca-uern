@@ -390,6 +390,10 @@ model Categoria {
   // só para identificação nos relatórios — não afeta nenhuma regra de negócio.
   classificacaoRubrica String?
 
+  // Código / ID de Contratação do PNCP padrão desta categoria (ex.: "925543-3/2027").
+  // Editável pela PROAD/Admin e pré-preenchido na Consolidação Técnica.
+  codigoPcaPadrao String?
+
   // Só se aplica a categorias de material sem catálogo (semItem=true): como
   // o item não vem de um ItemCatalogo (que já carrega seu próprio tipoBem),
   // a categoria precisa fixar se é bem permanente ou de consumo, para que o
@@ -609,6 +613,10 @@ model Dfd {
   criadoPorUsuarioId String?
   criadoPorUsuario   Usuario? @relation("DfdCriadoPorUsuario", fields: [criadoPorUsuarioId], references: [id], onDelete: SetNull)
 
+  // Rastreabilidade de origem (Processo SEI e ID SEI do DFD original da unidade)
+  processoSeiOrigem String?
+  idSeiDfdOrigem    String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -664,6 +672,13 @@ model ItemDfd {
   valorTotal Decimal  @db.Decimal(14, 2)
 
   correlacao String
+
+  // Rastreabilidade da planilha/SEI de origem do item
+  processoSeiOrigem     String?
+  idSeiDfdOrigem        String?
+  setorSolicitanteTexto String?
+  codigoPncpReferencia  String?
+  fonteEspecificacao    String?
 
   // Consolidação: o item nunca é somado/substituído por uma linha agregada —
   // só ganha uma referência a qual processo de consolidação o inclui, e

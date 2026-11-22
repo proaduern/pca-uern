@@ -131,6 +131,57 @@ export async function substituirItemAction(
   }
 }
 
+export async function salvarCodigoPcaCategoriaSetorAction(
+  categoriaId: string,
+  codigo: string,
+) {
+  const sessao = await exigirSetorTecnico();
+  await obterCategoriaDoSetorOuErro(categoriaId, sessao.id, sessao.tipo === "ADMIN");
+  const limpo = codigo.trim() || null;
+
+  await prisma.categoria.update({
+    where: { id: categoriaId },
+    data: { codigoPcaPadrao: limpo },
+  });
+
+  if (limpo) {
+    await prisma.consolidacaoTecnica.updateMany({
+      where: { categoriaId, OR: [{ codigoPca: null }, { codigoPca: "" }] },
+      data: { codigoPca: limpo },
+    });
+  }
+
+  revalidatePath(`/consolidacao/${categoriaId}`);
+  revalidatePath("/admin/pca");
+  revalidatePath("/admin/categorias");
+}
+
+export async function salvarCodigoPcaConsolidacaoSetorAction(
+  consolidacaoId: string,
+  codigo: string,
+) {
+  const sessao = await exigirSetorTecnico();
+  const cons = await prisma.consolidacaoTecnica.findUniqueOrThrow({
+    where: { id: consolidacaoId },
+  });
+  if (sessao.tipo !== "ADMIN" && cons.setorTecnicoId !== sessao.id) {
+    throw new Error("Você não tem permissão para editar esta consolidação.");
+  }
+  const limpo = codigo.trim() || null;
+  await prisma.consolidacaoTecnica.update({
+    where: { id: consolidacaoId },
+    data: { codigoPca: limpo },
+  });
+  if (limpo) {
+    await prisma.categoria.update({
+      where: { id: cons.categoriaId },
+      data: { codigoPcaPadrao: limpo },
+    });
+  }
+  revalidatePath(`/consolidacao/${cons.categoriaId}`);
+  revalidatePath("/admin/pca");
+}
+
 export async function consolidarCategoriaAction(categoriaId: string, formData: FormData) {
   const sessao = await exigirSetorTecnico();
   const categoria = await obterCategoriaDoSetorOuErro(categoriaId, sessao.id, sessao.tipo === "ADMIN");
@@ -142,6 +193,7 @@ export async function consolidarCategoriaAction(categoriaId: string, formData: F
   }
 
   const processoSEI = String(formData.get("processoSEI") ?? "").trim();
+  const codigoPcaForm = String(formData.get("codigoPca") ?? "").trim();
   const dataETP = String(formData.get("dataETP") ?? "");
   const prioridade = String(formData.get("prioridade") ?? "") as "ALTA" | "MEDIA" | "BAIXA";
   const tipoContratacao = String(formData.get("tipoContratacao") ?? "") as "NORMAL" | "ATA";
@@ -190,12 +242,63 @@ export async function consolidarCategoriaAction(categoriaId: string, formData: F
     throw new Error("Algum item selecionado não está mais disponível para consolidação. Atualize a página.");
   }
 
+  const codigoPcaEfetivo =
+    codigoPcaForm ||
+    itensDfd.find((i) => i.codigoPncpReferencia)?.codigoPncpReferencia?.trim() ||
+    categoria.codigoPcaPadrao?.trim() ||
+    null;
+
+  if (!categoria.fluxoContinuo && !categoria.ignoraPCA && !codigoPcaEfetivo) {
+    throw new Error(
+      `Esta categoria ("${categoria.nome}") ainda não possui o ID do PNCP (ex.: 925543-XX/${pcaAtivo.ano}) lançado. Preencha o ID do PNCP antes de consolidar para emitir o DFD Consolidado, ETP, Mapa de Riscos e IMR.`,
+    );
+  }
+
+  // Regra de bloqueio de avanço de fase do PCA: todas as categorias com demandas no PCA precisam ter ID PNCP lançado
+  const todosItensPcaAno = await prisma.itemDfd.findMany({
+    where: {
+      dfd: { ano: pcaAtivo.ano, status: { in: ["APROVADO", "AGUARDANDO_APROVACAO"] } },
+      categoria: { fluxoContinuo: false, ignoraPCA: false },
+    },
+    include: {
+      categoria: true,
+      consolidacaoTecnica: true,
+    },
+  });
+
+  const categoriasSemPncp = new Set<string>();
+  for (const it of todosItensPcaAno) {
+    const cod =
+      (it.categoriaId === categoriaId ? codigoPcaEfetivo : null) ||
+      it.consolidacaoTecnica?.codigoPca?.trim() ||
+      it.codigoPncpReferencia?.trim() ||
+      it.categoria.codigoPcaPadrao?.trim() ||
+      "";
+    if (!cod) {
+      categoriasSemPncp.add(it.categoria.nome);
+    }
+  }
+
+  if (categoriasSemPncp.size > 0) {
+    const lista = Array.from(categoriasSemPncp).sort();
+    throw new Error(
+      `O PCA ${pcaAtivo.ano} só pode seguir para as demais fases (Setores Técnicos, DFD Consolidado, ETP, Mapa de Riscos e IMR) depois que TODOS os IDs do PNCP estiverem devidamente lançados no sistema. Ainda faltam ${lista.length} categoria(s) sem ID do PNCP: ${lista.slice(0, 6).join(", ")}${lista.length > 6 ? ` e mais ${lista.length - 6}...` : "."}`,
+    );
+  }
+
   const setorIdConsolidacao =
     sessao.tipo === "SETOR_TECNICO"
       ? sessao.id
       : categoria.setorTecnicoId ?? (await prisma.setorTecnico.findFirstOrThrow()).id;
 
   await prisma.$transaction(async (tx) => {
+    if (codigoPcaEfetivo && !categoria.consolidarPorObjeto) {
+      await tx.categoria.update({
+        where: { id: categoriaId },
+        data: { codigoPcaPadrao: codigoPcaEfetivo },
+      });
+    }
+
     const consolidacaoAberta = categoria.consolidarPorObjeto
       ? null
       : await tx.consolidacaoTecnica.findFirst({
@@ -211,6 +314,7 @@ export async function consolidarCategoriaAction(categoriaId: string, formData: F
             prioridade,
             tipoContratacao,
             dataEsperadaConclusao: new Date(dataEsperadaConclusao),
+            codigoPca: codigoPcaEfetivo,
           },
         })
       : await tx.consolidacaoTecnica.create({
@@ -223,6 +327,7 @@ export async function consolidarCategoriaAction(categoriaId: string, formData: F
             prioridade,
             tipoContratacao,
             dataEsperadaConclusao: new Date(dataEsperadaConclusao),
+            codigoPca: codigoPcaEfetivo,
           },
         });
 
@@ -241,8 +346,8 @@ export async function consolidarCategoriaAction(categoriaId: string, formData: F
   });
 
   revalidatePath(`/consolidacao/${categoriaId}`);
+  revalidatePath("/admin/pca");
 }
-
 
 export async function editarParametrosConsolidacaoAction(
   consolidacaoId: string,

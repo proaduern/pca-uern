@@ -66,8 +66,8 @@ describe("validarRiscosParaFinalizar", () => {
 });
 
 describe("RISCOS_PADRAO", () => {
-  it("tem 16 riscos-modelo, todos válidos", () => {
-    expect(RISCOS_PADRAO).toHaveLength(16);
+  it("tem 21 riscos-modelo (padrão UERN SEI 38206661), todos válidos", () => {
+    expect(RISCOS_PADRAO).toHaveLength(21);
     expect(validarRiscosParaFinalizar(RISCOS_PADRAO, "Fulano", "12345-6")).toBeNull();
   });
 });

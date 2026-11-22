@@ -68,13 +68,26 @@ export async function criarEtpAction(consolidacaoTecnicaId: string): Promise<Res
 
   const categoria = await prisma.categoria.findUniqueOrThrow({ where: { id: resultado.consolidacao.categoriaId } });
 
+  const codPncp =
+    resultado.consolidacao.codigoPca?.trim() ||
+    categoria.codigoPcaPadrao?.trim() ||
+    "";
+
+  if (!categoria.fluxoContinuo && !categoria.ignoraPCA && !codPncp) {
+    return {
+      erro: `Não é possível iniciar o ETP antes de lançar o ID de Contratação do PNCP (ex.: 925543-XX/${resultado.consolidacao.pcaAno}) para esta categoria.`,
+    };
+  }
+
   const etp = await prisma.estudoTecnicoPreliminar.create({
     data: {
       consolidacaoTecnicaId,
       objeto: categoria.nome,
       localEntregaPrestacao: "",
       necessidadeContratacao: "",
-      referenciaPca: "",
+      referenciaPca: codPncp
+        ? `Demanda prevista no Plano de Contratações Anual (PCA ${resultado.consolidacao.pcaAno}) sob o ID de Contratação PNCP nº ${codPncp}.`
+        : "",
       requisitosContratacao: "",
       estimativaQuantidadesMemoria: "",
       levantamentoMercadoJustificativa: "",

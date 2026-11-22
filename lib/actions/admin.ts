@@ -537,7 +537,7 @@ export async function redefinirSenhaAgenteContratacaoAction(agenteContratacaoId:
 }
 
 // ---------------------------------------------------------------------------
-// Código PCA (PNCP) por consolidação
+// Código PCA (PNCP) por consolidação e por categoria
 // ---------------------------------------------------------------------------
 
 export async function salvarCodigoPcaAction(
@@ -545,11 +545,42 @@ export async function salvarCodigoPcaAction(
   codigo: string,
 ) {
   await exigirAdmin();
-  await prisma.consolidacaoTecnica.update({
+  const limpo = codigo.trim() || null;
+  const cons = await prisma.consolidacaoTecnica.update({
     where: { id: consolidacaoId },
-    data: { codigoPca: codigo.trim() || null },
+    data: { codigoPca: limpo },
   });
+  if (limpo) {
+    await prisma.categoria.update({
+      where: { id: cons.categoriaId },
+      data: { codigoPcaPadrao: limpo },
+    });
+  }
   revalidatePath("/admin/pca");
+  revalidatePath("/admin/categorias");
+  revalidatePath(`/consolidacao/${cons.categoriaId}`);
+}
+
+export async function salvarCodigoPcaCategoriaAction(
+  categoriaId: string,
+  codigo: string,
+) {
+  await exigirAdmin();
+  const limpo = codigo.trim() || null;
+  await prisma.categoria.update({
+    where: { id: categoriaId },
+    data: { codigoPcaPadrao: limpo },
+  });
+  // Sincroniza consolidações abertas desta categoria que ainda estavam sem código
+  if (limpo) {
+    await prisma.consolidacaoTecnica.updateMany({
+      where: { categoriaId, OR: [{ codigoPca: null }, { codigoPca: "" }] },
+      data: { codigoPca: limpo },
+    });
+  }
+  revalidatePath("/admin/pca");
+  revalidatePath("/admin/categorias");
+  revalidatePath(`/consolidacao/${categoriaId}`);
 }
 
 export async function salvarConsolidarPorObjetoAction(
@@ -664,18 +695,62 @@ export async function toggleConcluidoAction(ano: number, concluido: boolean) {
   await exigirAdmin();
 
   if (concluido) {
-    const consolidacoes = await prisma.consolidacaoTecnica.findMany({
-      where: { pcaAno: ano },
+    // 1. Verifica se ainda existem DFDs aguardando aprovação da PROAD neste PCA
+    const dfdsPendentesAprovacao = await prisma.dfd.count({
+      where: { ano, status: "AGUARDANDO_APROVACAO" },
     });
-    if (consolidacoes.length === 0) {
+    if (dfdsPendentesAprovacao > 0) {
       throw new Error(
-        "Nenhuma categoria consolidada neste PCA ainda — não é possível concluir.",
+        `Ainda existem ${dfdsPendentesAprovacao} DFD(s) primário(s) aguardando aprovação da PROAD no PCA ${ano}. Aprove ou reprove todos os DFDs antes de concluir o PCA.`,
       );
     }
-    const pendentes = consolidacoes.filter((c) => !c.codigoPca);
-    if (pendentes.length > 0) {
+
+    // 2. Verifica todas as categorias que possuem demandas (DFDs aprovados ou em análise) neste PCA (exceto Fluxo Contínuo / Fora do PCA)
+    const itensDoAno = await prisma.itemDfd.findMany({
+      where: {
+        dfd: { ano, status: { in: ["APROVADO", "AGUARDANDO_APROVACAO"] } },
+        categoria: { fluxoContinuo: false, ignoraPCA: false },
+      },
+      include: {
+        categoria: true,
+        consolidacaoTecnica: true,
+      },
+    });
+
+    if (itensDoAno.length === 0) {
       throw new Error(
-        `Faltam ${pendentes.length} código(s) PCA (PNCP) para poder concluir.`,
+        "Nenhuma demanda de contratação vinculada a este PCA ainda — não é possível concluir.",
+      );
+    }
+
+    const categoriasSemPncp = new Set<string>();
+    for (const it of itensDoAno) {
+      const codEfetivo =
+        it.consolidacaoTecnica?.codigoPca?.trim() ||
+        it.codigoPncpReferencia?.trim() ||
+        it.categoria.codigoPcaPadrao?.trim() ||
+        "";
+      if (!codEfetivo) {
+        categoriasSemPncp.add(it.categoria.nome);
+      }
+    }
+
+    // Também verifica consolidações técnicas já criadas no ano
+    const consolidacoes = await prisma.consolidacaoTecnica.findMany({
+      where: { pcaAno: ano },
+      include: { categoria: true },
+    });
+    for (const c of consolidacoes) {
+      const cod = c.codigoPca?.trim() || c.categoria.codigoPcaPadrao?.trim() || "";
+      if (!cod && !c.categoria.fluxoContinuo && !c.categoria.ignoraPCA) {
+        categoriasSemPncp.add(c.categoria.nome);
+      }
+    }
+
+    if (categoriasSemPncp.size > 0) {
+      const lista = Array.from(categoriasSemPncp).sort();
+      throw new Error(
+        `O PCA ${ano} só pode ser concluído e seguir para as demais fases (Setores Técnicos, DFD Consolidado, ETP, Mapa de Riscos e IMR) depois que TODOS os IDs do PNCP estiverem devidamente lançados no sistema. Faltam ${lista.length} categoria(s) sem ID do PNCP: ${lista.slice(0, 8).join(", ")}${lista.length > 8 ? ` e mais ${lista.length - 8}...` : "."}`,
       );
     }
   }
@@ -685,6 +760,8 @@ export async function toggleConcluidoAction(ano: number, concluido: boolean) {
     data: { concluido, concluidoEm: concluido ? new Date() : null },
   });
   revalidatePath("/admin/pca");
+  revalidatePath("/consolidacao");
+  revalidatePath("/");
 }
 
 export async function adicionarExcecaoPcaAction(formData: FormData) {

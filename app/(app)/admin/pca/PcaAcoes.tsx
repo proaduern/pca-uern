@@ -28,7 +28,6 @@ export default function PcaAcoes({ pca }: { pca: PcaResumo }) {
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
-  const [codigoPncp, setCodigoPncp] = useState(`PCA-${pca.ano}-PNCP-UERN`);
   const [editandoPca, setEditandoPca] = useState(false);
 
   function executar(fn: () => Promise<unknown>, msgSucesso?: string, aoConcluir?: () => void) {
@@ -186,27 +185,19 @@ export default function PcaAcoes({ pca }: { pca: PcaResumo }) {
         <input type="hidden" name="ano" value={pca.ano} />
         <div className="flex-1 min-w-[16rem]">
           <p className="font-semibold text-indigo-950">
-            Publicação do PCA no PNCP &amp; Disparo Automático para o Subsistema de ETP e Mapa de Riscos
+            Conclusão do PCA no PNCP &amp; Disparo Automático para os Setores Técnicos (DFD Consolidado, ETP, Riscos e IMR)
           </p>
           <p className="mt-0.5 text-[11px] text-indigo-800">
-            Agrupa automaticamente os DFDs aprovados (por categoria ou por objeto conforme configuração) e encaminha
-            as listas de itens para o Setor Técnico competente (STI, Patrimônio, SOBE, DAS, Almoxarifado, Transportes, Comitês).
+            Valida que todos os DFDs primários foram analisados e que todas as categorias possuem seu ID do PNCP (ex.: 925543-XX/{pca.ano}) lançado (sem inventar códigos), consolidando e encaminhando as listas de itens para o Setor Técnico competente.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <input
-            name="codigoPcaPadrao"
-            value={codigoPncp}
-            onChange={(e) => setCodigoPncp(e.target.value)}
-            placeholder="Código de Publicação PNCP (Manual)"
-            className="rounded-lg border border-indigo-300 bg-white px-2.5 py-1.5 text-xs text-slate-800"
-          />
           <button
             type="submit"
             disabled={isPending}
             className="rounded-lg bg-indigo-600 px-3 py-1.5 font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
           >
-            {isPending ? "Processando..." : "Registrar Publicação Manual & Encaminhar ao ETP/Riscos"}
+            {isPending ? "Validando IDs PNCP e processando..." : "Concluir PCA & Encaminhar aos Setores Técnicos (ETP / Riscos / IMR)"}
           </button>
           <button
             type="button"

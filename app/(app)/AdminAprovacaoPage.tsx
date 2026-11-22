@@ -17,11 +17,21 @@ export default async function AdminAprovacaoPage() {
             select: {
               id: true,
               valorTotal: true,
+              codigoPncpReferencia: true,
+              categoria: {
+                select: {
+                  nome: true,
+                  codigoPcaPadrao: true,
+                  fluxoContinuo: true,
+                  ignoraPCA: true,
+                  setorTecnico: { select: { nome: true } },
+                },
+              },
             },
           },
           prioridade: true,
         },
-        orderBy: { enviadoParaAprovacaoEm: "asc" },
+        orderBy: [{ ano: "desc" }, { enviadoParaAprovacaoEm: "asc" }],
       }),
       prisma.dfd.findMany({
         where: { status: { in: ["APROVADO", "REPROVADO"] } },
@@ -43,15 +53,30 @@ export default async function AdminAprovacaoPage() {
         </p>
 
         <PendentesTabela
-          pendentes={pendentes.map((d) => ({
-            id: d.id,
-            descricaoSumaria: d.descricaoSumaria || "DFD sem descrição",
-            unidadeNome: d.unidade?.nome || "Unidade não identificada",
-            prioridadeFrase: d.prioridade?.frase || "Prioridade não definida",
-            totalItens: d.itens?.length || 0,
-            totalValor: (d.itens || []).reduce((s, it) => s + Number(it.valorTotal || 0), 0),
-            enviadoParaAprovacaoEm: d.enviadoParaAprovacaoEm,
-          }))}
+          pendentes={pendentes.map((d) => {
+            const primeiroItem = d.itens?.[0];
+            const cat = primeiroItem?.categoria;
+            const codigoPncp =
+              primeiroItem?.codigoPncpReferencia ||
+              cat?.codigoPcaPadrao ||
+              null;
+            return {
+              id: d.id,
+              ano: d.ano,
+              numero: d.numero,
+              descricaoSumaria: d.descricaoSumaria || "DFD sem descrição",
+              unidadeNome: d.unidade?.nome || "Unidade não identificada",
+              setorTecnicoNome: cat?.setorTecnico?.nome || (cat?.fluxoContinuo ? "SDHP / PROAD (Fluxo Contínuo)" : "—"),
+              processoSeiOrigem: d.processoSeiOrigem,
+              idSeiDfdOrigem: d.idSeiDfdOrigem,
+              codigoPncp,
+              fluxoContinuo: !!(cat?.fluxoContinuo || cat?.ignoraPCA),
+              prioridadeFrase: d.prioridade?.frase || "Prioridade não definida",
+              totalItens: d.itens?.length || 0,
+              totalValor: (d.itens || []).reduce((s, it) => s + Number(it.valorTotal || 0), 0),
+              enviadoParaAprovacaoEm: d.enviadoParaAprovacaoEm,
+            };
+          })}
         />
 
         {historico.length > 0 && (

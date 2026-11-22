@@ -23,86 +23,128 @@ import type { ResultadoAcao } from "./tipos";
 export async function publicarPcaEEncaminharParaEtpAction(formData: FormData): Promise<ResultadoAcao> {
   await exigirAdmin();
   const ano = Number(formData.get("ano") ?? 0);
-  const codigoPcaPadrao = String(formData.get("codigoPcaPadrao") ?? "").trim() || `PCA-${ano}-PNCP-UERN`;
 
   if (!ano) return { erro: "Ano do PCA inválido." };
 
   const pca = await prisma.pca.findUnique({ where: { ano } });
   if (!pca) return { erro: "PCA não encontrado." };
 
-  // Busca todos os itens de DFDs APROVADOS deste ano que ainda não possuem consolidação técnica
-  const itensPendentes = await prisma.itemDfd.findMany({
+  // 1. Verifica se ainda há DFDs primários aguardando aprovação da PROAD
+  const dfdsPendentesAprovacao = await prisma.dfd.count({
+    where: { ano, status: "AGUARDANDO_APROVACAO" },
+  });
+  if (dfdsPendentesAprovacao > 0) {
+    return {
+      erro: `Ainda existem ${dfdsPendentesAprovacao} DFD(s) primário(s) aguardando aprovação da PROAD no PCA ${ano}. Aprove ou reprove todos os DFDs antes de concluir o PCA e encaminhar aos Setores Técnicos.`,
+    };
+  }
+
+  // 2. Busca todos os itens de DFDs APROVADOS deste ano (exceto Fluxo Contínuo / Fora do PCA)
+  const todosItensPca = await prisma.itemDfd.findMany({
     where: {
       dfd: { ano, status: "APROVADO" },
-      consolidacaoTecnicaId: null,
+      categoria: { fluxoContinuo: false, ignoraPCA: false },
     },
     include: {
       categoria: true,
       dfd: true,
+      consolidacaoTecnica: true,
     },
   });
+
+  if (todosItensPca.length === 0) {
+    return { erro: "Não há itens de DFDs aprovados neste PCA para concluir e encaminhar." };
+  }
+
+  // 3. Regra de Ouro: NUNCA inventar ID do PNCP. Verifica se todas as categorias/itens do PCA possuem ID do PNCP lançado
+  const categoriasSemPncp = new Set<string>();
+  for (const item of todosItensPca) {
+    const codEfetivo =
+      item.consolidacaoTecnica?.codigoPca?.trim() ||
+      item.codigoPncpReferencia?.trim() ||
+      item.categoria.codigoPcaPadrao?.trim() ||
+      "";
+    if (!codEfetivo) {
+      categoriasSemPncp.add(item.categoria.nome);
+    }
+  }
+
+  if (categoriasSemPncp.size > 0) {
+    const lista = Array.from(categoriasSemPncp).sort();
+    return {
+      erro: `O PCA ${ano} só pode ser concluído e seguir para as demais fases (Setores Técnicos, DFD Consolidado, ETP, Mapa de Riscos e IMR) depois que TODOS os IDs do PNCP estiverem devidamente lançados no sistema. Faltam ${lista.length} categoria(s) sem ID do PNCP: ${lista.slice(0, 10).join(", ")}${lista.length > 10 ? ` e mais ${lista.length - 10}...` : "."}`,
+    };
+  }
+
+  // Busca todos os itens de DFDs APROVADOS deste ano que ainda não possuem consolidação técnica
+  const itensPendentes = todosItensPca.filter((it) => !it.consolidacaoTecnicaId);
 
   const hoje = new Date();
   const prazoConclusao = new Date(hoje.getTime() + 90 * 24 * 60 * 60 * 1000);
 
   const setorPadrao = await prisma.setorTecnico.findFirst({ where: { ativo: true } });
 
-  // Agrupa por categoria (quando consolidarPorObjeto = false) ou por DFD/objeto (quando consolidarPorObjeto = true)
-  const grupos = new Map<string, { categoriaId: string; setorTecnicoId: string; sufixoSei: string; itensIds: string[] }>();
+  // Agrupa por categoria (quando consolidarPorObjeto = false) ou por código PNCP / item (quando consolidarPorObjeto = true)
+  const grupos = new Map<
+    string,
+    {
+      categoriaId: string;
+      setorTecnicoId: string;
+      processoSEI: string;
+      codigoPca: string;
+      itensIds: string[];
+    }
+  >();
 
+  let seq = 1;
   for (const item of itensPendentes) {
     const cat = item.categoria;
     const setorId = cat.setorTecnicoId ?? setorPadrao?.id;
     if (!setorId) continue;
-    const chave = cat.consolidarPorObjeto ? `OBJ_${cat.id}_${item.dfdId}` : `CAT_${cat.id}`;
+    const codPncp =
+      item.codigoPncpReferencia?.trim() ||
+      cat.codigoPcaPadrao?.trim() ||
+      "";
+    const chave = cat.consolidarPorObjeto
+      ? `OBJ_${cat.id}_${codPncp || item.id}`
+      : `CAT_${cat.id}`;
     const atual = grupos.get(chave);
     if (atual) {
       atual.itensIds.push(item.id);
     } else {
+      const codigoSeq = String(seq++).padStart(3, "0");
+      const procSei =
+        item.processoSeiOrigem?.trim() ||
+        item.dfd.processoSeiOrigem?.trim() ||
+        `04410001.000${codigoSeq}/${ano}-PCA`;
       grupos.set(chave, {
         categoriaId: cat.id,
         setorTecnicoId: setorId,
-        sufixoSei: cat.consolidarPorObjeto ? `DFD-${item.dfd.numero}` : cat.nome.slice(0, 12).toUpperCase().replace(/\s+/g, "-"),
+        processoSEI: procSei,
+        codigoPca: codPncp,
         itensIds: [item.id],
       });
     }
   }
 
-  let seq = 1;
   for (const g of grupos.values()) {
-    const codigoSeq = String(seq++).padStart(3, "0");
-    const processoSEI = `23091.000${codigoSeq}/${ano}-PCA`;
-    const codigoPcaItem = `${codigoPcaPadrao}-${codigoSeq}`;
-
     const novaConsolidacao = await prisma.consolidacaoTecnica.create({
       data: {
         categoriaId: g.categoriaId,
         setorTecnicoId: g.setorTecnicoId,
         pcaAno: ano,
-        processoSEI,
+        processoSEI: g.processoSEI,
         dataETP: hoje,
         prioridade: "MEDIA",
         tipoContratacao: "ATA",
         dataEsperadaConclusao: prazoConclusao,
-        codigoPca: codigoPcaItem,
+        codigoPca: g.codigoPca || null,
       },
     });
 
     await prisma.itemDfd.updateMany({
       where: { id: { in: g.itensIds } },
       data: { consolidacaoTecnicaId: novaConsolidacao.id },
-    });
-  }
-
-  // Também garante que consolidações já existentes deste ano recebam código PNCP se estiverem vazias
-  const consolidacoesSemCodigo = await prisma.consolidacaoTecnica.findMany({
-    where: { pcaAno: ano, OR: [{ codigoPca: null }, { codigoPca: "" }] },
-  });
-  for (const c of consolidacoesSemCodigo) {
-    const codigoSeq = String(seq++).padStart(3, "0");
-    await prisma.consolidacaoTecnica.update({
-      where: { id: c.id },
-      data: { codigoPca: `${codigoPcaPadrao}-${codigoSeq}` },
     });
   }
 
@@ -116,6 +158,7 @@ export async function publicarPcaEEncaminharParaEtpAction(formData: FormData): P
   });
 
   revalidatePath("/admin/pca");
+  revalidatePath("/consolidacao");
   revalidatePath("/");
   return {};
 }

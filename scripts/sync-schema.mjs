@@ -20,6 +20,20 @@ const COLUNAS_ITEM_DFD = [
   `"fornecedorVencedorNome" TEXT`,
   `"fornecedorVencedorEmail" TEXT`,
   `"fornecedorVencedorTelefone" TEXT`,
+  `"processoSeiOrigem" TEXT`,
+  `"idSeiDfdOrigem" TEXT`,
+  `"setorSolicitanteTexto" TEXT`,
+  `"codigoPncpReferencia" TEXT`,
+  `"fonteEspecificacao" TEXT`,
+];
+
+const COLUNAS_CATEGORIA = [
+  `"codigoPcaPadrao" TEXT`,
+];
+
+const COLUNAS_DFD = [
+  `"processoSeiOrigem" TEXT`,
+  `"idSeiDfdOrigem" TEXT`,
 ];
 
 const COLUNAS_ITEM_TECNICO = [
@@ -89,6 +103,18 @@ async function main() {
     await executarSilencioso(`ALTER TABLE IF EXISTS "ItemDfd" ADD COLUMN IF NOT EXISTS ${col};`);
     await executarSilencioso(`ALTER TABLE IF EXISTS public."ItemDfd" ADD COLUMN IF NOT EXISTS ${col};`);
     await executarSilencioso(`ALTER TABLE IF EXISTS pca."ItemDfd" ADD COLUMN IF NOT EXISTS ${col};`);
+  }
+
+  for (const col of COLUNAS_CATEGORIA) {
+    await executarSilencioso(`ALTER TABLE IF EXISTS "Categoria" ADD COLUMN IF NOT EXISTS ${col};`);
+    await executarSilencioso(`ALTER TABLE IF EXISTS public."Categoria" ADD COLUMN IF NOT EXISTS ${col};`);
+    await executarSilencioso(`ALTER TABLE IF EXISTS pca."Categoria" ADD COLUMN IF NOT EXISTS ${col};`);
+  }
+
+  for (const col of COLUNAS_DFD) {
+    await executarSilencioso(`ALTER TABLE IF EXISTS "Dfd" ADD COLUMN IF NOT EXISTS ${col};`);
+    await executarSilencioso(`ALTER TABLE IF EXISTS public."Dfd" ADD COLUMN IF NOT EXISTS ${col};`);
+    await executarSilencioso(`ALTER TABLE IF EXISTS pca."Dfd" ADD COLUMN IF NOT EXISTS ${col};`);
   }
 
   for (const col of COLUNAS_ITEM_TECNICO) {

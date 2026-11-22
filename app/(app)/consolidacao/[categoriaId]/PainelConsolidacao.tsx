@@ -7,6 +7,8 @@ import {
   adicionarItemTecnicoAction,
   consolidarCategoriaAction,
   editarParametrosConsolidacaoAction,
+  salvarCodigoPcaCategoriaSetorAction,
+  salvarCodigoPcaConsolidacaoSetorAction,
   substituirItemAction,
 } from "@/lib/actions/consolidacao";
 
@@ -15,6 +17,10 @@ interface ItemPendente {
   id: string;
   nome: string;
   unidadeNome: string;
+  setorSolicitante?: string | null;
+  processoSeiOrigem?: string | null;
+  idSeiDfdOrigem?: string | null;
+  codigoPncpReferencia?: string | null;
   prioridade: string | null;
   tipoBem: string | null;
   quantidade: number;
@@ -22,6 +28,18 @@ interface ItemPendente {
   valorTotal: number;
   substituido: boolean;
   itemOriginalNome: string | null;
+}
+
+interface ItemEmAprovacaoProad {
+  id: string;
+  nome: string;
+  unidadeNome: string;
+  setorSolicitante?: string | null;
+  processoSeiOrigem?: string | null;
+  idSeiDfdOrigem?: string | null;
+  codigoPncpReferencia?: string | null;
+  quantidade: number;
+  valorTotal: number;
 }
 
 interface ItemCatalogoOpcao {
@@ -41,6 +59,7 @@ interface ConsolidacaoHistorico {
   totalItens: number;
   statusEtp: "RASCUNHO" | "FINALIZADO" | null;
   statusRiscos: "RASCUNHO" | "FINALIZADO" | null;
+  statusImr?: "RASCUNHO" | "FINALIZADO" | null;
 }
 
 const STATUS_DOCUMENTO_LABEL: Record<"RASCUNHO" | "FINALIZADO", string> = {
@@ -61,17 +80,27 @@ function chaveItem(origem: string, id: string) {
 export default function PainelConsolidacao({
   categoriaId,
   categoriaNome,
+  codigoPcaPadrao = "",
+  consolidarPorObjeto = false,
   fluxoContinuo,
   pcaAno,
+  processoSeiSugerido = "",
+  categoriasPendentesPncp = [],
   pendentes,
+  emAprovacaoProad = [],
   itensCatalogo,
   historico,
 }: {
   categoriaId: string;
   categoriaNome: string;
+  codigoPcaPadrao?: string;
+  consolidarPorObjeto?: boolean;
   fluxoContinuo: boolean;
   pcaAno: number | null;
+  processoSeiSugerido?: string;
+  categoriasPendentesPncp?: string[];
   pendentes: ItemPendente[];
+  emAprovacaoProad?: ItemEmAprovacaoProad[];
   itensCatalogo: ItemCatalogoOpcao[];
   historico: ConsolidacaoHistorico[];
 }) {
@@ -82,6 +111,7 @@ export default function PainelConsolidacao({
   const [substituindo, setSubstituindo] = useState<ItemPendente | null>(null);
   const [editandoConsolidacao, setEditandoConsolidacao] = useState<ConsolidacaoHistorico | null>(null);
   const [dataETP, setDataETP] = useState("");
+  const [codigoPcaInput, setCodigoPcaInput] = useState(codigoPcaPadrao);
 
   function executar(fn: () => Promise<unknown>, sucesso?: string) {
     setErro(null);
@@ -106,6 +136,14 @@ export default function PainelConsolidacao({
     });
   }
 
+  function selecionarTodos() {
+    if (selecionados.size === pendentes.length) {
+      setSelecionados(new Set());
+    } else {
+      setSelecionados(new Set(pendentes.map((it) => chaveItem(it.origem, it.id))));
+    }
+  }
+
   const dataMinimaConclusao = dataETP
     ? (() => {
         const d = new Date(dataETP);
@@ -126,16 +164,80 @@ export default function PainelConsolidacao({
     );
   }
 
+  const semPncpNaCategoria = !codigoPcaInput.trim();
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold text-slate-900">Categoria: {categoriaNome}</h1>
-        {pcaAno && <p className="text-sm text-slate-500">PCA {pcaAno}</p>}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-lg font-semibold text-slate-900">Categoria: {categoriaNome}</h1>
+          {pcaAno && <p className="text-sm text-slate-500">PCA {pcaAno}</p>}
+        </div>
+
+        {/* Card Editável do ID PNCP da Categoria */}
+        <div
+          className={`rounded-xl border p-3 text-xs ${
+            semPncpNaCategoria
+              ? "border-amber-300 bg-amber-50/80 text-amber-950"
+              : "border-emerald-200 bg-emerald-50/50 text-slate-800"
+          }`}
+        >
+          <p className="mb-1 font-bold">
+            ID de Contratação no PNCP (Código PCA {pcaAno ?? ""}) — Editável:
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={codigoPcaInput}
+              onChange={(e) => setCodigoPcaInput(e.target.value)}
+              placeholder={`Ex: 925543-3/${pcaAno ?? 2027}`}
+              disabled={isPending}
+              className="w-48 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 font-mono text-xs text-slate-900"
+            />
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() =>
+                executar(
+                  () => salvarCodigoPcaCategoriaSetorAction(categoriaId, codigoPcaInput),
+                  "ID do PNCP da categoria salvo com sucesso!",
+                )
+              }
+              className="rounded-lg bg-[#003366] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#002244] disabled:opacity-60"
+            >
+              Salvar ID PNCP
+            </button>
+          </div>
+          {semPncpNaCategoria ? (
+            <p className="mt-1 text-[11px] font-semibold text-amber-800">
+              ⚠️ Esta categoria ainda está sem ID do PNCP. É obrigatório incluir o ID do PNCP para concluir o PCA e emitir o DFD Consolidado / ETP.
+            </p>
+          ) : (
+            <p className="mt-1 text-[11px] text-emerald-800">
+              ✓ ID do PNCP vinculado ({codigoPcaInput}). Você pode editá-lo acima caso necessário.
+            </p>
+          )}
+        </div>
       </div>
 
       {!pcaAno && (
         <div className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Nenhum PCA ativo no momento.
+        </div>
+      )}
+
+      {pcaAno && categoriasPendentesPncp.length > 0 && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-3.5 text-xs text-amber-950">
+          <p className="font-bold">
+            ⚠️ Governança do PCA {pcaAno} — Pendência de IDs do PNCP para avanço de fase ({categoriasPendentesPncp.length} categoria(s) pendente(s))
+          </p>
+          <p className="mt-1 leading-relaxed">
+            O PCA {pcaAno} só pode seguir para as demais fases (<strong>Setores Técnicos, DFD Consolidado, ETP, Mapa de Riscos e IMR</strong>)
+            depois que <strong>todos os IDs do PNCP</strong> estiverem devidamente lançados no sistema.
+          </p>
+          <p className="mt-1 text-[11px] text-amber-900">
+            <strong>Categorias ainda sem ID PNCP:</strong> {categoriasPendentesPncp.join(" • ")}
+          </p>
         </div>
       )}
 
@@ -229,18 +331,30 @@ export default function PainelConsolidacao({
             className="space-y-4"
           >
             <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">
-                Itens Pendentes de Consolidação ({pendentes.length})
-              </h2>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold text-slate-900">
+                  Itens Aprovados Pendentes de Consolidação ({pendentes.length})
+                </h2>
+                {pendentes.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={selecionarTodos}
+                    className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                  >
+                    {selecionados.size === pendentes.length ? "Desmarcar todos" : `Selecionar todos (${pendentes.length})`}
+                  </button>
+                )}
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="text-left text-slate-500">
                     <tr>
                       <th className="w-10 py-1"></th>
                       <th className="py-1 pr-2 font-medium">Item</th>
-                      <th className="py-1 pr-2 font-medium">Origem</th>
+                      <th className="py-1 pr-2 font-medium">Demandante / Setor</th>
+                      <th className="py-1 pr-2 font-medium">Processo SEI / DFD SEI</th>
+                      <th className="py-1 pr-2 font-medium">ID PNCP</th>
                       <th className="py-1 pr-2 font-medium">Prioridade</th>
-                      <th className="py-1 pr-2 font-medium">Tipo</th>
                       <th className="py-1 pr-2 font-medium">Qtd</th>
                       <th className="py-1 pr-2 font-medium">Valor</th>
                       <th className="py-1 font-medium">Ações</th>
@@ -267,11 +381,29 @@ export default function PainelConsolidacao({
                             </div>
                           )}
                         </td>
-                        <td className="py-1.5 pr-2 text-xs text-slate-600">{it.unidadeNome}</td>
-                        <td className="py-1.5 pr-2 text-xs text-slate-600">{it.prioridade ?? "—"}</td>
                         <td className="py-1.5 pr-2 text-xs text-slate-600">
-                          {it.tipoBem === "CONSUMO" ? "Consumo" : it.tipoBem === "PERMANENTE" ? "Permanente" : "—"}
+                          <div className="font-medium text-slate-800">{it.unidadeNome}</div>
+                          {it.setorSolicitante && it.setorSolicitante !== it.unidadeNome && (
+                            <div className="text-[11px] text-slate-500">{it.setorSolicitante}</div>
+                          )}
                         </td>
+                        <td className="py-1.5 pr-2 text-xs font-mono text-slate-600">
+                          {it.processoSeiOrigem && <div>{it.processoSeiOrigem}</div>}
+                          {it.idSeiDfdOrigem && (
+                            <div className="text-[10px] text-slate-500">DFD SEI: {it.idSeiDfdOrigem}</div>
+                          )}
+                          {!it.processoSeiOrigem && !it.idSeiDfdOrigem && "—"}
+                        </td>
+                        <td className="py-1.5 pr-2 text-xs font-mono">
+                          {it.codigoPncpReferencia ? (
+                            <span className="rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-800">
+                              {it.codigoPncpReferencia}
+                            </span>
+                          ) : (
+                            <span className="text-amber-700 font-semibold">Pendente</span>
+                          )}
+                        </td>
+                        <td className="py-1.5 pr-2 text-xs text-slate-600">{it.prioridade ?? "—"}</td>
                         <td className="py-1.5 pr-2 text-slate-600">{it.quantidade}</td>
                         <td className="py-1.5 pr-2 text-slate-600">{brl(it.valorTotal)}</td>
                         <td className="py-1.5">
@@ -287,8 +419,10 @@ export default function PainelConsolidacao({
                     ))}
                     {pendentes.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="py-6 text-center text-slate-400">
-                          Nenhum item pendente nesta categoria.
+                        <td colSpan={9} className="py-6 text-center text-slate-400">
+                          Nenhum item aprovado pendente de consolidação nesta categoria.
+                          {emAprovacaoProad.length > 0 &&
+                            ` (${emAprovacaoProad.length} item(ns) estão aguardando aprovação inicial da PROAD abaixo).`}
                         </td>
                       </tr>
                     )}
@@ -306,8 +440,22 @@ export default function PainelConsolidacao({
                     <input
                       name="processoSEI"
                       required
-                      placeholder="Ex: 00000.000000/2026-00"
+                      defaultValue={processoSeiSugerido}
+                      placeholder="Ex: 04410042.001115/2026-56"
                       className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-700">
+                      Código PCA / ID de Contratação PNCP (Obrigatório — Editável)
+                    </label>
+                    <input
+                      name="codigoPca"
+                      required
+                      value={codigoPcaInput}
+                      onChange={(e) => setCodigoPcaInput(e.target.value)}
+                      placeholder={`Ex: 925543-3/${pcaAno}`}
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-sm"
                     />
                   </div>
                   <div>
@@ -372,6 +520,71 @@ export default function PainelConsolidacao({
               </div>
             )}
           </form>
+
+          {/* Prévia dos itens desta categoria que estão em status AGUARDANDO_APROVACAO pela PROAD */}
+          {emAprovacaoProad.length > 0 && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/30 p-4 shadow-xs">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-semibold text-amber-950">
+                    Demandas Primárias desta Categoria Aguardando Aprovação da PROAD ({emAprovacaoProad.length} itens)
+                  </h2>
+                  <p className="text-xs text-amber-800">
+                    Estes itens já foram lançados no PCA {pcaAno} e passarão automaticamente para a tabela de consolidação acima assim que a PROAD aprovar os respectivos DFDs primários.
+                  </p>
+                </div>
+                <Link
+                  href="/"
+                  className="rounded-lg bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800"
+                >
+                  Ir para Aprovação de DFDs (PROAD)
+                </Link>
+              </div>
+              <div className="max-h-80 overflow-y-auto overflow-x-auto rounded-xl border border-amber-200/80 bg-white">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-amber-50 text-left text-amber-900">
+                    <tr>
+                      <th className="px-3 py-1.5 font-medium">Item</th>
+                      <th className="px-3 py-1.5 font-medium">Demandante / Setor</th>
+                      <th className="px-3 py-1.5 font-medium">Processo SEI / DFD SEI</th>
+                      <th className="px-3 py-1.5 font-medium">ID PNCP</th>
+                      <th className="px-3 py-1.5 font-medium">Qtd</th>
+                      <th className="px-3 py-1.5 font-medium">Valor Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {emAprovacaoProad.map((it) => (
+                      <tr key={it.id}>
+                        <td className="px-3 py-1.5 text-slate-900">{it.nome}</td>
+                        <td className="px-3 py-1.5 text-slate-700">
+                          <div className="font-medium">{it.unidadeNome}</div>
+                          {it.setorSolicitante && it.setorSolicitante !== it.unidadeNome && (
+                            <div className="text-[10px] text-slate-500">{it.setorSolicitante}</div>
+                          )}
+                        </td>
+                        <td className="px-3 py-1.5 font-mono text-slate-600">
+                          {it.processoSeiOrigem && <div>{it.processoSeiOrigem}</div>}
+                          {it.idSeiDfdOrigem && <div className="text-[10px] text-slate-500">DFD: {it.idSeiDfdOrigem}</div>}
+                          {!it.processoSeiOrigem && !it.idSeiDfdOrigem && "—"}
+                        </td>
+                        <td className="px-3 py-1.5 font-mono">
+                          {it.codigoPncpReferencia ? (
+                            <span className="rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800">
+                              {it.codigoPncpReferencia}
+                            </span>
+                          ) : (
+                            <span className="text-amber-700 font-semibold">Sem ID PNCP</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-1.5 text-slate-600">{it.quantidade}</td>
+                        <td className="px-3 py-1.5 font-medium text-slate-800">{brl(it.valorTotal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -389,9 +602,9 @@ export default function PainelConsolidacao({
                   <th className="py-1 pr-2 font-medium">Prioridade</th>
                   <th className="py-1 pr-2 font-medium">Tipo</th>
                   <th className="py-1 pr-2 font-medium">Entrega Consolidada</th>
-                  <th className="py-1 pr-2 font-medium">Código PCA</th>
+                  <th className="py-1 pr-2 font-medium">Código PCA / ID PNCP (Editável)</th>
                   <th className="py-1 pr-2 font-medium">Itens</th>
-                  <th className="py-1 font-medium">Documentos & Ajustes</th>
+                  <th className="py-1 font-medium">Documentos &amp; Ajustes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -402,7 +615,22 @@ export default function PainelConsolidacao({
                     <td className="py-1.5 pr-2 text-slate-600">{PRIORIDADE_LABEL[c.prioridade]}</td>
                     <td className="py-1.5 pr-2 text-slate-600">{TIPO_CONTRATACAO_LABEL[c.tipoContratacao]}</td>
                     <td className="py-1.5 pr-2 text-slate-600">{formatarData(c.dataEsperadaConclusao)}</td>
-                    <td className="py-1.5 pr-2 text-slate-600">{c.codigoPca ?? "—"}</td>
+                    <td className="py-1.5 pr-2">
+                      <input
+                        type="text"
+                        defaultValue={c.codigoPca ?? ""}
+                        placeholder="Ex: 925543-3/2027"
+                        onBlur={(e) => {
+                          if (e.target.value.trim() !== (c.codigoPca ?? "").trim()) {
+                            executar(
+                              () => salvarCodigoPcaConsolidacaoSetorAction(c.id, e.target.value),
+                              "ID do PNCP da consolidação atualizado!",
+                            );
+                          }
+                        }}
+                        className="w-40 rounded-lg border border-slate-300 px-2 py-1 font-mono text-xs"
+                      />
+                    </td>
                     <td className="py-1.5 pr-2 text-slate-600">{c.totalItens}</td>
                     <td className="py-1.5 text-xs">
                       <div className="flex flex-col gap-1">
@@ -426,6 +654,9 @@ export default function PainelConsolidacao({
                         </Link>
                         <Link href={`/consolidacao/${categoriaId}/riscos/${c.id}`} className="text-slate-600 underline">
                           Riscos {c.statusRiscos ? `(${STATUS_DOCUMENTO_LABEL[c.statusRiscos]})` : "— elaborar"}
+                        </Link>
+                        <Link href={`/consolidacao/${categoriaId}/imr/${c.id}`} className="text-slate-600 underline">
+                          IMR {c.statusImr ? `(${STATUS_DOCUMENTO_LABEL[c.statusImr]})` : "— elaborar"}
                         </Link>
                       </div>
                     </td>
