@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { aprovarSelecionadosAction } from "@/lib/actions/admin";
+import { adminAtualizarProcessoSeiDfdAction } from "@/lib/actions/dfd";
 import { brl } from "@/lib/formato";
 import AprovacaoAcoes from "./AprovacaoAcoes";
 
@@ -28,6 +29,16 @@ export default function PendentesTabela({ pendentes }: { pendentes: PendenteResu
   const [busca, setBusca] = useState("");
   const [isPending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
+
+  // Estado para Edição Rápida de Processo SEI / DFD SEI
+  const [editandoSei, setEditandoSei] = useState<{
+    id: string;
+    processoSeiOrigem: string;
+    idSeiDfdOrigem: string;
+    descricao: string;
+  } | null>(null);
+  const [salvandoSei, setSalvandoSei] = useState(false);
+  const [erroSei, setErroSei] = useState<string | null>(null);
 
   const filtrados = pendentes.filter((p) => {
     if (!busca.trim()) return true;
@@ -136,9 +147,29 @@ export default function PendentesTabela({ pendentes }: { pendentes: PendenteResu
                 <td className="px-3 py-2 font-medium text-slate-700">{d.unidadeNome}</td>
                 <td className="px-3 py-2 text-xs text-slate-600">{d.setorTecnicoNome ?? "—"}</td>
                 <td className="px-3 py-2 font-mono text-xs text-slate-600">
-                  {d.processoSeiOrigem && <div>{d.processoSeiOrigem}</div>}
-                  {d.idSeiDfdOrigem && <div className="text-[10px] text-slate-500">DFD SEI: {d.idSeiDfdOrigem}</div>}
-                  {!d.processoSeiOrigem && !d.idSeiDfdOrigem && "—"}
+                  <div className="flex items-start justify-between gap-1">
+                    <div>
+                      {d.processoSeiOrigem && <div className="text-slate-800">{d.processoSeiOrigem}</div>}
+                      {d.idSeiDfdOrigem && <div className="text-[10px] text-slate-500">DFD SEI: {d.idSeiDfdOrigem}</div>}
+                      {!d.processoSeiOrigem && !d.idSeiDfdOrigem && <span className="text-slate-400">Não informado</span>}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErroSei(null);
+                        setEditandoSei({
+                          id: d.id,
+                          processoSeiOrigem: d.processoSeiOrigem ?? "",
+                          idSeiDfdOrigem: d.idSeiDfdOrigem ?? "",
+                          descricao: (d.numero && d.ano ? `DFD ${String(d.numero).padStart(4, "0")}/${d.ano} — ` : "") + d.descricaoSumaria,
+                        });
+                      }}
+                      title="Editar Processo SEI e ID SEI do DFD"
+                      className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition"
+                    >
+                      ✏️
+                    </button>
+                  </div>
                 </td>
                 <td className="px-3 py-2 font-mono text-xs">
                   {d.fluxoContinuo ? (
@@ -175,6 +206,99 @@ export default function PendentesTabela({ pendentes }: { pendentes: PendenteResu
           </tbody>
         </table>
       </div>
+
+      {editandoSei && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl space-y-4">
+            <div>
+              <h3 className="text-base font-semibold text-slate-900">
+                Editar Processo SEI e ID SEI do DFD
+              </h3>
+              <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">
+                {editandoSei.descricao}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">
+                  Processo SEI (Origem / Referência)
+                </label>
+                <input
+                  type="text"
+                  value={editandoSei.processoSeiOrigem}
+                  onChange={(e) =>
+                    setEditandoSei((ant) => ant && { ...ant, processoSeiOrigem: e.target.value })
+                  }
+                  placeholder="Ex.: 04410158.000182/2026-56"
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">
+                  ID SEI do DFD (Origem / Referência)
+                </label>
+                <input
+                  type="text"
+                  value={editandoSei.idSeiDfdOrigem}
+                  onChange={(e) =>
+                    setEditandoSei((ant) => ant && { ...ant, idSeiDfdOrigem: e.target.value })
+                  }
+                  placeholder="Ex.: 40668368"
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-mono"
+                />
+              </div>
+
+              {erroSei && <p className="text-xs text-red-600">{erroSei}</p>}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={salvandoSei}
+                onClick={() => setEditandoSei(null)}
+                className="rounded-xl px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={salvandoSei}
+                onClick={async () => {
+                  if (!editandoSei) return;
+                  setSalvandoSei(true);
+                  setErroSei(null);
+                  try {
+                    const res = await adminAtualizarProcessoSeiDfdAction(
+                      editandoSei.id,
+                      editandoSei.processoSeiOrigem,
+                      editandoSei.idSeiDfdOrigem,
+                    );
+                    if (res.erro) {
+                      setErroSei(res.erro);
+                    } else {
+                      const pIdx = pendentes.findIndex((p) => p.id === editandoSei.id);
+                      if (pIdx >= 0) {
+                        pendentes[pIdx].processoSeiOrigem = editandoSei.processoSeiOrigem.trim() || null;
+                        pendentes[pIdx].idSeiDfdOrigem = editandoSei.idSeiDfdOrigem.trim() || null;
+                      }
+                      setEditandoSei(null);
+                    }
+                  } catch {
+                    setErroSei("Erro ao salvar dados SEI.");
+                  } finally {
+                    setSalvandoSei(false);
+                  }
+                }}
+                className="rounded-xl bg-[#003366] px-4 py-1.5 text-xs font-medium text-white hover:bg-[#002244] disabled:opacity-50"
+              >
+                {salvandoSei ? "Salvando..." : "Salvar Alterações"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

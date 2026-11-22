@@ -305,6 +305,8 @@ function validarDadosGerais(
     | "NOVA"
     | "FLUXO_CONTINUO";
   const data = String(formData.get("data") ?? "");
+  const processoSeiOrigem = String(formData.get("processoSeiOrigem") ?? "").trim() || null;
+  const idSeiDfdOrigem = String(formData.get("idSeiDfdOrigem") ?? "").trim() || null;
 
   const erroDescricao = validarDescricaoSumaria(descricaoSumaria);
   if (erroDescricao) return { erro: erroDescricao };
@@ -330,6 +332,8 @@ function validarDadosGerais(
       tipoDemanda,
       dataRenovacao: tipoDemanda === "RENOVACAO" ? new Date(data) : null,
       dataEntrega: tipoDemanda !== "RENOVACAO" ? new Date(data) : null,
+      processoSeiOrigem,
+      idSeiDfdOrigem,
     },
   };
 }
@@ -377,6 +381,38 @@ export async function adminAtualizarDadosGeraisDfdAction(
   if (resultado.erro) return resultado;
   await reverterAprovacaoSeNecessario(dfd);
   revalidatePath(`/dfd/${dfdId}`);
+  return {};
+}
+
+export async function adminAtualizarProcessoSeiDfdAction(
+  dfdId: string,
+  processoSeiOrigem: string | null,
+  idSeiDfdOrigem: string | null,
+): Promise<ResultadoAcao> {
+  await exigirAdmin();
+  const proc = processoSeiOrigem?.trim() || null;
+  const idDfd = idSeiDfdOrigem?.trim() || null;
+
+  await prisma.dfd.update({
+    where: { id: dfdId },
+    data: {
+      processoSeiOrigem: proc,
+      idSeiDfdOrigem: idDfd,
+      itens: {
+        updateMany: {
+          where: { dfdId },
+          data: {
+            processoSeiOrigem: proc,
+            idSeiDfdOrigem: idDfd,
+          },
+        },
+      },
+    },
+  });
+
+  revalidatePath("/");
+  revalidatePath(`/dfd/${dfdId}`);
+  revalidatePath("/admin/demandas");
   return {};
 }
 

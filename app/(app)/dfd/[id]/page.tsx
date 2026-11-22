@@ -119,6 +119,8 @@ export default async function DfdDetalhePage({
           tipoDemanda: dfd.tipoDemanda,
           dataRenovacao: dfd.dataRenovacao,
           dataEntrega: dfd.dataEntrega,
+          processoSeiOrigem: dfd.processoSeiOrigem,
+          idSeiDfdOrigem: dfd.idSeiDfdOrigem,
         }}
         tipificacoes={tipificacoes}
         prioridades={prioridades}

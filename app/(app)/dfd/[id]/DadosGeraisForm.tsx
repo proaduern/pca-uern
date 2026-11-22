@@ -15,6 +15,8 @@ interface DfdParaDadosGerais {
   tipoDemanda: TipoDemanda;
   dataRenovacao: Date | null;
   dataEntrega: Date | null;
+  processoSeiOrigem?: string | null;
+  idSeiDfdOrigem?: string | null;
 }
 
 export default function DadosGeraisForm({
@@ -186,6 +188,39 @@ export default function DadosGeraisForm({
               Precisa estar dentro do ano do PCA ({dfd.ano}).
             </p>
           )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-700">
+            Processo SEI (Origem / Referência)
+          </label>
+          <input
+            name="processoSeiOrigem"
+            disabled={!podeEditar}
+            defaultValue={dfd.processoSeiOrigem ?? ""}
+            placeholder="Ex.: 04410158.000182/2026-56"
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm disabled:bg-slate-50 font-mono text-xs"
+          />
+          <p className="mt-1 text-[11px] text-slate-500">
+            Número do processo administrativo autuado no SEI.
+          </p>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-700">
+            ID SEI do DFD (Origem / Referência)
+          </label>
+          <input
+            name="idSeiDfdOrigem"
+            disabled={!podeEditar}
+            defaultValue={dfd.idSeiDfdOrigem ?? ""}
+            placeholder="Ex.: 40668368"
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm disabled:bg-slate-50 font-mono text-xs"
+          />
+          <p className="mt-1 text-[11px] text-slate-500">
+            Identificador do documento de DFD formalizado no SEI.
+          </p>
         </div>
       </div>
 
