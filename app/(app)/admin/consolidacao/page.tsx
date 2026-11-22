@@ -27,13 +27,15 @@ export default async function ConsolidacaoGeralPage() {
     include: { categoria: true },
   });
 
-  const naoConvenio = itens.filter((it) => it.enquadramento !== "CONVENIO");
-  const totalConsolidado = naoConvenio.reduce((s, it) => s + Number(it.valorTotal), 0);
+  const itensDoPca = itens.filter(
+    (it) => it.enquadramento !== "CONVENIO" && it.enquadramento !== "RECURSOS_EXTRA" && !it.categoria.ignoraPCA,
+  );
+  const totalConsolidado = itensDoPca.reduce((s, it) => s + Number(it.valorTotal), 0);
   const saldoDisponivel = Number(pca.cotaGeral) - totalConsolidado;
 
   function agruparPorCategoria(tipo: "MATERIAL" | "SERVICO") {
     const mapa = new Map<string, number>();
-    for (const it of naoConvenio) {
+    for (const it of itensDoPca) {
       if (it.categoria.tipo !== tipo) continue;
       mapa.set(it.categoria.nome, (mapa.get(it.categoria.nome) ?? 0) + Number(it.valorTotal));
     }
@@ -55,8 +57,8 @@ export default async function ConsolidacaoGeralPage() {
         Consolidação Geral do PCA — Ano {pca.ano}
       </h1>
       <p className="text-sm text-slate-500">
-        Calculada a partir de todos os DFDs já enviados ou aprovados (itens de convênio são
-        recurso externo e não entram nestes totais).
+        Calculada a partir de todos os DFDs já enviados ou aprovados (itens de convênio, recursos
+        extra e categorias fora do PCA como Diárias não entram nestes totais).
       </p>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

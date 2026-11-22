@@ -84,7 +84,7 @@ async function executarSilencioso(sql) {
   }
 }
 
-async function main() {
+export async function syncSchema() {
   console.log("[Deploy Schema] Sincronizando colunas e tabelas dos Subsistemas PROAD/PCA...");
 
   try {
@@ -251,7 +251,9 @@ async function main() {
   await prisma.$disconnect();
 }
 
-main().catch((err) => {
-  console.warn("[Deploy Schema] Aviso geral:", err);
-  process.exit(0);
-});
+if (process.argv[1] && process.argv[1].endsWith("sync-schema.mjs")) {
+  syncSchema().catch((err) => {
+    console.warn("[Deploy Schema] Aviso geral:", err);
+    process.exit(0);
+  });
+}

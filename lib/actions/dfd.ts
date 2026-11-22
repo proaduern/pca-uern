@@ -58,7 +58,10 @@ async function gastosComprometidosDaUnidade(unidadeId: string) {
 /** Gastos comprometidos por todas as unidades no ano do PCA (para os subsaldos institucionais). */
 async function gastosComprometidosDoPca(ano: number) {
   const itens = await prisma.itemDfd.findMany({
-    where: { dfd: { ano, status: { in: STATUS_COMPROMETEM_ORCAMENTO } } },
+    where: {
+      dfd: { ano, status: { in: STATUS_COMPROMETEM_ORCAMENTO } },
+      categoria: { ignoraPCA: false },
+    },
     select: { enquadramento: true, valorTotal: true },
   });
   return calcularGastos(

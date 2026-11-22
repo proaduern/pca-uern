@@ -14,7 +14,7 @@ export default async function PcaPage() {
     prisma.unidade.findMany({ orderBy: { nome: "asc" } }),
     prisma.consolidacaoTecnica.findMany({ include: { categoria: true } }),
     prisma.categoria.findMany({
-      where: { ativa: true, fluxoContinuo: false, ignoraPCA: false },
+      where: { ativa: true, ignoraPCA: false },
       include: {
         setorTecnico: { select: { nome: true } },
         itensDfd: {

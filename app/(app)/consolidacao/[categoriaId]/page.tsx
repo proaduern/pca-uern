@@ -69,7 +69,7 @@ export default async function ConsolidacaoCategoriaPage({
         ? prisma.itemDfd.findMany({
             where: {
               dfd: { ano: pcaAtivo.ano, status: { in: ["APROVADO", "AGUARDANDO_APROVACAO"] } },
-              categoria: { fluxoContinuo: false, ignoraPCA: false },
+              categoria: { ignoraPCA: false },
             },
             include: {
               categoria: { select: { id: true, nome: true, codigoPcaPadrao: true } },
