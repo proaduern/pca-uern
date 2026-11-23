@@ -42,9 +42,18 @@ const STATUS_COMPROMETEM_ORCAMENTO: StatusComprometido[] = [
 ];
 
 /** Gastos já comprometidos (fora do DFD em edição) de uma unidade, em todos os anos. */
-async function gastosComprometidosDaUnidade(unidadeId: string) {
+async function gastosComprometidosDaUnidade(
+  unidadeId: string,
+  dfdIdExcluido?: string,
+) {
   const itens = await prisma.itemDfd.findMany({
-    where: { dfd: { unidadeId, status: { in: STATUS_COMPROMETEM_ORCAMENTO } } },
+    where: {
+      dfd: {
+        unidadeId,
+        status: { in: STATUS_COMPROMETEM_ORCAMENTO },
+        ...(dfdIdExcluido ? { id: { not: dfdIdExcluido } } : {}),
+      },
+    },
     select: { enquadramento: true, valorTotal: true },
   });
   return calcularGastos(
@@ -56,10 +65,14 @@ async function gastosComprometidosDaUnidade(unidadeId: string) {
 }
 
 /** Gastos comprometidos por todas as unidades no ano do PCA (para os subsaldos institucionais). */
-async function gastosComprometidosDoPca(ano: number) {
+async function gastosComprometidosDoPca(ano: number, dfdIdExcluido?: string) {
   const itens = await prisma.itemDfd.findMany({
     where: {
-      dfd: { ano, status: { in: STATUS_COMPROMETEM_ORCAMENTO } },
+      dfd: {
+        ano,
+        status: { in: STATUS_COMPROMETEM_ORCAMENTO },
+        ...(dfdIdExcluido ? { id: { not: dfdIdExcluido } } : {}),
+      },
       categoria: { ignoraPCA: false },
     },
     select: { enquadramento: true, valorTotal: true },
@@ -73,11 +86,19 @@ async function gastosComprometidosDoPca(ano: number) {
 }
 
 /** Gasto comprometido numa categoria específica, no ano do PCA (para o teto `saldoAnualGlobal`). */
-async function gastoComprometidoDaCategoria(categoriaId: string, ano: number) {
+async function gastoComprometidoDaCategoria(
+  categoriaId: string,
+  ano: number,
+  dfdIdExcluido?: string,
+) {
   const itens = await prisma.itemDfd.findMany({
     where: {
       categoriaId,
-      dfd: { ano, status: { in: STATUS_COMPROMETEM_ORCAMENTO } },
+      dfd: {
+        ano,
+        status: { in: STATUS_COMPROMETEM_ORCAMENTO },
+        ...(dfdIdExcluido ? { id: { not: dfdIdExcluido } } : {}),
+      },
     },
     select: { valorTotal: true },
   });
@@ -88,10 +109,17 @@ async function gastoComprometidoDaCategoria(categoriaId: string, ano: number) {
 
 /** Gastos já comprometidos por um setor interno específico (sub-teto rígido
  * dentro da cota da própria unidade — ver ContextoDfd/processarAdicaoItem). */
-async function gastosComprometidosDoSetorInterno(setorInternoId: string) {
+async function gastosComprometidosDoSetorInterno(
+  setorInternoId: string,
+  dfdIdExcluido?: string,
+) {
   const itens = await prisma.itemDfd.findMany({
     where: {
-      dfd: { setorInternoId, status: { in: STATUS_COMPROMETEM_ORCAMENTO } },
+      dfd: {
+        setorInternoId,
+        status: { in: STATUS_COMPROMETEM_ORCAMENTO },
+        ...(dfdIdExcluido ? { id: { not: dfdIdExcluido } } : {}),
+      },
     },
     select: { enquadramento: true, valorTotal: true },
   });
@@ -485,7 +513,18 @@ async function resolverItemBasico(
     valorTotal = valorUnit * (quantidade ?? 1);
     itemLiberadoCotaGeralOP = itemCatalogo.liberadoCotaGeralParaOP;
   } else {
-    valorTotal = Number(valorLivreRaw || 0);
+    const valorUnitRaw = String(formData.get("valorUnit") ?? "").trim();
+    if (valorUnitRaw) {
+      valorUnit = Number(valorUnitRaw);
+      valorTotal = valorLivreRaw
+        ? Number(valorLivreRaw)
+        : valorUnit * (quantidade ?? 1);
+    } else {
+      valorTotal = Number(valorLivreRaw || 0);
+      if (quantidade && quantidade > 0) {
+        valorUnit = valorTotal / quantidade;
+      }
+    }
     // Material de valor livre não passa por ItemCatalogo (que carregaria seu
     // próprio tipoBem), então herda o tipo de bem fixado no cadastro da
     // categoria — ver Categoria.tipoBemPadrao.
@@ -608,14 +647,15 @@ async function processarAdicaoItem(
       })),
     );
     const [gastoUnidade, gastoPca] = await Promise.all([
-      gastosComprometidosDaUnidade(unidade.id),
-      gastosComprometidosDoPca(dfd.ano),
+      gastosComprometidosDaUnidade(unidade.id, dfd.id),
+      gastosComprometidosDoPca(dfd.ano, dfd.id),
     ]);
 
     if (categoria.saldoAnualGlobal != null) {
       const jaGastoCategoria = await gastoComprometidoDaCategoria(
         categoriaId,
         dfd.ano,
+        dfd.id,
       );
       const jaNoDfdCategoria = arredondarCentavos(
         dfd.itens
@@ -693,6 +733,7 @@ async function processarAdicaoItem(
       });
       const gastoSetor = await gastosComprometidosDoSetorInterno(
         dfd.setorInternoId,
+        dfd.id,
       );
       if (enquadramento === "OP") {
         const saldoOPSetor = saldoUnidadeOP(
@@ -993,6 +1034,276 @@ export async function adminRemoverItemDfdAction(
   await exigirAdmin();
   const dfd = await prisma.dfd.findUniqueOrThrow({ where: { id: dfdId } });
   const resultado = await processarRemocaoItem(dfdId, itemId);
+  if (resultado.erro) return resultado;
+  await reverterAprovacaoSeNecessario(dfd);
+  revalidatePath(`/dfd/${dfdId}`);
+  return {};
+}
+
+async function processarEdicaoItem(
+  dfd: Dfd & { itens: ItemDfd[] },
+  unidade: Unidade,
+  itemId: string,
+  formData: FormData,
+  opcoes?: { autorizadoExcecaoCotaGeralOP?: boolean },
+): Promise<ResultadoAdicionarItem> {
+  const itemAtual = dfd.itens.find((it) => it.id === itemId);
+  if (!itemAtual) return { erro: "Item não encontrado neste DFD." };
+
+  const enquadramento = String(formData.get("enquadramento") ?? "GERAL") as
+    | "OP"
+    | "GERAL"
+    | "CONVENIO"
+    | "RECURSOS_EXTRA";
+  const convenioNumero =
+    String(formData.get("convenioNumero") ?? "").trim() || null;
+  const convenioAnoRaw = String(formData.get("convenioAno") ?? "").trim();
+  const convenioAno = convenioAnoRaw ? Number(convenioAnoRaw) : null;
+  const emendaParlamentar = formData.get("emendaParlamentar") === "on";
+  const parlamentarNome =
+    String(formData.get("parlamentarNome") ?? "").trim() || null;
+  const recursoExtraAgencia =
+    String(formData.get("recursoExtraAgencia") ?? "").trim() || null;
+  const recursoExtraConta =
+    String(formData.get("recursoExtraConta") ?? "").trim() || null;
+  const correlacao = String(formData.get("correlacao") ?? "").trim();
+
+  const resolvidoItem = await resolverItemBasico(unidade, formData);
+  if ("erro" in resolvidoItem) return { erro: resolvidoItem.erro };
+  const {
+    tipo,
+    categoriaId,
+    categoria,
+    itemCatalogoNome,
+    itemNomeLivre,
+    tipoBem,
+    quantidade,
+    valorUnit,
+    valorTotal,
+    itemLiberadoCotaGeralOP,
+  } = resolvidoItem.dados;
+
+  const erro = validarItemDfd(
+    {
+      tipo,
+      enquadramento,
+      convenioNumero,
+      convenioAno,
+      emendaParlamentar,
+      parlamentarNome,
+      recursoExtraAgencia,
+      recursoExtraConta,
+      categoriaId,
+      itemCatalogoNome,
+      itemNomeLivre,
+      quantidade,
+      valorUnit,
+      valorTotal,
+      correlacao,
+    },
+    unidade.elegivelCotaOP,
+  );
+  if (erro) return { erro };
+
+  if (
+    !opcoes?.autorizadoExcecaoCotaGeralOP &&
+    precisaAutorizacaoCotaGeralOP(
+      unidade.elegivelCotaOP,
+      enquadramento,
+      categoria.liberadaCotaGeralParaOP,
+      itemLiberadoCotaGeralOP,
+    )
+  ) {
+    return {
+      erro: MENSAGEM_BLOQUEIO_COTA_GERAL_OP,
+      requerAutorizacaoCotaGeral: true,
+    };
+  }
+
+  // Convênio e Recursos Extra são recursos externos à unidade: não disputam
+  // cota OP/Geral nem o subsaldo do PCA (ver lib/cota.ts).
+  if (enquadramento !== "CONVENIO" && enquadramento !== "RECURSOS_EXTRA") {
+    const pca = await prisma.pca.findUniqueOrThrow({ where: { ano: dfd.ano } });
+    const itensDfdSemAtual = dfd.itens.filter((it) => it.id !== itemId);
+    const jaNoDfd = calcularGastos(
+      itensDfdSemAtual.map((it) => ({
+        enquadramento: it.enquadramento,
+        valorTotal: Number(it.valorTotal),
+      })),
+    );
+    const [gastoUnidade, gastoPca] = await Promise.all([
+      gastosComprometidosDaUnidade(unidade.id, dfd.id),
+      gastosComprometidosDoPca(dfd.ano, dfd.id),
+    ]);
+
+    if (categoria.saldoAnualGlobal != null) {
+      const jaGastoCategoria = await gastoComprometidoDaCategoria(
+        categoriaId,
+        dfd.ano,
+        dfd.id,
+      );
+      const jaNoDfdCategoria = arredondarCentavos(
+        itensDfdSemAtual
+          .filter((it) => it.categoriaId === categoriaId)
+          .reduce((soma, it) => soma + Number(it.valorTotal), 0),
+      );
+      const saldoCategoria = arredondarCentavos(
+        Number(categoria.saldoAnualGlobal) -
+          jaGastoCategoria -
+          jaNoDfdCategoria,
+      );
+      if (valorTotal > saldoCategoria) {
+        return {
+          erro: `Valor excede o saldo anual disponível para a categoria "${categoria.nome}" (${brl(saldoCategoria)}).`,
+        };
+      }
+    }
+
+    if (enquadramento === "OP") {
+      const saldoOP = saldoUnidadeOP(
+        Number(unidade.cotaOP),
+        gastoUnidade.op + jaNoDfd.op,
+      );
+      if (valorTotal > saldoOP) {
+        return {
+          erro: `Valor excede o saldo de Cota OP disponível da unidade (${brl(saldoOP)}).`,
+        };
+      }
+      if (!categoria.ignoraPCA) {
+        const saldoOPPCA = saldoUnidadeOP(
+          Number(pca.cotaOP),
+          gastoPca.op + jaNoDfd.op,
+        );
+        if (valorTotal > saldoOPPCA) {
+          return {
+            erro: `Valor excede o subsaldo OP disponível no PCA como um todo (${brl(saldoOPPCA)}).`,
+          };
+        }
+      }
+    } else {
+      const temTetoNaUnidade =
+        (!unidade.elegivelCotaOP && unidade.cotaTipo === "FECHADA") ||
+        (unidade.elegivelCotaOP && Number(unidade.cotaGeral) > 0);
+      if (temTetoNaUnidade) {
+        const saldoGeralU = saldoUnidadeGeral(
+          Number(unidade.cotaGeral),
+          gastoUnidade.geral + jaNoDfd.geral,
+        );
+        if (valorTotal > saldoGeralU) {
+          return {
+            erro: `Valor excede o saldo de Cota Geral disponível da unidade (${brl(saldoGeralU)}).`,
+          };
+        }
+      }
+    }
+
+    if (!categoria.ignoraPCA) {
+      const saldoPCAAtual = saldoPCA(
+        Number(pca.cotaGeral),
+        gastoPca.total + jaNoDfd.total,
+      );
+      if (valorTotal > saldoPCAAtual) {
+        return {
+          erro: `Valor excede o saldo disponível da Cota PCA Geral (${brl(saldoPCAAtual)}).`,
+        };
+      }
+    }
+
+    if (dfd.setorInternoId) {
+      const setorInterno = await prisma.setorInterno.findUniqueOrThrow({
+        where: { id: dfd.setorInternoId },
+      });
+      const gastoSetor = await gastosComprometidosDoSetorInterno(
+        dfd.setorInternoId,
+        dfd.id,
+      );
+      if (enquadramento === "OP") {
+        const saldoOPSetor = saldoUnidadeOP(
+          Number(setorInterno.cotaOP),
+          gastoSetor.op + jaNoDfd.op,
+        );
+        if (valorTotal > saldoOPSetor) {
+          return {
+            erro: `Valor excede o saldo de Cota OP disponível do setor interno (${brl(saldoOPSetor)}).`,
+          };
+        }
+      } else {
+        const saldoGeralSetor = saldoUnidadeGeral(
+          Number(setorInterno.cotaGeral),
+          gastoSetor.geral + jaNoDfd.geral,
+        );
+        if (valorTotal > saldoGeralSetor) {
+          return {
+            erro: `Valor excede o saldo de Cota Geral disponível do setor interno (${brl(saldoGeralSetor)}).`,
+          };
+        }
+      }
+    }
+  }
+
+  await prisma.itemDfd.update({
+    where: { id: itemId },
+    data: {
+      tipo,
+      enquadramento,
+      convenioNumero,
+      convenioAno,
+      emendaParlamentar,
+      parlamentarNome,
+      recursoExtraAgencia,
+      recursoExtraConta,
+      categoriaId,
+      itemCatalogoNome,
+      itemNomeLivre,
+      tipoBem,
+      quantidade,
+      valorUnit,
+      valorTotal,
+      correlacao,
+    },
+  });
+  return {};
+}
+
+export async function editarItemDfdAction(
+  dfdId: string,
+  itemId: string,
+  formData: FormData,
+): Promise<ResultadoAdicionarItem> {
+  const sessao = await exigirUnidadeOuSetorInterno();
+  const ctx = await resolverContextoDfd(sessao);
+  const resultadoDfd = await obterDfdParaEdicao(dfdId, ctx, sessao);
+  if ("erro" in resultadoDfd) return { erro: resultadoDfd.erro };
+  const unidade = await prisma.unidade.findUniqueOrThrow({
+    where: { id: ctx.unidadeId },
+  });
+  const resultado = await processarEdicaoItem(
+    resultadoDfd.dfd,
+    unidade,
+    itemId,
+    formData,
+  );
+  if (resultado.erro) return resultado;
+  revalidatePath(`/dfd/${dfdId}`);
+  return {};
+}
+
+export async function adminEditarItemDfdAction(
+  dfdId: string,
+  itemId: string,
+  formData: FormData,
+): Promise<ResultadoAcao> {
+  await exigirAdmin();
+  const dfd = await prisma.dfd.findUniqueOrThrow({
+    where: { id: dfdId },
+    include: { itens: true },
+  });
+  const unidade = await prisma.unidade.findUniqueOrThrow({
+    where: { id: dfd.unidadeId },
+  });
+  const resultado = await processarEdicaoItem(dfd, unidade, itemId, formData, {
+    autorizadoExcecaoCotaGeralOP: true,
+  });
   if (resultado.erro) return resultado;
   await reverterAprovacaoSeNecessario(dfd);
   revalidatePath(`/dfd/${dfdId}`);

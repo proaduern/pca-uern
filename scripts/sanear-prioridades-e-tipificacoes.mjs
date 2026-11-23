@@ -160,13 +160,15 @@ export async function sanearPrioridadesETipificacoes() {
     const nomeTipAntiga = dfd.tipificacaoId ? tipNomeById.get(dfd.tipificacaoId) : null;
     const novoPrioId = resolverNovaPrioridade(dfd.prioridade?.frase, dfd.prioridade?.nivel);
     const novoTipId = resolverNovaTipificacao(nomeTipAntiga, dfd.tipoDemanda);
-    await prisma.dfd.update({
-      where: { id: dfd.id },
-      data: {
-        prioridadeId: novoPrioId,
-        tipificacaoId: novoTipId,
-      },
-    });
+    if (dfd.prioridadeId !== novoPrioId || dfd.tipificacaoId !== novoTipId) {
+      await prisma.dfd.update({
+        where: { id: dfd.id },
+        data: {
+          prioridadeId: novoPrioId,
+          tipificacaoId: novoTipId,
+        },
+      });
+    }
   }
 
   // F) Limpar registros órfãos antigos de Prioridade e Tipificacao

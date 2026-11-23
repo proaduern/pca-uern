@@ -9,6 +9,7 @@ import DadosGeraisForm from "./DadosGeraisForm";
 import ItemForm from "./ItemForm";
 import AcoesDfd from "./AcoesDfd";
 import RemoverItemBotao from "./RemoverItemBotaoClient";
+import EditarItemModal from "./EditarItemModal";
 import ItemFaseDetalhe from "./ItemFaseDetalhe";
 import TrocaOPPainel from "./TrocaOPPainel";
 
@@ -155,7 +156,46 @@ export default async function DfdDetalhePage({
               <div className="text-right">
                 <p className="font-semibold text-slate-900">{brl(it.valorTotal)}</p>
                 {podeEditar && (
-                  <RemoverItemBotao dfdId={dfd.id} itemId={it.id} modoAdmin={modoAdmin} />
+                  <div className="mt-1 flex items-center justify-end gap-3">
+                    <EditarItemModal
+                      dfdId={dfd.id}
+                      item={{
+                        id: it.id,
+                        tipo: it.tipo,
+                        enquadramento: it.enquadramento,
+                        convenioNumero: it.convenioNumero,
+                        convenioAno: it.convenioAno,
+                        emendaParlamentar: it.emendaParlamentar,
+                        parlamentarNome: it.parlamentarNome,
+                        recursoExtraAgencia: it.recursoExtraAgencia,
+                        recursoExtraConta: it.recursoExtraConta,
+                        categoriaId: it.categoriaId,
+                        categoriaNome: it.categoria.nome,
+                        itemCatalogoNome: it.itemCatalogoNome,
+                        itemNomeLivre: it.itemNomeLivre,
+                        quantidade: it.quantidade != null ? Number(it.quantidade) : null,
+                        valorUnit: it.valorUnit != null ? Number(it.valorUnit) : null,
+                        valorTotal: Number(it.valorTotal),
+                        correlacao: it.correlacao,
+                      }}
+                      categorias={categorias.map((c) => ({
+                        id: c.id,
+                        nome: c.nome,
+                        tipo: c.tipo,
+                        semItem: c.semItem,
+                        modoServico: c.modoServico,
+                      }))}
+                      itensCatalogo={itensCatalogo.map((c) => ({
+                        id: c.id,
+                        categoriaId: c.categoriaId,
+                        item: c.item,
+                        valor: Number(c.valor),
+                      }))}
+                      unidadeElegivelOP={dfd.unidade.elegivelCotaOP}
+                      modoAdmin={modoAdmin}
+                    />
+                    <RemoverItemBotao dfdId={dfd.id} itemId={it.id} modoAdmin={modoAdmin} />
+                  </div>
                 )}
               </div>
             </div>
