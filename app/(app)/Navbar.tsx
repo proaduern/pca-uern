@@ -92,9 +92,21 @@ export default function Navbar({
     (p) => p !== "EXECUCAO" && p !== "ENTREGA"
   );
   const possuiMultiplosPerfis = tipo !== "ADMIN" && listaPerfis.length > 1;
+
+  function formatarRotulo(p: string): string {
+    if (ROTULO_POR_TIPO[p]) return ROTULO_POR_TIPO[p];
+    if (p.startsWith("SETOR_TECNICO:")) {
+      const partes = p.split(":");
+      return partes.length >= 3 ? partes.slice(2).join(":") : "Setor Técnico";
+    }
+    return p;
+  }
+
   const valorSelectAtual =
     tipo === "LICITACOES" && listaPerfis.includes("DIRETOR_LICITACOES")
       ? "DIRETOR_LICITACOES"
+      : tipo === "SETOR_TECNICO"
+      ? (listaPerfis.find((p) => p.startsWith("SETOR_TECNICO:") || p === "SETOR_TECNICO") ?? "SETOR_TECNICO")
       : tipo;
 
   function trocarSubsistemaAdmin(novo: SubsistemaCodigo) {
@@ -168,7 +180,7 @@ export default function Navbar({
             >
               {listaPerfis.map((p) => (
                 <option key={p} value={p}>
-                  {ROTULO_POR_TIPO[p] || p}
+                  {formatarRotulo(p)}
                 </option>
               ))}
             </select>
@@ -250,7 +262,7 @@ export default function Navbar({
                   </p>
                   <div className="space-y-1">
                     {listaPerfis.map((p) => {
-                      const ativo = p === valorSelectAtual;
+                      const ativo = p === valorSelectAtual || (tipo === "SETOR_TECNICO" && p.startsWith("SETOR_TECNICO"));
                       return (
                         <button
                           key={p}
@@ -263,7 +275,7 @@ export default function Navbar({
                               : "text-slate-700 hover:bg-slate-100 cursor-pointer"
                           }`}
                         >
-                          <span>{ROTULO_POR_TIPO[p] || p}</span>
+                          <span>{formatarRotulo(p)}</span>
                           {ativo && <span className="text-[10px] font-bold text-indigo-600">Ativo</span>}
                         </button>
                       );

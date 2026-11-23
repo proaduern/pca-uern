@@ -1407,12 +1407,178 @@ export async function desfazerAprovacaoDfdAction(
     }
     await tx.dfd.update({
       where: { id: dfdId },
-      data: { status: "AGUARDANDO_APROVACAO", aprovadoEm: null },
+      data: {
+        status: "AGUARDANDO_APROVACAO",
+        aprovadoEm: null,
+        statusEncaminhamento: "PENDENTE_DISTRIBUICAO",
+        setorTecnicoDestinoId: null,
+        encaminhadoSetorEm: null,
+      },
     });
   });
 
   revalidatePath("/");
   revalidatePath("/admin/demandas");
+  revalidatePath("/admin/encaminhamento");
+  return {};
+}
+
+// ---------------------------------------------------------------------------
+// Encaminhamento Intermediário da PROAD para o Setor Técnico
+// ---------------------------------------------------------------------------
+
+export async function encaminharDfdAction(
+  dfdId: string,
+  setorTecnicoDestinoId: string,
+): Promise<ResultadoAcao> {
+  await exigirAdmin();
+  if (!dfdId || !setorTecnicoDestinoId) {
+    return { erro: "DFD e Setor Técnico de destino são obrigatórios." };
+  }
+  const dfd = await prisma.dfd.findUnique({ where: { id: dfdId } });
+  if (!dfd) return { erro: "DFD não encontrado." };
+  if (dfd.status !== "APROVADO") {
+    return { erro: "Apenas DFDs aprovados podem ser encaminhados aos setores técnicos." };
+  }
+  const setor = await prisma.setorTecnico.findUnique({ where: { id: setorTecnicoDestinoId } });
+  if (!setor || !setor.ativo) {
+    return { erro: "Setor técnico de destino inválido ou inativo." };
+  }
+
+  await prisma.dfd.update({
+    where: { id: dfdId },
+    data: {
+      setorTecnicoDestinoId,
+      statusEncaminhamento: "ENCAMINHADO_SETOR_TECNICO",
+      encaminhadoSetorEm: new Date(),
+    },
+  });
+
+  revalidatePath("/");
+  revalidatePath("/admin/demandas");
+  revalidatePath("/admin/encaminhamento");
+  revalidatePath("/etp-riscos");
+  return {};
+}
+
+export async function encaminharLoteDfdsAction(
+  itens: { dfdId: string; setorTecnicoDestinoId: string }[],
+): Promise<ResultadoAcao> {
+  await exigirAdmin();
+  if (!itens || itens.length === 0) {
+    return { erro: "Selecione ao menos um DFD para encaminhar." };
+  }
+
+  const agora = new Date();
+  await Promise.all(
+    itens.map((item) =>
+      prisma.dfd.update({
+        where: { id: item.dfdId, status: "APROVADO" },
+        data: {
+          setorTecnicoDestinoId: item.setorTecnicoDestinoId,
+          statusEncaminhamento: "ENCAMINHADO_SETOR_TECNICO",
+          encaminhadoSetorEm: agora,
+        },
+      }),
+    ),
+  );
+
+  revalidatePath("/");
+  revalidatePath("/admin/demandas");
+  revalidatePath("/admin/encaminhamento");
+  revalidatePath("/etp-riscos");
+  return {};
+}
+
+export async function encaminharTodasPadraoAction(
+  ano?: number,
+): Promise<ResultadoAcao & { totalEncaminhados?: number }> {
+  await exigirAdmin();
+
+  const dfds = await prisma.dfd.findMany({
+    where: {
+      status: "APROVADO",
+      statusEncaminhamento: "PENDENTE_DISTRIBUICAO",
+      ...(ano ? { ano } : {}),
+    },
+    include: {
+      itens: {
+        take: 1,
+        include: {
+          categoria: {
+            select: {
+              setorTecnicoId: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (dfds.length === 0) {
+    return { erro: "Nenhum DFD aprovado aguardando encaminhamento." };
+  }
+
+  const setorPadraoGeral = await prisma.setorTecnico.findFirst({
+    where: { ativo: true },
+    orderBy: { nome: "asc" },
+  });
+
+  const agora = new Date();
+  let encaminhados = 0;
+
+  for (const dfd of dfds) {
+    const catSetorId = dfd.itens[0]?.categoria?.setorTecnicoId ?? setorPadraoGeral?.id;
+    if (catSetorId) {
+      await prisma.dfd.update({
+        where: { id: dfd.id },
+        data: {
+          setorTecnicoDestinoId: catSetorId,
+          statusEncaminhamento: "ENCAMINHADO_SETOR_TECNICO",
+          encaminhadoSetorEm: agora,
+        },
+      });
+      encaminhados++;
+    }
+  }
+
+  revalidatePath("/");
+  revalidatePath("/admin/demandas");
+  revalidatePath("/admin/encaminhamento");
+  revalidatePath("/etp-riscos");
+  return { totalEncaminhados: encaminhados };
+}
+
+export async function reverterEncaminhamentoDfdAction(
+  dfdId: string,
+): Promise<ResultadoAcao> {
+  await exigirAdmin();
+  const dfd = await prisma.dfd.findUnique({
+    where: { id: dfdId },
+    include: { itens: { select: { consolidacaoTecnicaId: true } } },
+  });
+  if (!dfd) return { erro: "DFD não encontrado." };
+
+  const jaConsolidado = dfd.itens.some((it) => it.consolidacaoTecnicaId !== null);
+  if (jaConsolidado) {
+    return {
+      erro: "Não é possível reverter o encaminhamento: os itens deste DFD já foram consolidados pelo Setor Técnico.",
+    };
+  }
+
+  await prisma.dfd.update({
+    where: { id: dfdId },
+    data: {
+      statusEncaminhamento: "PENDENTE_DISTRIBUICAO",
+      setorTecnicoDestinoId: null,
+      encaminhadoSetorEm: null,
+    },
+  });
+
+  revalidatePath("/");
+  revalidatePath("/admin/demandas");
+  revalidatePath("/admin/encaminhamento");
+  revalidatePath("/etp-riscos");
   return {};
 }
 
@@ -1662,6 +1828,10 @@ export async function criarUsuarioUnidadeAction(
   if (!unidade) return { erro: "Unidade demandante não encontrada." };
 
   const senhaHash = await gerarHashSenha(senhaInicial);
+  const setoresTecnicosAdicionais = formData
+    .getAll("setoresTecnicosAdicionais")
+    .map(String)
+    .filter(Boolean);
 
   try {
     await prisma.usuario.create({
@@ -1684,6 +1854,9 @@ export async function criarUsuarioUnidadeAction(
         podeConfirmarEntrega,
         podeGerenciarSetores,
         podeEditarDadosUnidade,
+        setoresTecnicosAdicionais: {
+          connect: setoresTecnicosAdicionais.map((id) => ({ id })),
+        },
       },
     });
   } catch (erro) {
@@ -1728,6 +1901,11 @@ export async function atualizarUsuarioUnidadeAction(
     return { erro: "O email do usuário precisa ser do domínio @uern.br." };
   }
 
+  const setoresTecnicosAdicionais = formData
+    .getAll("setoresTecnicosAdicionais")
+    .map(String)
+    .filter(Boolean);
+
   try {
     await prisma.usuario.update({
       where: { id: usuarioId },
@@ -1748,6 +1926,9 @@ export async function atualizarUsuarioUnidadeAction(
         podeConfirmarEntrega,
         podeGerenciarSetores,
         podeEditarDadosUnidade,
+        setoresTecnicosAdicionais: {
+          set: setoresTecnicosAdicionais.map((id) => ({ id })),
+        },
       },
     });
   } catch (erro) {

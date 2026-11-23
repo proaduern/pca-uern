@@ -12,8 +12,20 @@ async function obterCategoriaDoSetorOuErro(
   isAdmin = false,
 ) {
   const categoria = await prisma.categoria.findUnique({ where: { id: categoriaId } });
-  if (!categoria || (!isAdmin && categoria.setorTecnicoId !== setorTecnicoId)) {
-    throw new Error("Esta categoria não está atribuída ao seu setor técnico.");
+  if (!categoria) {
+    throw new Error("Categoria não encontrada.");
+  }
+  if (!isAdmin && categoria.setorTecnicoId !== setorTecnicoId) {
+    const temEncaminhadas = await prisma.dfd.count({
+      where: {
+        setorTecnicoDestinoId: setorTecnicoId,
+        statusEncaminhamento: "ENCAMINHADO_SETOR_TECNICO",
+        itens: { some: { categoriaId } },
+      },
+    });
+    if (temEncaminhadas === 0) {
+      throw new Error("Esta categoria não está atribuída ao seu setor técnico.");
+    }
   }
   return categoria;
 }

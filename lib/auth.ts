@@ -293,10 +293,11 @@ export type ResultadoAutenticacao =
 
 interface PreLoginPayload {
   opcoes: OpcaoPerfil[];
+  usuarioId?: string;
 }
 
-async function criarPreLogin(opcoes: OpcaoPerfil[]) {
-  const token = await new SignJWT({ opcoes })
+async function criarPreLogin(opcoes: OpcaoPerfil[], usuarioId?: string) {
+  const token = await new SignJWT({ opcoes, usuarioId })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${PRE_LOGIN_DURATION_SECONDS}s`)
@@ -318,7 +319,10 @@ export async function obterPreLogin(): Promise<PreLoginPayload | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, getSecretKey());
-    return { opcoes: payload.opcoes as OpcaoPerfil[] };
+    return {
+      opcoes: payload.opcoes as OpcaoPerfil[],
+      usuarioId: payload.usuarioId as string | undefined,
+    };
   } catch {
     return null;
   }
@@ -352,6 +356,60 @@ export async function confirmarPerfil(tipo: string, id: string): Promise<Session
   if (!pre) throw new Error("Sessão de login expirada. Faça login novamente.");
   const opcao = pre.opcoes.find((o) => o.tipo === tipo && o.id === id);
   if (!opcao) throw new Error("Perfil inválido.");
+
+  if (pre.usuarioId) {
+    const usuario = await prisma.usuario.findUniqueOrThrow({
+      where: { id: pre.usuarioId },
+      include: {
+        unidade: true,
+        setoresTecnicosAdicionais: { where: { ativo: true } },
+      },
+    });
+    const perfisList = [
+      "UNIDADE",
+      ...usuario.setoresTecnicosAdicionais.map(
+        (s) => `SETOR_TECNICO:${s.id}:${s.nome}`
+      ),
+    ];
+
+    if (opcao.tipo === "UNIDADE") {
+      return {
+        tipo: "UNIDADE",
+        id: usuario.unidade!.id,
+        nome: usuario.nome,
+        email: usuario.email,
+        senhaTemporaria: usuario.senhaTemporaria,
+        usuarioId: usuario.id,
+        unidadeId: usuario.unidade!.id,
+        unidadeNome: usuario.unidade!.nome,
+        perfisDisponiveis: perfisList,
+        permissoes: {
+          podeCriarDfd: usuario.podeCriarDfd,
+          podeEditarDfd: usuario.podeEditarDfd,
+          podeEnviarDfd: usuario.podeEnviarDfd,
+          podeExcluirDfd: usuario.podeExcluirDfd,
+          podeSolicitarCatalogo: usuario.podeSolicitarCatalogo,
+          podeSolicitarCotaGeral: usuario.podeSolicitarCotaGeral,
+          podeConfirmarEntrega: usuario.podeConfirmarEntrega,
+          podeGerenciarSetores: usuario.podeGerenciarSetores,
+          podeEditarDadosUnidade: usuario.podeEditarDadosUnidade,
+        },
+      };
+    } else if (opcao.tipo === "SETOR_TECNICO") {
+      const setor = await prisma.setorTecnico.findUniqueOrThrow({ where: { id: opcao.id } });
+      return {
+        tipo: "SETOR_TECNICO",
+        id: setor.id,
+        nome: setor.nome,
+        email: usuario.email,
+        senhaTemporaria: usuario.senhaTemporaria,
+        usuarioId: usuario.id,
+        unidadeId: usuario.unidade?.id,
+        unidadeNome: usuario.unidade?.nome,
+        perfisDisponiveis: perfisList,
+      };
+    }
+  }
 
   let sessao: SessionPayload;
   if (opcao.tipo === "UNIDADE") {
@@ -438,7 +496,10 @@ export async function autenticar(email: string, senha: string): Promise<Resultad
 
   const usuario = await prisma.usuario.findUnique({
     where: { email: emailNorm },
-    include: { unidade: true },
+    include: {
+      unidade: true,
+      setoresTecnicosAdicionais: { where: { ativo: true } },
+    },
   });
 
   if (usuario) {
@@ -460,30 +521,52 @@ export async function autenticar(email: string, senha: string): Promise<Resultad
 
     if (usuario.role === "UNIDADE" && usuario.unidadeId && usuario.unidade) {
       if (!usuario.unidade.ativa) return null;
-      return {
-        resultado: "sessao",
-        sessao: {
-          tipo: "UNIDADE",
-          id: usuario.unidade.id,
-          nome: usuario.nome,
-          email: usuario.email,
-          senhaTemporaria: usuario.senhaTemporaria,
-          usuarioId: usuario.id,
-          unidadeId: usuario.unidade.id,
-          unidadeNome: usuario.unidade.nome,
-          permissoes: {
-            podeCriarDfd: usuario.podeCriarDfd,
-            podeEditarDfd: usuario.podeEditarDfd,
-            podeEnviarDfd: usuario.podeEnviarDfd,
-            podeExcluirDfd: usuario.podeExcluirDfd,
-            podeSolicitarCatalogo: usuario.podeSolicitarCatalogo,
-            podeSolicitarCotaGeral: usuario.podeSolicitarCotaGeral,
-            podeConfirmarEntrega: usuario.podeConfirmarEntrega,
-            podeGerenciarSetores: usuario.podeGerenciarSetores,
-            podeEditarDadosUnidade: usuario.podeEditarDadosUnidade,
+
+      const perfisList = [
+        "UNIDADE",
+        ...usuario.setoresTecnicosAdicionais.map(
+          (s) => `SETOR_TECNICO:${s.id}:${s.nome}`
+        ),
+      ];
+
+      if (usuario.setoresTecnicosAdicionais.length === 0) {
+        return {
+          resultado: "sessao",
+          sessao: {
+            tipo: "UNIDADE",
+            id: usuario.unidade.id,
+            nome: usuario.nome,
+            email: usuario.email,
+            senhaTemporaria: usuario.senhaTemporaria,
+            usuarioId: usuario.id,
+            unidadeId: usuario.unidade.id,
+            unidadeNome: usuario.unidade.nome,
+            perfisDisponiveis: perfisList,
+            permissoes: {
+              podeCriarDfd: usuario.podeCriarDfd,
+              podeEditarDfd: usuario.podeEditarDfd,
+              podeEnviarDfd: usuario.podeEnviarDfd,
+              podeExcluirDfd: usuario.podeExcluirDfd,
+              podeSolicitarCatalogo: usuario.podeSolicitarCatalogo,
+              podeSolicitarCotaGeral: usuario.podeSolicitarCotaGeral,
+              podeConfirmarEntrega: usuario.podeConfirmarEntrega,
+              podeGerenciarSetores: usuario.podeGerenciarSetores,
+              podeEditarDadosUnidade: usuario.podeEditarDadosUnidade,
+            },
           },
-        },
-      };
+        };
+      }
+
+      const opcoes: OpcaoPerfil[] = [
+        { tipo: "UNIDADE", id: usuario.unidade.id, nome: `${usuario.unidade.nome} (Demandante)` },
+        ...usuario.setoresTecnicosAdicionais.map((s) => ({
+          tipo: "SETOR_TECNICO" as const,
+          id: s.id,
+          nome: `${s.nome} (Setor Técnico)`,
+        })),
+      ];
+      await criarPreLogin(opcoes, usuario.id);
+      return { resultado: "escolher_perfil", opcoes };
     }
   }
 

@@ -48,6 +48,7 @@ model Usuario {
   updatedAt DateTime @updatedAt
 
   dfdsCriados Dfd[] @relation("DfdCriadoPorUsuario")
+  setoresTecnicosAdicionais SetorTecnico[] @relation("UsuarioSetoresTecnicos")
 
   @@index([unidadeId])
 }
@@ -141,6 +142,8 @@ model SetorTecnico {
   consolidacoes ConsolidacaoTecnica[]
   itensTecnicos ItemTecnico[]
   substituicoes ItemDfd[]             @relation("SubstituicaoPorSetor")
+  usuariosVinculados Usuario[]      @relation("UsuarioSetoresTecnicos")
+  dfdsEncaminhados   Dfd[]          @relation("DfdSetorTecnicoDestino")
 }
 
 // Login da Diretoria de Licitações e Contratos: vê todas as consolidações
@@ -564,6 +567,11 @@ enum StatusDfd {
   REPROVADO
 }
 
+enum StatusEncaminhamentoDfd {
+  PENDENTE_DISTRIBUICAO
+  ENCAMINHADO_SETOR_TECNICO
+}
+
 enum TipoDemanda {
   RENOVACAO
   NOVA
@@ -617,6 +625,12 @@ model Dfd {
   processoSeiOrigem String?
   idSeiDfdOrigem    String?
 
+  // Encaminhamento intermediário da PROAD para o Setor Técnico
+  setorTecnicoDestinoId String?
+  setorTecnicoDestino   SetorTecnico?           @relation("DfdSetorTecnicoDestino", fields: [setorTecnicoDestinoId], references: [id])
+  statusEncaminhamento  StatusEncaminhamentoDfd @default(PENDENTE_DISTRIBUICAO)
+  encaminhadoSetorEm    DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -629,6 +643,8 @@ model Dfd {
   @@index([ano])
   @@index([setorInternoId])
   @@index([criadoPorUsuarioId])
+  @@index([statusEncaminhamento])
+  @@index([setorTecnicoDestinoId])
 }
 
 enum TipoItemDfd {

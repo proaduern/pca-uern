@@ -17,6 +17,7 @@ import {
   Filter,
   CheckCircle2,
   XCircle,
+  Layers,
 } from "lucide-react";
 
 interface PageProps {
@@ -31,11 +32,18 @@ export default async function AdminUsuariosPage({ searchParams }: PageProps) {
   await exigirAdminNaPagina();
   const { busca, unidadeId, status } = await searchParams;
 
-  // Carregar unidades ativas para opções de filtro e formulário
-  const unidades = await prisma.unidade.findMany({
-    orderBy: { nome: "asc" },
-    select: { id: true, nome: true },
-  });
+  // Carregar unidades ativas e setores técnicos para opções de filtro e formulário
+  const [unidades, setoresTecnicos] = await Promise.all([
+    prisma.unidade.findMany({
+      orderBy: { nome: "asc" },
+      select: { id: true, nome: true },
+    }),
+    prisma.setorTecnico.findMany({
+      where: { ativo: true },
+      orderBy: { nome: "asc" },
+      select: { id: true, nome: true },
+    }),
+  ]);
 
   // Filtros dinâmicos
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -68,6 +76,9 @@ export default async function AdminUsuariosPage({ searchParams }: PageProps) {
       where,
       include: {
         unidade: {
+          select: { id: true, nome: true },
+        },
+        setoresTecnicosAdicionais: {
           select: { id: true, nome: true },
         },
       },
@@ -106,7 +117,11 @@ export default async function AdminUsuariosPage({ searchParams }: PageProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <NovoUsuarioForm unidades={unidades} unidadeSelecionadaId={unidadeId !== "todas" ? unidadeId : undefined} />
+          <NovoUsuarioForm
+            unidades={unidades}
+            unidadeSelecionadaId={unidadeId !== "todas" ? unidadeId : undefined}
+            setoresTecnicos={setoresTecnicos}
+          />
         </div>
       </div>
 
@@ -268,11 +283,27 @@ export default async function AdminUsuariosPage({ searchParams }: PageProps) {
                     {/* Unidade */}
                     <td className="px-4 py-3">
                       {u.unidade ? (
-                        <div className="flex items-center gap-1.5">
-                          <Building2 className="h-3.5 w-3.5 text-[#003366] shrink-0" />
-                          <span className="font-medium text-slate-800 text-xs">
-                            {u.unidade.nome}
-                          </span>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <Building2 className="h-3.5 w-3.5 text-[#003366] shrink-0" />
+                            <span className="font-medium text-slate-800 text-xs">
+                              {u.unidade.nome}
+                            </span>
+                          </div>
+                          {u.setoresTecnicosAdicionais && u.setoresTecnicosAdicionais.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-0.5">
+                              {u.setoresTecnicosAdicionais.map((s) => (
+                                <span
+                                  key={s.id}
+                                  className="inline-flex items-center gap-1 rounded-md bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700"
+                                  title={`Comissão / Setor Técnico Adicional: ${s.nome}`}
+                                >
+                                  <Layers className="h-2.5 w-2.5 text-indigo-500" />
+                                  <span>{s.nome}</span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <span className="text-xs italic text-amber-600">Sem unidade</span>
@@ -362,8 +393,10 @@ export default async function AdminUsuariosPage({ searchParams }: PageProps) {
                             podeConfirmarEntrega: u.podeConfirmarEntrega,
                             podeGerenciarSetores: u.podeGerenciarSetores,
                             podeEditarDadosUnidade: u.podeEditarDadosUnidade,
+                            setoresTecnicosAdicionais: u.setoresTecnicosAdicionais,
                           }}
                           unidades={unidades}
+                          setoresTecnicos={setoresTecnicos}
                         />
 
                         <RedefinirSenhaUsuarioForm usuarioId={u.id} />

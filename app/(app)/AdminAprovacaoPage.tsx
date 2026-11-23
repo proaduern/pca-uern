@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import PendentesTabela from "./PendentesTabela";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw, ArrowRightLeft } from "lucide-react";
 import Link from "next/link";
 import DesfazerAprovacaoBotao from "./admin/demandas/DesfazerAprovacaoBotao";
 import BotaoExcluir from "./admin/BotaoExcluir";
@@ -8,7 +8,7 @@ import { adminExcluirDfdAction } from "@/lib/actions/dfd";
 
 export default async function AdminAprovacaoPage() {
   try {
-    const [pendentes, historico] = await Promise.all([
+    const [pendentes, historico, totalPendentesDistribuicao] = await Promise.all([
       prisma.dfd.findMany({
         where: { status: "AGUARDANDO_APROVACAO" },
         include: {
@@ -41,10 +41,37 @@ export default async function AdminAprovacaoPage() {
         orderBy: { updatedAt: "desc" },
         take: 30,
       }),
+      prisma.dfd.count({
+        where: { status: "APROVADO", statusEncaminhamento: "PENDENTE_DISTRIBUICAO" },
+      }),
     ]);
 
     return (
       <div className="space-y-6">
+        {totalPendentesDistribuicao > 0 && (
+          <div className="flex flex-col gap-3 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#003366] text-white">
+                <ArrowRightLeft className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">
+                  {totalPendentesDistribuicao} demanda(s) aprovada(s) aguardando distribuição
+                </h2>
+                <p className="text-xs text-slate-600">
+                  Etapa intermediária: confirme o encaminhamento para os Setores Técnicos padrão ou comissões especiais.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/admin/encaminhamento"
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#003366] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#002244] transition"
+            >
+              <span>Distribuir Demandas</span>
+              <ArrowRightLeft className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        )}
         <h1 className="text-lg font-semibold text-slate-900">
           Aprovação de DFDs ({pendentes.length} pendentes)
         </h1>

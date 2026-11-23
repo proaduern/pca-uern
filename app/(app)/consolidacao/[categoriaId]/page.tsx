@@ -14,8 +14,18 @@ export default async function ConsolidacaoCategoriaPage({
   if (!sessao || (sessao.tipo !== "SETOR_TECNICO" && sessao.tipo !== "ADMIN")) return null;
 
   const categoria = await prisma.categoria.findUnique({ where: { id: categoriaId } });
-  if (!categoria || (sessao.tipo === "SETOR_TECNICO" && categoria.setorTecnicoId !== sessao.id)) {
-    notFound();
+  if (!categoria) notFound();
+  if (sessao.tipo === "SETOR_TECNICO" && categoria.setorTecnicoId !== sessao.id) {
+    const temEncaminhadas = await prisma.dfd.count({
+      where: {
+        setorTecnicoDestinoId: sessao.id,
+        statusEncaminhamento: "ENCAMINHADO_SETOR_TECNICO",
+        itens: { some: { categoriaId } },
+      },
+    });
+    if (temEncaminhadas === 0) {
+      notFound();
+    }
   }
 
   const contextoPca =
@@ -30,7 +40,26 @@ export default async function ConsolidacaoCategoriaPage({
     await Promise.all([
       pcaAtivo && !categoria.fluxoContinuo
         ? prisma.itemDfd.findMany({
-            where: { categoriaId, consolidacaoTecnicaId: null, dfd: { ano: pcaAtivo.ano, status: "APROVADO" } },
+            where: {
+              categoriaId,
+              consolidacaoTecnicaId: null,
+              dfd: {
+                ano: pcaAtivo.ano,
+                status: "APROVADO",
+                statusEncaminhamento: "ENCAMINHADO_SETOR_TECNICO",
+                ...(sessao.tipo === "SETOR_TECNICO"
+                  ? {
+                      OR: [
+                        { setorTecnicoDestinoId: sessao.id },
+                        {
+                          setorTecnicoDestinoId: null,
+                          itens: { some: { categoria: { setorTecnicoId: sessao.id } } },
+                        },
+                      ],
+                    }
+                  : {}),
+              },
+            },
             include: { dfd: { include: { unidade: true, prioridade: true } } },
             orderBy: { createdAt: "asc" },
           })

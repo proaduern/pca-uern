@@ -26,12 +26,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const perfilAlvo = (body?.perfilAlvo || "").toUpperCase().trim();
+    const perfilAlvo = (body?.perfilAlvo || "").trim();
     if (!perfilAlvo) {
       return NextResponse.json({ error: "Perfil alvo não informado." }, { status: 400 });
     }
 
-    if (perfilAlvo === "EXECUCAO" || perfilAlvo === "ENTREGA") {
+    if (perfilAlvo.toUpperCase() === "EXECUCAO" || perfilAlvo.toUpperCase() === "ENTREGA") {
       return NextResponse.json(
         { error: "Os módulos de Execução e Entrega foram migrados para o SGC." },
         { status: 400 }
@@ -41,7 +41,16 @@ export async function POST(request: NextRequest) {
     const perfisDisponiveis = normalizarListaPerfisPca(sessao.perfisDisponiveis);
     const isAdmin = sessao.tipo === "ADMIN" || sessaoReal?.tipo === "ADMIN";
 
-    if (!isAdmin && !perfisDisponiveis.includes(perfilAlvo)) {
+    const permissaoValida =
+      isAdmin ||
+      perfisDisponiveis.some(
+        (p) =>
+          p.toUpperCase() === perfilAlvo.toUpperCase() ||
+          p.startsWith(perfilAlvo) ||
+          perfilAlvo.startsWith(p),
+      );
+
+    if (!permissaoValida) {
       return NextResponse.json(
         { error: "Você não possui permissão para alternar para este perfil." },
         { status: 403 }

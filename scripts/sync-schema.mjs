@@ -34,6 +34,9 @@ const COLUNAS_CATEGORIA = [
 const COLUNAS_DFD = [
   `"processoSeiOrigem" TEXT`,
   `"idSeiDfdOrigem" TEXT`,
+  `"setorTecnicoDestinoId" TEXT`,
+  `"statusEncaminhamento" TEXT DEFAULT 'PENDENTE_DISTRIBUICAO'`,
+  `"encaminhadoSetorEm" TIMESTAMP(3)`,
 ];
 
 const COLUNAS_ITEM_TECNICO = [

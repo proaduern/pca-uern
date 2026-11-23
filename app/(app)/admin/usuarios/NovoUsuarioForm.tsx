@@ -2,9 +2,14 @@
 
 import { useRef, useState, useTransition } from "react";
 import { criarUsuarioUnidadeAction } from "@/lib/actions/admin";
-import { UserPlus, Shield } from "lucide-react";
+import { UserPlus, Shield, Layers } from "lucide-react";
 
 interface UnidadeOption {
+  id: string;
+  nome: string;
+}
+
+interface SetorTecnicoOption {
   id: string;
   nome: string;
 }
@@ -12,9 +17,11 @@ interface UnidadeOption {
 export default function NovoUsuarioForm({
   unidades,
   unidadeSelecionadaId,
+  setoresTecnicos = [],
 }: {
   unidades: UnidadeOption[];
   unidadeSelecionadaId?: string;
+  setoresTecnicos?: SetorTecnicoOption[];
 }) {
   const [aberto, setAberto] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -202,6 +209,37 @@ export default function NovoUsuarioForm({
           </p>
         </div>
       </div>
+
+      {/* Vínculo a Setores Técnicos / Comitês Adicionais */}
+      {setoresTecnicos.length > 0 && (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4">
+          <div className="mb-2 flex items-center gap-2">
+            <Layers className="h-4 w-4 text-indigo-700" />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-950">
+              Vínculo a Setores Técnicos / Comitês Especiais (Opcional)
+            </h3>
+          </div>
+          <p className="text-[11px] text-slate-600 mb-3">
+            Selecione caso este servidor, além de demandante na sua unidade de lotação, também integre um comitê de contratações ou comissão técnica (ex.: CEEL, CEECV, CEFAV, CESL, Comissão de TV e Rádio). O usuário poderá alternar entre os perfis no sistema.
+          </p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 max-h-48 overflow-y-auto pr-1">
+            {setoresTecnicos.map((s) => (
+              <label
+                key={s.id}
+                className="flex cursor-pointer items-center gap-2 rounded-lg border border-indigo-100 bg-white p-2 text-xs transition hover:border-indigo-300 shadow-2xs"
+              >
+                <input
+                  type="checkbox"
+                  name="setoresTecnicosAdicionais"
+                  value={s.id}
+                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="font-medium text-slate-800">{s.nome}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Matriz de Permissões */}
       <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">

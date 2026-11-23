@@ -1,5 +1,5 @@
-import { prisma } from "@/lib/prisma";
-import { type SessionPayload, PERMISSOES_TOTAL, gerarHashSsoSeguro } from "@/lib/auth";
+import { prisma } from "./prisma";
+import { type SessionPayload, PERMISSOES_TOTAL, gerarHashSsoSeguro } from "./auth";
 
 export interface OpcoesResolverSessaoPerfil {
   email: string;
@@ -20,8 +20,9 @@ export function normalizarListaPerfisPca(raw?: string | string[] | null): string
   const lista = Array.isArray(raw) ? raw : raw.split(",");
   const normalizados: string[] = [];
   for (const item of lista) {
-    const p = item.trim().toUpperCase();
-    if (!p) continue;
+    const rawTrim = item.trim();
+    if (!rawTrim) continue;
+    const p = rawTrim.toUpperCase();
     const canon =
       p === "DEMANDANTE" || p === "DIRETOR_UNIDADE" || p === "SERVIDOR_UNIDADE" || p === "PCA"
         ? "UNIDADE"
@@ -35,7 +36,7 @@ export function normalizarListaPerfisPca(raw?: string | string[] | null): string
         ? "DIRETOR_LICITACOES"
         : p === "ADMIN_PROAD"
         ? "ADMIN"
-        : p;
+        : rawTrim;
     if (!normalizados.includes(canon)) {
       if (canon !== "EXECUCAO" && canon !== "ENTREGA") {
         normalizados.push(canon);
@@ -65,8 +66,21 @@ export async function resolverSessaoPorPerfilPca(
   // Tenta localizar usuário e unidade já vinculados no banco para preservar contexto entre trocas de perfil
   const usuarioExistente = await prisma.usuario.findUnique({
     where: { email: emailLimpo },
-    include: { unidade: true },
+    include: {
+      unidade: true,
+      setoresTecnicosAdicionais: { where: { ativo: true } },
+    },
   });
+
+  if (usuarioExistente && usuarioExistente.setoresTecnicosAdicionais.length > 0) {
+    if (!perfisDisponiveis.includes("UNIDADE")) perfisDisponiveis.push("UNIDADE");
+    for (const s of usuarioExistente.setoresTecnicosAdicionais) {
+      const tag = `SETOR_TECNICO:${s.id}:${s.nome}`;
+      if (!perfisDisponiveis.includes(tag) && !perfisDisponiveis.includes("SETOR_TECNICO")) {
+        perfisDisponiveis.push(tag);
+      }
+    }
+  }
 
   const siglaBusca = opcoes.unidadeSigla || usuarioExistente?.unidade?.nome || undefined;
   const nomeUnidadeBusca = opcoes.unidadeNome || usuarioExistente?.unidade?.nome || undefined;
@@ -109,7 +123,7 @@ export async function resolverSessaoPorPerfilPca(
     emailLimpo === "adj.proad@uern.br" ||
     emailLimpo === "pedroreboucas@uern.br"
   ) {
-    let usuarioDb = usuarioExistente;
+    let usuarioDb: any = usuarioExistente;
     if (!usuarioDb) {
       usuarioDb = await prisma.usuario.create({
         data: {
@@ -189,11 +203,29 @@ export async function resolverSessaoPorPerfilPca(
   if (
     roleUpper === "SETOR_TECNICO" ||
     roleUpper === "ETP" ||
-    roleUpper === "ETP_RISCOS"
+    roleUpper === "ETP_RISCOS" ||
+    opcoes.perfilAlvo.startsWith("SETOR_TECNICO:")
   ) {
-    let setorTec = await prisma.setorTecnico.findFirst({
-      where: { email: emailLimpo, ativo: true },
-    });
+    let setorTec: any = null;
+
+    if (opcoes.perfilAlvo.startsWith("SETOR_TECNICO:")) {
+      const targetId = opcoes.perfilAlvo.split(":")[1];
+      if (targetId) {
+        setorTec = await prisma.setorTecnico.findFirst({
+          where: { id: targetId, ativo: true },
+        });
+      }
+    }
+
+    if (!setorTec && usuarioExistente?.setoresTecnicosAdicionais?.length) {
+      setorTec = usuarioExistente.setoresTecnicosAdicionais[0];
+    }
+
+    if (!setorTec) {
+      setorTec = await prisma.setorTecnico.findFirst({
+        where: { email: emailLimpo, ativo: true },
+      });
+    }
 
     if (!setorTec && unidadeDb) {
       setorTec = await prisma.setorTecnico.findFirst({
@@ -451,7 +483,7 @@ export async function resolverSessaoPorPerfilPca(
   }
 
   const isDiretorOuEnvia = opcoes.permissoesPca?.podeEnviarDfd ?? true;
-  let usuarioVinculado = usuarioExistente;
+  let usuarioVinculado: any = usuarioExistente;
 
   if (!usuarioVinculado) {
     usuarioVinculado = await prisma.usuario.create({

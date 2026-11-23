@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { atualizarUsuarioUnidadeAction } from "@/lib/actions/admin";
-import { Shield, Edit2, X } from "lucide-react";
+import { Shield, Edit2, X, Layers } from "lucide-react";
 
 interface UsuarioParaEdicao {
   id: string;
@@ -22,6 +22,7 @@ interface UsuarioParaEdicao {
   podeConfirmarEntrega: boolean;
   podeGerenciarSetores: boolean;
   podeEditarDadosUnidade: boolean;
+  setoresTecnicosAdicionais?: { id: string; nome: string }[];
 }
 
 interface UnidadeOption {
@@ -29,12 +30,19 @@ interface UnidadeOption {
   nome: string;
 }
 
+interface SetorTecnicoOption {
+  id: string;
+  nome: string;
+}
+
 export default function EditarUsuarioForm({
   usuario,
   unidades,
+  setoresTecnicos = [],
 }: {
   usuario: UsuarioParaEdicao;
   unidades: UnidadeOption[];
+  setoresTecnicos?: SetorTecnicoOption[];
 }) {
   const [aberto, setAberto] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -212,6 +220,41 @@ export default function EditarUsuarioForm({
               </label>
             </div>
           </div>
+
+          {/* Vínculo a Setores Técnicos / Comitês Adicionais */}
+          {setoresTecnicos.length > 0 && (
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <Layers className="h-4 w-4 text-indigo-700" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-950">
+                  Vínculo a Setores Técnicos / Comitês Especiais (Opcional)
+                </h3>
+              </div>
+              <p className="text-[11px] text-slate-600 mb-3">
+                Selecione caso este servidor também integre comissões especiais ou setores técnicos (ex.: CEEL, CEECV, CEFAV, CESL, Comissão de TV e Rádio). O usuário poderá alternar entre seus perfis no sistema.
+              </p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 max-h-48 overflow-y-auto pr-1">
+                {setoresTecnicos.map((s) => {
+                  const jaVinculado = usuario.setoresTecnicosAdicionais?.some((vinculo) => vinculo.id === s.id);
+                  return (
+                    <label
+                      key={s.id}
+                      className="flex cursor-pointer items-center gap-2 rounded-lg border border-indigo-100 bg-white p-2 text-xs transition hover:border-indigo-300 shadow-2xs"
+                    >
+                      <input
+                        type="checkbox"
+                        name="setoresTecnicosAdicionais"
+                        value={s.id}
+                        defaultChecked={jaVinculado}
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="font-medium text-slate-800">{s.nome}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Permissões */}
           <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">

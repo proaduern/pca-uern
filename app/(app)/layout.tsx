@@ -52,6 +52,7 @@ export default async function AppLayout({
   const linksAdminPorSubsistema: Record<SubsistemaCodigo, { href: string; label: string }[]> = {
     PCA: [
       { href: "/", label: "Aprovação de DFDs" },
+      { href: "/admin/encaminhamento", label: "Encaminhamento aos Setores" },
       { href: "/admin/demandas", label: "Demandas" },
       { href: "/admin/pca", label: "PCA e Publicação PNCP" },
       { href: "/admin/consolidacao", label: "Resumo Orçamentário do PCA" },

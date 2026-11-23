@@ -14,7 +14,24 @@ export default async function SetorTecnicoHomePage({
           .findFirst({ where: { ativo: true }, orderBy: { ano: "desc" } })
           .then((pca) => (pca ? ({ status: "resolvido" as const, pca, totalAtivos: 1 }) : ({ status: "nenhum" as const }))),
     prisma.categoria.findMany({
-      where: setorTecnicoId ? { setorTecnicoId } : { ativa: true },
+      where: setorTecnicoId
+        ? {
+            OR: [
+              { setorTecnicoId },
+              {
+                itensDfd: {
+                  some: {
+                    dfd: {
+                      status: "APROVADO",
+                      statusEncaminhamento: "ENCAMINHADO_SETOR_TECNICO",
+                      setorTecnicoDestinoId: setorTecnicoId,
+                    },
+                  },
+                },
+              },
+            ],
+          }
+        : { ativa: true },
       include: { setorTecnico: { select: { nome: true } } },
       orderBy: { nome: "asc" },
     }),
@@ -31,7 +48,22 @@ export default async function SetorTecnicoHomePage({
           where: {
             categoriaId: { in: categoriaIds },
             consolidacaoTecnicaId: null,
-            dfd: { ano: pcaAtivo.ano, status: "APROVADO" },
+            dfd: {
+              ano: pcaAtivo.ano,
+              status: "APROVADO",
+              statusEncaminhamento: "ENCAMINHADO_SETOR_TECNICO",
+              ...(setorTecnicoId
+                ? {
+                    OR: [
+                      { setorTecnicoDestinoId: setorTecnicoId },
+                      {
+                        setorTecnicoDestinoId: null,
+                        itens: { some: { categoria: { setorTecnicoId } } },
+                      },
+                    ],
+                  }
+                : {}),
+            },
           },
           _count: { _all: true },
         })
