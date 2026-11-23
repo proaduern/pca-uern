@@ -161,6 +161,71 @@ function deveManterJunto(demandante, categoriaNome, tipo) {
   return false;
 }
 
+const CATEGORIAS_ALVO_OBJETO = [
+  'Obra ou Reforma',
+  'Locação de imóvel',
+  'Pagamento de Taxa / Associação',
+  'Serviço de engenharia ou arquitetura',
+  'Serviços de TI',
+  'Serviços diversos para eventos'
+];
+
+function resumirObjeto(desc, catNome, unidadeOuSetor, sei) {
+  if (sei === '44897642') {
+    return 'Depósito de DOI - Identificador de Objeto Digital de Livros publicados';
+  }
+  if (!desc) return catNome;
+  let limpo = desc.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+
+  if (/curso\/setor\/atividade essencial pode parar/i.test(limpo)) {
+    return 'Depósito de DOI - Identificador de Objeto Digital de Livros publicados';
+  }
+  if (/gestão compartilhada.*Centro Cultural/i.test(limpo)) {
+    return 'Gestão compartilhada, administração e operacionalização técnico-cultural do novo Centro Cultural';
+  }
+  if (/Festival de Teatro.*FESTUERN/i.test(limpo)) {
+    return 'Planejamento e produção executiva do 21º Festival de Teatro (FESTUERN)';
+  }
+
+  limpo = limpo
+    .replace(/^contratação\s+((de|e)\s+)?(uma\s+)?(empresa|instituição|pessoa\s+jurídica)\s+(especializada\s+)?((em|para|na)\s+)?((na\s+)?prestação\s+de\s+serviços\s+(de|para|em)?)?\s*/i, '')
+    .replace(/^contratação\s+((de|e)\s+)?(serviços?|soluções?|plataforma|ferramenta)\s+(especializados?|digitais?)?\s*(em|de|para)?\s*/i, '')
+    .replace(/^contratação\s+((de|e)\s+)?/i, '')
+    .replace(/^(na\s+)?prestação\s+de\s+serviços?\s+(de\s+|para\s+|em\s+)?/i, '')
+    .replace(/^aquisição\s+(de\s+)?/i, '')
+    .replace(/^(em|para|na)\s+/i, '')
+    .trim();
+
+  if (/^serviços?\s+(especializados?\s+)?(de|em|para)\s+/i.test(limpo)) {
+    const semServico = limpo.replace(/^serviços?\s+(especializados?\s+)?(de|em|para)\s+/i, '').trim();
+    if (semServico.length > 10) {
+      limpo = semServico;
+    }
+  }
+
+  if (limpo.length > 120) {
+    const match = limpo.match(/(?<!\b(n|art|fl|av|sr|sra|prof|dr|dra|ed|v|cap))\.\s+([A-ZÀ-Ú])/);
+    if (match && match.index > 25 && match.index < 120) {
+      limpo = limpo.slice(0, match.index).trim();
+    }
+  }
+
+  limpo = limpo.replace(/[\.;,\s]+$/, '').trim();
+  limpo = limpo.charAt(0).toUpperCase() + limpo.slice(1);
+  return limpo;
+}
+
+function formatarTitulo(objeto, sufixoSei, setorOuUnidade) {
+  const seiPart = sufixoSei ? ` (${sufixoSei})` : '';
+  const unidadePart = setorOuUnidade ? ` — ${setorOuUnidade}` : '';
+  const maxObjetoLen = 200 - seiPart.length - unidadePart.length;
+  let objResumido = objeto;
+  if (objResumido.length > maxObjetoLen) {
+    objResumido = objResumido.slice(0, maxObjetoLen - 3).trim() + '...';
+  }
+  return `${objResumido}${seiPart}${unidadePart}`;
+}
+
 export async function transporPca2027Oficial() {
   console.log("\n=======================================================");
   console.log("=== INICIANDO SINCRONIZAÇÃO E TRANSPOSIÇÃO DO PCA 2027 ===");
@@ -437,6 +502,11 @@ export async function transporPca2027Oficial() {
   console.log("[PCA 2027] Agrupando 3.293 itens da Lista Geral em DFDs Primários...");
   const gruposGeral = new Map();
   for (const it of payload.itensGeral) {
+    // Saneamento EDUERN SEI 44897642
+    if (it.idSeiDfd === "44897642" || /curso\/setor\/atividade essencial pode parar/i.test(it.especificacao)) {
+      it.especificacao = "Depósito de DOI - Identificador de Objeto Digital de Livros publicados";
+    }
+
     const unidade = resolveUnidade(it.demandante);
     const cat = categoriaByName.get(it.categoria);
     const tipo = cat ? cat.tipo : "MATERIAL";
@@ -448,6 +518,11 @@ export async function transporPca2027Oficial() {
       key = `${unidade.id}||${it.categoria}`;
     } else {
       key = `${unidade.id}||${it.categoria}||${idSeiLimpo}`;
+    }
+
+    // Desmembrar Centro Cultural na PROEX em DFD próprio
+    if (it.categoria === "Serviços diversos para eventos" && /Centro Cultural/i.test(it.especificacao)) {
+      key += "||CENTRO_CULTURAL";
     }
 
     if (!gruposGeral.has(key)) {
@@ -494,10 +569,18 @@ export async function transporPca2027Oficial() {
     const dfdsSeiStr = grupo.idSeiDfd || ([...dfdsSeiSet].join("; ") || null);
     const setoresArr = [...setoresSet];
 
-    const sufixoSei = grupo.idSeiDfd ? ` (SEI ${grupo.idSeiDfd})` : "";
-    const descricaoSumaria = (
-      grupo.categoriaNome + sufixoSei + (setoresArr.length > 0 ? ` — ${setoresArr.join(", ")}` : "")
-    ).slice(0, 200);
+    const sufixoSei = grupo.idSeiDfd ? `SEI ${grupo.idSeiDfd}` : null;
+    const setorOuUnidade = setoresArr.length > 0 ? setoresArr.join(", ") : grupo.unidade.nome;
+    let descricaoSumaria;
+
+    if (CATEGORIAS_ALVO_OBJETO.includes(grupo.categoriaNome)) {
+      const primeiroItem = grupo.itens[0]?.especificacao || grupo.categoriaNome;
+      const objetoLimpo = resumirObjeto(primeiroItem, grupo.categoriaNome, setorOuUnidade, grupo.idSeiDfd);
+      descricaoSumaria = formatarTitulo(objetoLimpo, sufixoSei, setorOuUnidade);
+    } else {
+      const seiTxt = sufixoSei ? ` (${sufixoSei})` : "";
+      descricaoSumaria = (grupo.categoriaNome + seiTxt + ` — ${setorOuUnidade}`).slice(0, 200);
+    }
 
     let justificativa =
       `Demanda primária da unidade ${grupo.unidade.nome} para a categoria "${grupo.categoriaNome}" no PCA 2027` +
