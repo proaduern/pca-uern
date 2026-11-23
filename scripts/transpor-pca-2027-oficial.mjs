@@ -385,7 +385,7 @@ export async function transporPca2027Oficial() {
     where: { ano: 2027 },
     update: {
       ativo: true,
-      cotaGeral: 158485167.10,
+      cotaGeral: 200000000.00,
       cotaOP: 4900000.00,
       dataAbertura: new Date(Date.UTC(2026, 0, 1)),
       dataFechamento: new Date(Date.UTC(2027, 11, 31)),
@@ -395,7 +395,7 @@ export async function transporPca2027Oficial() {
     create: {
       ano: 2027,
       ativo: true,
-      cotaGeral: 158485167.10,
+      cotaGeral: 200000000.00,
       cotaOP: 4900000.00,
       dataAbertura: new Date(Date.UTC(2026, 0, 1)),
       dataFechamento: new Date(Date.UTC(2027, 11, 31)),
