@@ -134,6 +134,33 @@ function extrairRecursoExtra(fonte, convenioCol) {
   };
 }
 
+/**
+ * Regra deliberada pelo usuário para agrupamento de DFDs:
+ * - MATERIAL: 100% mantido unificado por (Unidade + Categoria).
+ * - SERVIÇO: Mantém agrupado APENAS as demandas 11, 16, 20 e 21 (FE / Campus Natal).
+ *   Todas as demais demandas de serviço com múltiplos IDs SEI de DFD são desmembradas por ID SEI.
+ */
+function deveManterJunto(demandante, categoriaNome, tipo) {
+  if (tipo === "MATERIAL") return true;
+  
+  const dNorm = String(demandante || "").trim().toLowerCase();
+  const cNorm = String(categoriaNome || "").trim().toLowerCase();
+
+  // Demanda 11: FE - Serviços de Fornecimento de Coffee break
+  if (dNorm === "fe" && cNorm.includes("coffee break")) return true;
+
+  // Demanda 16: Campus Natal - Serviços Gráficos
+  if (dNorm === "campus natal" && cNorm === "serviços gráficos") return true;
+
+  // Demanda 20: FE - Hospedagens
+  if (dNorm === "fe" && cNorm === "hospedagens") return true;
+
+  // Demanda 21: FE - Passagens Aéreas
+  if (dNorm === "fe" && (cNorm === "passagens aéreas" || cNorm.includes("passagens"))) return true;
+
+  return false;
+}
+
 export async function transporPca2027Oficial() {
   console.log("\n=======================================================");
   console.log("=== INICIANDO SINCRONIZAÇÃO E TRANSPOSIÇÃO DO PCA 2027 ===");
@@ -381,8 +408,10 @@ export async function transporPca2027Oficial() {
   const dfdsExistentes2027 = await prisma.dfd.count({ where: { ano: 2027 } });
   const forcarRecarga = process.env.FORCE_RELOAD_PCA2027 === "1" || process.env.FORCE_RELOAD_PCA2027 === "true";
 
-  if (dfdsExistentes2027 >= 350 && !forcarRecarga) {
-    console.log(`[PCA 2027] O PCA 2027 já possui ${dfdsExistentes2027} DFDs cadastrados no banco. Transposição preservada.`);
+  // O novo layout com separação de serviços por ID SEI produz 457 DFDs.
+  // Se houver menos que 450 DFDs, ou se FORCE_RELOAD_PCA2027 estiver ativo, recarrega.
+  if (dfdsExistentes2027 >= 450 && !forcarRecarga) {
+    console.log(`[PCA 2027] O PCA 2027 já possui ${dfdsExistentes2027} DFDs cadastrados no banco (layout atualizado). Transposição preservada.`);
     return;
   }
 
@@ -404,14 +433,31 @@ export async function transporPca2027Oficial() {
   const dfdsToInsert = [];
   const itensToInsert = [];
 
-  // 8. Agrupar Itens da Lista Geral por (Unidade + Categoria)
+  // 8. Agrupar Itens da Lista Geral em DFDs Primários
   console.log("[PCA 2027] Agrupando 3.293 itens da Lista Geral em DFDs Primários...");
   const gruposGeral = new Map();
   for (const it of payload.itensGeral) {
     const unidade = resolveUnidade(it.demandante);
-    const key = `${unidade.id}||${it.categoria}`;
+    const cat = categoriaByName.get(it.categoria);
+    const tipo = cat ? cat.tipo : "MATERIAL";
+    const manterJunto = deveManterJunto(unidade.nome, it.categoria, tipo);
+
+    let key;
+    const idSeiLimpo = (it.idSeiDfd && String(it.idSeiDfd).trim()) || "(SEM_ID)";
+    if (manterJunto) {
+      key = `${unidade.id}||${it.categoria}`;
+    } else {
+      key = `${unidade.id}||${it.categoria}||${idSeiLimpo}`;
+    }
+
     if (!gruposGeral.has(key)) {
-      gruposGeral.set(key, { unidade, categoriaNome: it.categoria, itens: [] });
+      gruposGeral.set(key, {
+        unidade,
+        categoriaNome: it.categoria,
+        idSeiDfd: manterJunto ? null : (idSeiLimpo !== "(SEM_ID)" ? idSeiLimpo : null),
+        manterJunto,
+        itens: [],
+      });
     }
     gruposGeral.get(key).itens.push(it);
   }
@@ -445,11 +491,12 @@ export async function transporPca2027Oficial() {
     const tipificacaoId = domNec ? tipByName.get(domNec.toLowerCase()) || null : null;
 
     const processosStr = [...processosSet].join("; ") || null;
-    const dfdsSeiStr = [...dfdsSeiSet].join("; ") || null;
+    const dfdsSeiStr = grupo.idSeiDfd || ([...dfdsSeiSet].join("; ") || null);
     const setoresArr = [...setoresSet];
 
+    const sufixoSei = grupo.idSeiDfd ? ` (SEI ${grupo.idSeiDfd})` : "";
     const descricaoSumaria = (
-      grupo.categoriaNome + (setoresArr.length > 0 ? ` — ${setoresArr.join(", ")}` : "")
+      grupo.categoriaNome + sufixoSei + (setoresArr.length > 0 ? ` — ${setoresArr.join(", ")}` : "")
     ).slice(0, 200);
 
     let justificativa =
@@ -524,14 +571,31 @@ export async function transporPca2027Oficial() {
     }
   }
 
-  // 9. Agrupar Itens da Aba Diárias por (Unidade + Categoria)
-  console.log("[PCA 2027] Agrupando 107 itens de Diárias, Passagens e Hospedagens em DFDs Primários separados por Categoria...");
+  // 9. Agrupar Itens da Aba Diárias em DFDs Primários
+  console.log("[PCA 2027] Agrupando 107 itens de Diárias, Passagens e Hospedagens em DFDs Primários...");
   const gruposDiarias = new Map();
   for (const it of payload.itensDiarias) {
     const unidade = resolveUnidade(it.demandante);
-    const key = `${unidade.id}||${it.categoria}`;
+    const cat = categoriaByName.get(it.categoria);
+    const tipo = cat ? cat.tipo : "SERVICO";
+    const manterJunto = deveManterJunto(unidade.nome, it.categoria, tipo);
+
+    let key;
+    const idSeiLimpo = (it.idSeiDfd && String(it.idSeiDfd).trim()) || "(SEM_ID)";
+    if (manterJunto) {
+      key = `${unidade.id}||${it.categoria}`;
+    } else {
+      key = `${unidade.id}||${it.categoria}||${idSeiLimpo}`;
+    }
+
     if (!gruposDiarias.has(key)) {
-      gruposDiarias.set(key, { unidade, categoriaNome: it.categoria, itens: [] });
+      gruposDiarias.set(key, {
+        unidade,
+        categoriaNome: it.categoria,
+        idSeiDfd: manterJunto ? null : (idSeiLimpo !== "(SEM_ID)" ? idSeiLimpo : null),
+        manterJunto,
+        itens: [],
+      });
     }
     gruposDiarias.get(key).itens.push(it);
   }
@@ -540,9 +604,10 @@ export async function transporPca2027Oficial() {
   const tipRotinaId = tipByName.get("necessidade acadêmica/administrativa de rotina (fluxo contínuo)") || null;
 
   for (const g of gruposDiarias.values()) {
-    const dfdsSei = [...new Set(g.itens.map((x) => x.idSeiDfd).filter(Boolean))].join("; ") || null;
+    const dfdsSei = g.idSeiDfd || ([...new Set(g.itens.map((x) => x.idSeiDfd).filter(Boolean))].join("; ") || null);
     const cat = categoriaByName.get(g.categoriaNome);
-    const descricaoSumaria = `${g.categoriaNome} — ${g.unidade.nome}`.slice(0, 200);
+    const sufixoSei = g.idSeiDfd ? ` (SEI ${g.idSeiDfd})` : "";
+    const descricaoSumaria = `${g.categoriaNome}${sufixoSei} — ${g.unidade.nome}`.slice(0, 200);
 
     let justificativa =
       `Demanda de ${g.categoriaNome} da unidade ${g.unidade.nome} para o exercício do PCA 2027` +
