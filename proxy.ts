@@ -17,7 +17,6 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/static") ||
     pathname.startsWith("/api/auth/sso-callback") ||
     pathname.startsWith("/api/verificar-documento") ||
-    pathname.startsWith("/api/diag-db") ||
     pathname.startsWith("/api/integracao/")
   ) {
     return NextResponse.next();
