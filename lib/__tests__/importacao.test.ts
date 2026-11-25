@@ -20,6 +20,8 @@ describe("paraBooleano", () => {
 describe("paraNumero", () => {
   it("interpreta formato brasileiro com separador de milhar", () => {
     expect(paraNumero("1.234,56")).toBe(1234.56);
+    expect(paraNumero("2.730")).toBe(2730);
+    expect(paraNumero("1.200.000")).toBe(1200000);
   });
 
   it("interpreta número simples com vírgula decimal", () => {

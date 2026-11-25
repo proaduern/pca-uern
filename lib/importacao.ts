@@ -168,10 +168,13 @@ export function paraBooleano(valor: string | undefined): boolean {
 }
 
 export function paraNumero(valor: string | undefined): number {
-  const limpo = (valor ?? "").toString().trim();
+  const limpo = (valor ?? "").toString().replace(/R\$\s*/gi, "").trim();
   if (!limpo) return 0;
   if (limpo.includes(",")) {
     return Number(limpo.replace(/\./g, "").replace(",", ".")) || 0;
+  }
+  if (/^-?\d{1,3}(\.\d{3})+$/.test(limpo)) {
+    return Number(limpo.replace(/\./g, "")) || 0;
   }
   return Number(limpo) || 0;
 }

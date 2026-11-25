@@ -1,9 +1,5 @@
 import { syncSchema } from "./sync-schema.mjs";
-import { transporPca2027Oficial } from "./transpor-pca-2027-oficial.mjs";
-import { sanearPrioridadesETipificacoes } from "./sanear-prioridades-e-tipificacoes.mjs";
-import { seedCatalogo4Servicos } from "./seed-catalogo-4-servicos.mjs";
-import { aplicarTitulosDfdsESeparacao } from "./aplicar-titulos-dfds-e-separacao.mjs";
-import { sanearPrefixosEDuplicidadesCatalogo } from "./sanear-prefixos-e-duplicidades-catalogo.mjs";
+import { sanearCatalogoDefinitivo } from "./sanear-catalogo-definitivo.mjs";
 
 async function main() {
   console.log("[Deploy Migrations] Iniciando sincronização e migrações no deploy...");
@@ -13,34 +9,12 @@ async function main() {
     console.warn("[Deploy Migrations] Aviso no syncSchema:", e);
   }
 
+  // NOTA: As migrações de transposição inicial (transporPca2027Oficial, aplicarTitulosDfdsESeparacao, etc.)
+  // foram desativadas permanentemente para NUNCA sobrescrever alterações manuais do usuário nos títulos e itens dos DFDs.
   try {
-    await transporPca2027Oficial();
+    await sanearCatalogoDefinitivo();
   } catch (e) {
-    console.error("[Deploy Migrations] Erro no transporPca2027Oficial:", e);
-  }
-
-  try {
-    await sanearPrioridadesETipificacoes();
-  } catch (e) {
-    console.error("[Deploy Migrations] Erro no sanearPrioridadesETipificacoes:", e);
-  }
-
-  try {
-    await seedCatalogo4Servicos();
-  } catch (e) {
-    console.error("[Deploy Migrations] Erro no seedCatalogo4Servicos:", e);
-  }
-
-  try {
-    await aplicarTitulosDfdsESeparacao();
-  } catch (e) {
-    console.error("[Deploy Migrations] Erro no aplicarTitulosDfdsESeparacao:", e);
-  }
-
-  try {
-    await sanearPrefixosEDuplicidadesCatalogo();
-  } catch (e) {
-    console.error("[Deploy Migrations] Erro no sanearPrefixosEDuplicidadesCatalogo:", e);
+    console.error("[Deploy Migrations] Erro no sanearCatalogoDefinitivo:", e);
   }
 
   try {
