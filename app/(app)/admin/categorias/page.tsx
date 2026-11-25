@@ -11,7 +11,6 @@ import RenomearCategoriaForm from "./RenomearCategoriaForm";
 import ConsolidarPorObjetoToggle from "./ConsolidarPorObjetoToggle";
 import LiberarCotaGeralOPToggle from "./LiberarCotaGeralOPToggle";
 import EditarCategoriaForm from "./EditarCategoriaForm";
-import CodigoPcaCategoriaInput from "../pca/CodigoPcaCategoriaInput";
 import { exigirAdminNaPagina } from "@/lib/auth";
 
 export default async function CategoriasPage() {
@@ -63,7 +62,6 @@ export default async function CategoriasPage() {
           <thead className="bg-slate-50 text-left text-slate-500">
             <tr>
               <th className="px-4 py-2 font-medium">Nome</th>
-              <th className="px-4 py-2 font-medium">ID PNCP (Código PCA)</th>
               <th className="px-4 py-2 font-medium">Tipo</th>
               <th className="px-4 py-2 font-medium">Rubrica</th>
               <th className="px-4 py-2 font-medium">Teto anual</th>
@@ -102,16 +100,6 @@ export default async function CategoriasPage() {
                       tipoBemPadrao: c.tipoBemPadrao,
                     }}
                   />
-                </td>
-                <td className="px-4 py-2">
-                  {c.fluxoContinuo || c.ignoraPCA ? (
-                    <span className="text-xs text-slate-400">Não se aplica (Fluxo Contínuo)</span>
-                  ) : (
-                    <CodigoPcaCategoriaInput
-                      categoriaId={c.id}
-                      valorInicial={c.codigoPcaPadrao ?? ""}
-                    />
-                  )}
                 </td>
                 <td className="px-4 py-2 text-slate-600">
                   {c.tipo === "MATERIAL"

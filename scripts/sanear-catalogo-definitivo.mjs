@@ -688,6 +688,51 @@ export async function sanearCatalogoDefinitivo(prismaClient) {
     }
     console.log(`  - ${precosRestaurados} preços que ainda estavam < R$ 100 foram restaurados diretamente pela Tabela 3.1.`);
 
+    // -------------------------------------------------------------------------
+    // 6. PARAMETRIZAÇÃO DE consolidarPorObjeto NAS CATEGORIAS (SEM TOCAR EM DFDs)
+    // -------------------------------------------------------------------------
+    console.log("\n[6/6] Sincronizando regra consolidarPorObjeto nas categorias...");
+    const CATEGORIAS_SERVICO_AGRUPADAS = [
+      "Serviços Gráficos",
+      "Serviços Serigráficos",
+      "Serviços de Fornecimento de Coffee break",
+      "Serviços diversos para eventos - Tendas Tamanhos Diversos",
+      "Serviços diversos para eventos - Veste Talar",
+      "Serviços diversos para eventos -Cerimoniais",
+      "Passagens Aéreas",
+      "Serviço emissão e entrega de bilhetes aéreos",
+      "Hospedagens",
+      "Agenciamento de hospedagem",
+      "Manutenção predial",
+      "Diárias"
+    ];
+
+    // Todos os materiais agrupam por categoria (consolidarPorObjeto = false)
+    await prisma.categoria.updateMany({
+      where: { tipo: "MATERIAL" },
+      data: { consolidarPorObjeto: false }
+    });
+
+    // Serviços agrupados por categoria (consolidarPorObjeto = false)
+    await prisma.categoria.updateMany({
+      where: {
+        tipo: "SERVICO",
+        nome: { in: CATEGORIAS_SERVICO_AGRUPADAS }
+      },
+      data: { consolidarPorObjeto: false }
+    });
+
+    // Demais serviços por objeto / obras separam por demanda/objeto (consolidarPorObjeto = true)
+    await prisma.categoria.updateMany({
+      where: {
+        tipo: "SERVICO",
+        nome: { notIn: CATEGORIAS_SERVICO_AGRUPADAS }
+      },
+      data: { consolidarPorObjeto: true }
+    });
+
+    console.log("  - Parametrização de consolidarPorObjeto nas categorias sincronizada com sucesso.");
+
     console.log("\n=== SANEAMENTO DEFINITIVO DO CATÁLOGO CONCLUÍDO COM SUCESSO! ===");
   } finally {
     if (!prismaClient) {

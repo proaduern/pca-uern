@@ -9,6 +9,7 @@ import {
   publicarPcaNoPncpApi,
   publicarEditalNoPncpApi,
 } from "@/lib/pncp-client";
+import { compilarLinhasPcaAno } from "@/lib/pca-consolidado";
 import type { ResultadoAcao } from "./tipos";
 
 // ---------------------------------------------------------------------------
@@ -46,8 +47,8 @@ export async function publicarPcaEEncaminharParaEtpAction(formData: FormData): P
       categoria: { fluxoContinuo: false, ignoraPCA: false },
     },
     include: {
-      categoria: true,
-      dfd: true,
+      categoria: { include: { setorTecnico: { select: { nome: true } } } },
+      dfd: { include: { unidade: { select: { nome: true } } } },
       consolidacaoTecnica: true,
     },
   });
@@ -56,94 +57,73 @@ export async function publicarPcaEEncaminharParaEtpAction(formData: FormData): P
     return { erro: "Não há itens de DFDs aprovados neste PCA para concluir e encaminhar." };
   }
 
-  // 3. Regra de Ouro: NUNCA inventar ID do PNCP. Verifica se todas as categorias/itens do PCA possuem ID do PNCP lançado
-  const categoriasSemPncp = new Set<string>();
-  for (const item of todosItensPca) {
-    const codEfetivo =
-      item.consolidacaoTecnica?.codigoPca?.trim() ||
-      item.codigoPncpReferencia?.trim() ||
-      item.categoria.codigoPcaPadrao?.trim() ||
-      "";
-    if (!codEfetivo) {
-      categoriasSemPncp.add(item.categoria.nome);
-    }
-  }
+  // 3. Compila as linhas do PCA conforme as regras oficiais (3 Blocos) e valida se todas possuem ID do PNCP
+  const linhasCompiladas = compilarLinhasPcaAno(
+    todosItensPca.map((it) => ({
+      id: it.id,
+      dfdId: it.dfdId,
+      dfdDescricaoSumaria: it.dfd.descricaoSumaria,
+      dfdIdSeiOrigem: it.idSeiDfdOrigem ?? it.dfd.idSeiDfdOrigem,
+      dfdProcessoSeiOrigem: it.processoSeiOrigem ?? it.dfd.processoSeiOrigem,
+      dfdTipoDemanda: it.dfd.tipoDemanda,
+      dfdStatus: it.dfd.status,
+      unidadeNome: it.dfd.unidade.nome,
+      categoriaId: it.categoriaId,
+      categoriaNome: it.categoria.nome,
+      categoriaTipo: it.categoria.tipo,
+      categoriaClassificacaoRubrica: it.categoria.classificacaoRubrica,
+      categoriaConsolidarPorObjeto: it.categoria.consolidarPorObjeto,
+      categoriaCodigoPcaPadrao: it.categoria.codigoPcaPadrao,
+      setorTecnicoId: it.categoria.setorTecnicoId,
+      setorTecnicoNome: it.categoria.setorTecnico?.nome ?? "Sem setor vinculado",
+      enquadramento: it.enquadramento,
+      valorTotal: Number(it.valorTotal),
+      codigoPncpReferencia: it.codigoPncpReferencia,
+      consolidacaoCodigoPca: it.consolidacaoTecnica?.codigoPca ?? null,
+    })),
+  );
 
-  if (categoriasSemPncp.size > 0) {
-    const lista = Array.from(categoriasSemPncp).sort();
+  const linhasSemPncp = linhasCompiladas.filter((l) => !l.codigoPncp?.trim());
+  if (linhasSemPncp.length > 0) {
+    const lista = linhasSemPncp.map((l) => l.objetoOuGrupoNome);
     return {
-      erro: `O PCA ${ano} só pode ser concluído e seguir para as demais fases (Setores Técnicos, DFD Consolidado, ETP, Mapa de Riscos e IMR) depois que TODOS os IDs do PNCP estiverem devidamente lançados no sistema. Faltam ${lista.length} categoria(s) sem ID do PNCP: ${lista.slice(0, 10).join(", ")}${lista.length > 10 ? ` e mais ${lista.length - 10}...` : "."}`,
+      erro: `O PCA ${ano} só pode ser concluído e seguir para as demais fases (Setores Técnicos, DFD Consolidado, ETP, Mapa de Riscos e IMR) depois que TODOS os IDs do PNCP estiverem devidamente lançados na compilação do PCA. Faltam ${lista.length} linha(s) compilada(s) sem ID do PNCP: ${lista.slice(0, 8).join(", ")}${lista.length > 8 ? ` e mais ${lista.length - 8}...` : "."}`,
     };
   }
 
-  // Busca todos os itens de DFDs APROVADOS deste ano que ainda não possuem consolidação técnica
-  const itensPendentes = todosItensPca.filter((it) => !it.consolidacaoTecnicaId);
-
   const hoje = new Date();
   const prazoConclusao = new Date(hoje.getTime() + 90 * 24 * 60 * 60 * 1000);
-
   const setorPadrao = await prisma.setorTecnico.findFirst({ where: { ativo: true } });
 
-  // Agrupa por categoria (quando consolidarPorObjeto = false) ou por código PNCP / item (quando consolidarPorObjeto = true)
-  const grupos = new Map<
-    string,
-    {
-      categoriaId: string;
-      setorTecnicoId: string;
-      processoSEI: string;
-      codigoPca: string;
-      itensIds: string[];
-    }
-  >();
-
+  const itensPorId = new Map(todosItensPca.map((it) => [it.id, it]));
   let seq = 1;
-  for (const item of itensPendentes) {
-    const cat = item.categoria;
-    const setorId = cat.setorTecnicoId ?? setorPadrao?.id;
-    if (!setorId) continue;
-    const codPncp =
-      item.codigoPncpReferencia?.trim() ||
-      cat.codigoPcaPadrao?.trim() ||
-      "";
-    const chave = cat.consolidarPorObjeto
-      ? `OBJ_${cat.id}_${codPncp || item.id}`
-      : `CAT_${cat.id}`;
-    const atual = grupos.get(chave);
-    if (atual) {
-      atual.itensIds.push(item.id);
-    } else {
-      const codigoSeq = String(seq++).padStart(3, "0");
-      const procSei =
-        item.processoSeiOrigem?.trim() ||
-        item.dfd.processoSeiOrigem?.trim() ||
-        `04410001.000${codigoSeq}/${ano}-PCA`;
-      grupos.set(chave, {
-        categoriaId: cat.id,
-        setorTecnicoId: setorId,
-        processoSEI: procSei,
-        codigoPca: codPncp,
-        itensIds: [item.id],
-      });
-    }
-  }
 
-  for (const g of grupos.values()) {
+  for (const linha of linhasCompiladas) {
+    const idsPendentes = linha.itensDfdIds.filter((id) => !itensPorId.get(id)?.consolidacaoTecnicaId);
+    if (idsPendentes.length === 0) continue;
+
+    const setorId = linha.setorTecnicoId ?? setorPadrao?.id;
+    if (!setorId) continue;
+
+    const codigoSeq = String(seq++).padStart(3, "0");
+    const procSei = linha.processoSeiSugerido?.trim() || `04410001.000${codigoSeq}/${ano}-PCA`;
+
     const novaConsolidacao = await prisma.consolidacaoTecnica.create({
       data: {
-        categoriaId: g.categoriaId,
-        setorTecnicoId: g.setorTecnicoId,
+        categoriaId: linha.categoriaIdPrincipal,
+        setorTecnicoId: setorId,
         pcaAno: ano,
-        processoSEI: g.processoSEI,
+        processoSEI: procSei,
         dataETP: hoje,
         prioridade: "MEDIA",
         tipoContratacao: "ATA",
         dataEsperadaConclusao: prazoConclusao,
-        codigoPca: g.codigoPca || null,
+        codigoPca: linha.codigoPncp || null,
       },
     });
 
     await prisma.itemDfd.updateMany({
-      where: { id: { in: g.itensIds } },
+      where: { id: { in: idsPendentes } },
       data: { consolidacaoTecnicaId: novaConsolidacao.id },
     });
   }

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import {
+  aprovarTodosDfdsPendentesPcaAction,
   ativarPcaAction,
   criarOuAtualizarPcaAction,
   desativarPcaAction,
@@ -22,6 +23,7 @@ interface PcaResumo {
   cotaOP?: number;
   dataAberturaIso?: string;
   dataFechamentoIso?: string;
+  dfdsAguardandoAprovacao?: number;
 }
 
 export default function PcaAcoes({ pca }: { pca: PcaResumo }) {
@@ -75,6 +77,23 @@ export default function PcaAcoes({ pca }: { pca: PcaResumo }) {
         >
           {editandoPca ? "Fechar edição" : "Editar Cotas / Datas deste PCA"}
         </button>
+        {(pca.dfdsAguardandoAprovacao ?? 0) > 0 && (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() =>
+              executar(
+                () => aprovarTodosDfdsPendentesPcaAction(pca.ano),
+                `Todos os ${pca.dfdsAguardandoAprovacao} DFDs pendentes do PCA ${pca.ano} foram aprovados com sucesso!`,
+              )
+            }
+            className="rounded-lg bg-emerald-600 px-3 py-1.5 font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+          >
+            {isPending
+              ? "Aprovando DFDs..."
+              : `Aprovar todos os ${pca.dfdsAguardandoAprovacao} DFDs aguardando aprovação`}
+          </button>
+        )}
         <label className="flex items-center gap-1">
           <input
             type="checkbox"

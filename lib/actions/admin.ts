@@ -12,6 +12,7 @@ import {
   type CotaTipo,
 } from "@/lib/cota";
 import { brl } from "@/lib/formato";
+import { compilarLinhasPcaAno } from "@/lib/pca-consolidado";
 import type { ResultadoAcao } from "./tipos";
 
 // ---------------------------------------------------------------------------
@@ -583,6 +584,73 @@ export async function salvarCodigoPcaCategoriaAction(
   revalidatePath(`/consolidacao/${categoriaId}`);
 }
 
+export async function salvarCodigoPncpLinhaCompiladaAction(opts: {
+  itensDfdIds: string[];
+  categoriaIdPrincipal: string;
+  ehAgrupadoPorCategoria: boolean;
+  codigo: string;
+}) {
+  await exigirAdmin();
+  const limpo = opts.codigo.trim() || null;
+
+  if (opts.itensDfdIds.length > 0) {
+    await prisma.itemDfd.updateMany({
+      where: { id: { in: opts.itensDfdIds } },
+      data: { codigoPncpReferencia: limpo },
+    });
+
+    const itensComConsolidacao = await prisma.itemDfd.findMany({
+      where: {
+        id: { in: opts.itensDfdIds },
+        consolidacaoTecnicaId: { not: null },
+      },
+      select: { consolidacaoTecnicaId: true },
+    });
+    const consIds = [
+      ...new Set(
+        itensComConsolidacao
+          .map((i) => i.consolidacaoTecnicaId)
+          .filter((x): x is string => !!x),
+      ),
+    ];
+    if (consIds.length > 0) {
+      await prisma.consolidacaoTecnica.updateMany({
+        where: { id: { in: consIds } },
+        data: { codigoPca: limpo },
+      });
+    }
+  }
+
+  if (opts.ehAgrupadoPorCategoria && opts.categoriaIdPrincipal) {
+    await prisma.categoria.update({
+      where: { id: opts.categoriaIdPrincipal },
+      data: { codigoPcaPadrao: limpo },
+    });
+  }
+
+  revalidatePath("/admin/pca");
+  if (opts.categoriaIdPrincipal) {
+    revalidatePath(`/consolidacao/${opts.categoriaIdPrincipal}`);
+  }
+}
+
+export async function aprovarTodosDfdsPendentesPcaAction(ano: number) {
+  await exigirAdmin();
+  const res = await prisma.dfd.updateMany({
+    where: { ano, status: "AGUARDANDO_APROVACAO" },
+    data: {
+      status: "APROVADO",
+      aprovadoEm: new Date(),
+      reprovadoEm: null,
+      motivoReprovacao: null,
+    },
+  });
+  revalidatePath("/admin/pca");
+  revalidatePath("/admin/demandas");
+  revalidatePath("/");
+  return { aprovados: res.count };
+}
+
 export async function salvarConsolidarPorObjetoAction(
   categoriaId: string,
   consolidarPorObjeto: boolean,
@@ -705,52 +773,55 @@ export async function toggleConcluidoAction(ano: number, concluido: boolean) {
       );
     }
 
-    // 2. Verifica todas as categorias que possuem demandas (DFDs aprovados ou em análise) neste PCA (exceto Fluxo Contínuo / Fora do PCA)
+    // 2. Verifica todas as linhas compiladas do PCA neste ano (exceto Fluxo Contínuo / Fora do PCA)
     const itensDoAno = await prisma.itemDfd.findMany({
       where: {
-        dfd: { ano, status: { in: ["APROVADO", "AGUARDANDO_APROVACAO"] } },
+        dfd: { ano, status: "APROVADO" },
         categoria: { fluxoContinuo: false, ignoraPCA: false },
       },
       include: {
-        categoria: true,
+        categoria: { include: { setorTecnico: { select: { nome: true } } } },
+        dfd: { include: { unidade: { select: { nome: true } } } },
         consolidacaoTecnica: true,
       },
     });
 
     if (itensDoAno.length === 0) {
       throw new Error(
-        "Nenhuma demanda de contratação vinculada a este PCA ainda — não é possível concluir.",
+        "Nenhuma demanda de contratação aprovada vinculada a este PCA ainda — aprove os DFDs antes de concluir o PCA.",
       );
     }
 
-    const categoriasSemPncp = new Set<string>();
-    for (const it of itensDoAno) {
-      const codEfetivo =
-        it.consolidacaoTecnica?.codigoPca?.trim() ||
-        it.codigoPncpReferencia?.trim() ||
-        it.categoria.codigoPcaPadrao?.trim() ||
-        "";
-      if (!codEfetivo) {
-        categoriasSemPncp.add(it.categoria.nome);
-      }
-    }
+    const linhasCompiladas = compilarLinhasPcaAno(
+      itensDoAno.map((it) => ({
+        id: it.id,
+        dfdId: it.dfdId,
+        dfdDescricaoSumaria: it.dfd.descricaoSumaria,
+        dfdIdSeiOrigem: it.idSeiDfdOrigem ?? it.dfd.idSeiDfdOrigem,
+        dfdProcessoSeiOrigem: it.processoSeiOrigem ?? it.dfd.processoSeiOrigem,
+        dfdTipoDemanda: it.dfd.tipoDemanda,
+        dfdStatus: it.dfd.status,
+        unidadeNome: it.dfd.unidade.nome,
+        categoriaId: it.categoriaId,
+        categoriaNome: it.categoria.nome,
+        categoriaTipo: it.categoria.tipo,
+        categoriaClassificacaoRubrica: it.categoria.classificacaoRubrica,
+        categoriaConsolidarPorObjeto: it.categoria.consolidarPorObjeto,
+        categoriaCodigoPcaPadrao: it.categoria.codigoPcaPadrao,
+        setorTecnicoId: it.categoria.setorTecnicoId,
+        setorTecnicoNome: it.categoria.setorTecnico?.nome ?? "Sem setor vinculado",
+        enquadramento: it.enquadramento,
+        valorTotal: Number(it.valorTotal),
+        codigoPncpReferencia: it.codigoPncpReferencia,
+        consolidacaoCodigoPca: it.consolidacaoTecnica?.codigoPca ?? null,
+      })),
+    );
 
-    // Também verifica consolidações técnicas já criadas no ano
-    const consolidacoes = await prisma.consolidacaoTecnica.findMany({
-      where: { pcaAno: ano },
-      include: { categoria: true },
-    });
-    for (const c of consolidacoes) {
-      const cod = c.codigoPca?.trim() || c.categoria.codigoPcaPadrao?.trim() || "";
-      if (!cod && !c.categoria.fluxoContinuo && !c.categoria.ignoraPCA) {
-        categoriasSemPncp.add(c.categoria.nome);
-      }
-    }
-
-    if (categoriasSemPncp.size > 0) {
-      const lista = Array.from(categoriasSemPncp).sort();
+    const linhasSemPncp = linhasCompiladas.filter((l) => !l.codigoPncp?.trim());
+    if (linhasSemPncp.length > 0) {
+      const lista = linhasSemPncp.map((l) => l.objetoOuGrupoNome);
       throw new Error(
-        `O PCA ${ano} só pode ser concluído e seguir para as demais fases (Setores Técnicos, DFD Consolidado, ETP, Mapa de Riscos e IMR) depois que TODOS os IDs do PNCP estiverem devidamente lançados no sistema. Faltam ${lista.length} categoria(s) sem ID do PNCP: ${lista.slice(0, 8).join(", ")}${lista.length > 8 ? ` e mais ${lista.length - 8}...` : "."}`,
+        `O PCA ${ano} só pode ser concluído e seguir para as demais fases (Setores Técnicos, DFD Consolidado, ETP, Mapa de Riscos e IMR) depois que TODOS os IDs do PNCP estiverem devidamente lançados na compilação do PCA. Faltam ${lista.length} linha(s) compilada(s) sem ID do PNCP: ${lista.slice(0, 6).join(", ")}${lista.length > 6 ? ` e mais ${lista.length - 6}...` : "."}`,
       );
     }
   }
