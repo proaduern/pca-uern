@@ -63,6 +63,10 @@ async function atualizarItemCatalogoSeguro(prisma, id, categoriaId, novoNome, no
       where: { id: colisao.id },
       data: { valor: valFidedigno, ativo: true }
     });
+    await prisma.solicitacaoAutorizacaoCotaGeral.updateMany({
+      where: { itemCatalogoId: id },
+      data: { itemCatalogoId: colisao.id }
+    });
     await prisma.itemCatalogo.delete({ where: { id } });
   } else {
     await prisma.itemCatalogo.update({
@@ -444,6 +448,10 @@ export async function sanearCatalogoDefinitivo(prismaClient) {
         }
 
         if (idsParaDeletar.length > 0) {
+          await prisma.solicitacaoAutorizacaoCotaGeral.updateMany({
+            where: { itemCatalogoId: { in: idsParaDeletar } },
+            data: { itemCatalogoId: null }
+          });
           await prisma.itemCatalogo.deleteMany({ where: { id: { in: idsParaDeletar } } });
         }
         const duplicatasRemovidas = idsParaDeletar.length;
@@ -498,12 +506,12 @@ export async function sanearCatalogoDefinitivo(prismaClient) {
           data: { categoriaId: catDestino.id }
         });
         await prisma.trocaOP.updateMany({
-          where: { categoriaId: catOrigem.id },
-          data: { categoriaId: catDestino.id }
+          where: { itemBCategoriaId: catOrigem.id },
+          data: { itemBCategoriaId: catDestino.id }
         });
         await prisma.solicitacaoCatalogo.updateMany({
-          where: { categoriaId: catOrigem.id },
-          data: { categoriaId: catDestino.id }
+          where: { categoriaFinalId: catOrigem.id },
+          data: { categoriaFinalId: catDestino.id }
         });
         await prisma.solicitacaoAutorizacaoCotaGeral.updateMany({
           where: { categoriaId: catOrigem.id },
