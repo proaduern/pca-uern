@@ -3,6 +3,7 @@ import { transporPca2027Oficial } from "./transpor-pca-2027-oficial.mjs";
 import { sanearPrioridadesETipificacoes } from "./sanear-prioridades-e-tipificacoes.mjs";
 import { seedCatalogo4Servicos } from "./seed-catalogo-4-servicos.mjs";
 import { aplicarTitulosDfdsESeparacao } from "./aplicar-titulos-dfds-e-separacao.mjs";
+import { sanearPrefixosEDuplicidadesCatalogo } from "./sanear-prefixos-e-duplicidades-catalogo.mjs";
 
 async function main() {
   console.log("[Deploy Migrations] Iniciando sincronização e migrações no deploy...");
@@ -34,6 +35,12 @@ async function main() {
     await aplicarTitulosDfdsESeparacao();
   } catch (e) {
     console.error("[Deploy Migrations] Erro no aplicarTitulosDfdsESeparacao:", e);
+  }
+
+  try {
+    await sanearPrefixosEDuplicidadesCatalogo();
+  } catch (e) {
+    console.error("[Deploy Migrations] Erro no sanearPrefixosEDuplicidadesCatalogo:", e);
   }
 
   try {
