@@ -83,10 +83,6 @@ export default async function AdminAprovacaoPage() {
           pendentes={pendentes.map((d) => {
             const primeiroItem = d.itens?.[0];
             const cat = primeiroItem?.categoria;
-            const codigoPncp =
-              primeiroItem?.codigoPncpReferencia ||
-              cat?.codigoPcaPadrao ||
-              null;
             return {
               id: d.id,
               ano: d.ano,
@@ -96,8 +92,6 @@ export default async function AdminAprovacaoPage() {
               setorTecnicoNome: cat?.setorTecnico?.nome || (cat?.fluxoContinuo ? "SDHP / PROAD (Fluxo Contínuo)" : "—"),
               processoSeiOrigem: d.processoSeiOrigem,
               idSeiDfdOrigem: d.idSeiDfdOrigem,
-              codigoPncp,
-              fluxoContinuo: !!(cat?.fluxoContinuo || cat?.ignoraPCA),
               prioridadeFrase: d.prioridade?.frase || "Prioridade não definida",
               totalItens: d.itens?.length || 0,
               totalValor: (d.itens || []).reduce((s, it) => s + Number(it.valorTotal || 0), 0),

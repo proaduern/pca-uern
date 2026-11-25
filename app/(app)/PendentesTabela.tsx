@@ -16,8 +16,6 @@ interface PendenteResumo {
   setorTecnicoNome?: string;
   processoSeiOrigem?: string | null;
   idSeiDfdOrigem?: string | null;
-  codigoPncp?: string | null;
-  fluxoContinuo?: boolean;
   prioridadeFrase: string;
   totalItens: number;
   totalValor: number;
@@ -48,8 +46,7 @@ export default function PendentesTabela({ pendentes }: { pendentes: PendenteResu
       p.unidadeNome.toLowerCase().includes(q) ||
       (p.setorTecnicoNome ?? "").toLowerCase().includes(q) ||
       (p.processoSeiOrigem ?? "").toLowerCase().includes(q) ||
-      (p.idSeiDfdOrigem ?? "").toLowerCase().includes(q) ||
-      (p.codigoPncp ?? "").toLowerCase().includes(q)
+      (p.idSeiDfdOrigem ?? "").toLowerCase().includes(q)
     );
   });
 
@@ -101,7 +98,7 @@ export default function PendentesTabela({ pendentes }: { pendentes: PendenteResu
             type="text"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            placeholder="Filtrar por unidade, categoria, setor técnico, SEI ou ID PNCP..."
+            placeholder="Filtrar por unidade, categoria, setor técnico ou processo SEI..."
             className="w-full max-w-sm rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs"
           />
         </div>
@@ -121,7 +118,6 @@ export default function PendentesTabela({ pendentes }: { pendentes: PendenteResu
               <th className="px-3 py-2 font-medium">Unidade Demandante</th>
               <th className="px-3 py-2 font-medium">Setor Técnico</th>
               <th className="px-3 py-2 font-medium">Processo SEI / DFD SEI</th>
-              <th className="px-3 py-2 font-medium">ID PNCP</th>
               <th className="px-3 py-2 font-medium">Itens</th>
               <th className="px-3 py-2 font-medium">Valor Total</th>
               <th className="px-3 py-2 font-medium">Ações</th>
@@ -171,24 +167,6 @@ export default function PendentesTabela({ pendentes }: { pendentes: PendenteResu
                     </button>
                   </div>
                 </td>
-                <td className="px-3 py-2 font-mono text-xs">
-                  {d.fluxoContinuo ? (
-                    <span className="rounded bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-[10px] font-semibold text-blue-800">
-                      Fluxo Contínuo
-                    </span>
-                  ) : d.codigoPncp ? (
-                    <span className="rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-800">
-                      {d.codigoPncp}
-                    </span>
-                  ) : (
-                    <Link
-                      href="/admin/pca"
-                      className="inline-block rounded bg-amber-100 border border-amber-300 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-200"
-                    >
-                      ⚠️ Sem ID PNCP (Incluir)
-                    </Link>
-                  )}
-                </td>
                 <td className="px-3 py-2 text-slate-600">{d.totalItens}</td>
                 <td className="px-3 py-2 font-medium text-slate-800">{brl(d.totalValor)}</td>
                 <td className="px-3 py-2">
@@ -198,7 +176,7 @@ export default function PendentesTabela({ pendentes }: { pendentes: PendenteResu
             ))}
             {filtrados.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={8} className="px-4 py-6 text-center text-slate-400">
                   Nenhum DFD aguardando aprovação.
                 </td>
               </tr>
