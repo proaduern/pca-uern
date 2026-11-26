@@ -4,7 +4,8 @@ import TabelaEncaminhamento, {
   DfdEncaminhamentoItem,
   SetorTecnicoOption,
 } from "./TabelaEncaminhamento";
-import { ArrowRightLeft } from "lucide-react";
+import { ArrowRightLeft, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 
 export const metadata = {
   title: "Encaminhamento aos Setores Técnicos | PCA UERN",
@@ -104,6 +105,13 @@ export default async function AdminEncaminhamentoPage() {
             Após aprovação no PCA, a PROAD confirma o envio de cada demanda para o Setor Técnico padrão da categoria ou altera o destino para comissões e setores específicos antes da consolidação e ETP.
           </p>
         </div>
+        <Link
+          href="/admin/setores-tecnicos"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-[#003366] shadow-xs hover:bg-slate-50 transition shrink-0"
+        >
+          <ShieldCheck className="h-4 w-4" />
+          <span>Gerenciar Setores Técnicos</span>
+        </Link>
       </div>
 
       <TabelaEncaminhamento

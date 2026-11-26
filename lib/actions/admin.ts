@@ -306,35 +306,146 @@ async function dadosAcessoVinculavel(formData: FormData) {
   return { vinculado: false as const, unidadeId: null, email, senhaHash };
 }
 
-export async function criarSetorTecnicoAction(formData: FormData) {
+export async function criarSetorTecnicoAction(formData: FormData): Promise<ResultadoAcao> {
   await exigirAdmin();
   const nome = String(formData.get("nome") ?? "").trim();
-  if (!nome) throw new Error("Informe o nome do setor técnico.");
-  const acesso = await dadosAcessoVinculavel(formData);
-
-  await prisma.setorTecnico.create({
-    data: { nome, ...acesso, senhaTemporaria: true },
-  });
+  if (!nome) return { erro: "Informe o nome do setor técnico." };
+  try {
+    const acesso = await dadosAcessoVinculavel(formData);
+    await prisma.setorTecnico.create({
+      data: { nome, ...acesso, senhaTemporaria: true },
+    });
+  } catch (err) {
+    return { erro: err instanceof Error ? err.message : "Erro ao criar setor técnico." };
+  }
 
   revalidatePath("/admin/setores-tecnicos");
+  revalidatePath("/admin/categorias");
+  revalidatePath("/admin/encaminhamento");
+  return {};
 }
 
-export async function excluirSetorTecnicoAction(setorTecnicoId: string) {
+export async function adicionarSetorTecnicoDaUnidadeAction(
+  formData: FormData,
+): Promise<ResultadoAcao> {
   await exigirAdmin();
-  const [categorias, consolidacoes, itensTecnicos] = await Promise.all([
-    prisma.categoria.count({ where: { setorTecnicoId } }),
+  const unidadeId = String(formData.get("unidadeId") ?? "").trim();
+  if (!unidadeId) return { erro: "Selecione a unidade/setor da UERN." };
+
+  const unidade = await prisma.unidade.findUnique({
+    where: { id: unidadeId },
+  });
+  if (!unidade) return { erro: "Unidade demandante não encontrada." };
+
+  const existente = await prisma.setorTecnico.findFirst({
+    where: { unidadeId: unidade.id },
+  });
+
+  if (existente) {
+    if (existente.ativo) {
+      return { erro: `A unidade "${unidade.nome}" já está cadastrada e ativa como Setor Técnico.` };
+    }
+    await prisma.setorTecnico.update({
+      where: { id: existente.id },
+      data: {
+        ativo: true,
+        nome: unidade.nome,
+        vinculado: true,
+      },
+    });
+  } else {
+    // Verifica se há setor existente pelo mesmo nome
+    const mesmoNome = await prisma.setorTecnico.findFirst({
+      where: { nome: { equals: unidade.nome, mode: "insensitive" } },
+    });
+    if (mesmoNome) {
+      await prisma.setorTecnico.update({
+        where: { id: mesmoNome.id },
+        data: {
+          ativo: true,
+          vinculado: true,
+          unidadeId: unidade.id,
+        },
+      });
+    } else {
+      await prisma.setorTecnico.create({
+        data: {
+          nome: unidade.nome,
+          vinculado: true,
+          unidadeId: unidade.id,
+          email: null,
+          senhaHash: null,
+          ativo: true,
+          senhaTemporaria: false,
+        },
+      });
+    }
+  }
+
+  revalidatePath("/admin/setores-tecnicos");
+  revalidatePath("/admin/categorias");
+  revalidatePath("/admin/encaminhamento");
+  revalidatePath("/admin/unidades");
+  revalidatePath("/etp-riscos");
+  return {};
+}
+
+export async function alternarStatusSetorTecnicoAction(
+  setorTecnicoId: string,
+  ativo: boolean,
+): Promise<ResultadoAcao> {
+  await exigirAdmin();
+  await prisma.setorTecnico.update({
+    where: { id: setorTecnicoId },
+    data: { ativo },
+  });
+  revalidatePath("/admin/setores-tecnicos");
+  revalidatePath("/admin/categorias");
+  revalidatePath("/admin/encaminhamento");
+  revalidatePath("/admin/unidades");
+  revalidatePath("/etp-riscos");
+  return {};
+}
+
+export async function excluirSetorTecnicoAction(
+  setorTecnicoId: string,
+): Promise<ResultadoAcao> {
+  await exigirAdmin();
+  const setor = await prisma.setorTecnico.findUnique({
+    where: { id: setorTecnicoId },
+  });
+  if (!setor) return { erro: "Setor técnico não encontrado." };
+
+  const [consolidacoes, itensTecnicos] = await Promise.all([
     prisma.consolidacaoTecnica.count({ where: { setorTecnicoId } }),
     prisma.itemTecnico.count({ where: { criadoPorId: setorTecnicoId } }),
   ]);
-  if (categorias + consolidacoes + itensTecnicos > 0) {
+
+  if (consolidacoes + itensTecnicos > 0) {
     await prisma.setorTecnico.update({
       where: { id: setorTecnicoId },
       data: { ativo: false },
     });
   } else {
-    await prisma.setorTecnico.delete({ where: { id: setorTecnicoId } });
+    await prisma.$transaction([
+      prisma.categoria.updateMany({
+        where: { setorTecnicoId },
+        data: { setorTecnicoId: null },
+      }),
+      prisma.dfd.updateMany({
+        where: { setorTecnicoDestinoId: setorTecnicoId, statusEncaminhamento: "PENDENTE_DISTRIBUICAO" },
+        data: { setorTecnicoDestinoId: null },
+      }),
+      prisma.setorTecnico.delete({ where: { id: setorTecnicoId } }),
+    ]);
   }
+
   revalidatePath("/admin/setores-tecnicos");
+  revalidatePath("/admin/categorias");
+  revalidatePath("/admin/encaminhamento");
+  revalidatePath("/admin/unidades");
+  revalidatePath("/etp-riscos");
+  return {};
 }
 
 export async function redefinirSenhaSetorTecnicoAction(

@@ -11,7 +11,7 @@ import AtuarComoBotao from "../AtuarComoBotao";
 import { exigirAdminNaPagina } from "@/lib/auth";
 
 import Link from "next/link";
-import { Users } from "lucide-react";
+import { Users, Building2 } from "lucide-react";
 
 export default async function UnidadesPage() {
   await exigirAdminNaPagina();
@@ -33,13 +33,22 @@ export default async function UnidadesPage() {
             Unidades gestoras e demandantes cadastradas no sistema.
           </p>
         </div>
-        <Link
-          href="/admin/usuarios"
-          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-[#003366] shadow-xs hover:bg-slate-50 transition"
-        >
-          <Users className="h-4 w-4" />
-          <span>Ver Usuários das Unidades</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/setores-tecnicos"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-[#003366] shadow-xs hover:bg-slate-50 transition"
+          >
+            <Building2 className="h-4 w-4" />
+            <span>Ver Setores Técnicos</span>
+          </Link>
+          <Link
+            href="/admin/usuarios"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-[#003366] shadow-xs hover:bg-slate-50 transition"
+          >
+            <Users className="h-4 w-4" />
+            <span>Ver Usuários das Unidades</span>
+          </Link>
+        </div>
       </div>
 
       <NovaUnidadeForm />

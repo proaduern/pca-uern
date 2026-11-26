@@ -12,6 +12,8 @@ import ConsolidarPorObjetoToggle from "./ConsolidarPorObjetoToggle";
 import LiberarCotaGeralOPToggle from "./LiberarCotaGeralOPToggle";
 import EditarCategoriaForm from "./EditarCategoriaForm";
 import { exigirAdminNaPagina } from "@/lib/auth";
+import Link from "next/link";
+import { ShieldCheck } from "lucide-react";
 
 export default async function CategoriasPage() {
   await exigirAdminNaPagina();
@@ -32,12 +34,23 @@ export default async function CategoriasPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-lg font-semibold text-slate-900">Categorias</h1>
-      <p className="text-sm text-slate-500">
-        &quot;Sem item&quot; = categoria de material sem catálogo (demandante
-        informa só o valor, ex.: obras). Categorias de serviço não usam
-        catálogo, exceto no modo &quot;itens&quot;.
-      </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-lg font-semibold text-slate-900">Categorias</h1>
+          <p className="text-sm text-slate-500">
+            &quot;Sem item&quot; = categoria de material sem catálogo (demandante
+            informa só o valor, ex.: obras). Categorias de serviço não usam
+            catálogo, exceto no modo &quot;itens&quot;.
+          </p>
+        </div>
+        <Link
+          href="/admin/setores-tecnicos"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-[#003366] shadow-xs hover:bg-slate-50 transition shrink-0"
+        >
+          <ShieldCheck className="h-4 w-4" />
+          <span>Gerenciar Setores Técnicos</span>
+        </Link>
+      </div>
 
       <NovaCategoriaForm />
 

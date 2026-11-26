@@ -58,6 +58,7 @@ export default async function AppLayout({
       { href: "/admin/consolidacao", label: "Resumo Orçamentário do PCA" },
       { href: "/admin/unidades", label: "Unidades Demandantes" },
       { href: "/admin/usuarios", label: "Usuários das Unidades" },
+      { href: "/admin/setores-tecnicos", label: "Setores Técnicos" },
       { href: "/admin/categorias", label: "Categorias e Competências" },
       { href: "/admin/catalogo", label: "Catálogo de Itens" },
       { href: "/admin/solicitacoes", label: "Solicitações de Catálogo" },
