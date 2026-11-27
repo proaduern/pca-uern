@@ -55,16 +55,35 @@ export default async function AdminEncaminhamentoPage() {
     const totalValor = d.itens.reduce((sum, it) => sum + Number(it.valorTotal || 0), 0);
     const consolidado = d.itens.some((it) => it.consolidacaoTecnicaId !== null);
 
+    const categoriasUnicas = [
+      ...new Set(d.itens.map((it) => it.categoria?.nome).filter(Boolean)),
+    ];
+    const contagemPorSetor = new Map<string, number>();
+    for (const it of d.itens) {
+      const c = it.categoria;
+      const nomeSetor =
+        c?.setorTecnico?.nome ||
+        (c?.fluxoContinuo ? "SDHP / PROAD (Fluxo Contínuo)" : "Não definido");
+      contagemPorSetor.set(nomeSetor, (contagemPorSetor.get(nomeSetor) ?? 0) + 1);
+    }
+    const setoresDetalhados = [...contagemPorSetor.entries()];
+    const setorTecnicoPadraoNome =
+      setoresDetalhados.length === 0
+        ? "Não definido"
+        : setoresDetalhados.length === 1
+          ? setoresDetalhados[0][0]
+          : setoresDetalhados.map(([nome, qtd]) => `${nome} (${qtd})`).join(" + ");
+
     return {
       id: d.id,
       ano: d.ano,
       numero: d.numero,
       descricaoSumaria: d.descricaoSumaria || "Demanda sem descrição",
       unidadeNome: d.unidade?.nome || "Unidade não identificada",
-      categoriaNome: cat?.nome || "Sem categoria",
+      categoriaNome: categoriasUnicas.length > 0 ? categoriasUnicas.join(" + ") : "Sem categoria",
       categoriaId: cat?.id || "",
       setorTecnicoPadraoId: setorPadrao?.id || null,
-      setorTecnicoPadraoNome: setorPadrao?.nome || (cat?.fluxoContinuo ? "SDHP / PROAD (Fluxo Contínuo)" : "Não definido"),
+      setorTecnicoPadraoNome,
       setorTecnicoDestinoId: d.setorTecnicoDestinoId,
       setorTecnicoDestinoNome: d.setorTecnicoDestino?.nome || null,
       statusEncaminhamento: d.statusEncaminhamento,

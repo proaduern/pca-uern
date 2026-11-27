@@ -219,6 +219,20 @@ export default async function PcaPage() {
         );
 
         const totaisAno = totaisConsolidado(linhasCompiladas);
+        let fonte500GeralAno = 0;
+        let fonte500OpAno = 0;
+        for (const it of itensDoAno) {
+          const val = Number(it.valorTotal);
+          if (it.enquadramento === "OP") {
+            fonte500OpAno += val;
+          } else if (it.enquadramento !== "CONVENIO" && it.enquadramento !== "RECURSOS_EXTRA") {
+            fonte500GeralAno += val;
+          }
+        }
+        const conveniosEOutrasAno = totaisAno.convenio + totaisAno.recursosExtra;
+        const tetoGeralSemOp = Number(pca.cotaGeral) - Number(pca.cotaOP);
+        const saldoFonte500Global = Number(pca.cotaGeral) - totaisAno.fonte500;
+
         const bloco1Materiais = linhasCompiladas.filter(
           (l) => l.bloco === "MATERIAIS_AGRUPADOS",
         );
@@ -279,35 +293,72 @@ export default async function PcaPage() {
               )}
             </div>
 
-            {/* Cards de Resumo Orçamentário e Compilação por Fonte */}
-            <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+            {/* Cards de Resumo Orçamentário e Compilação por Fonte (Controle Interno PROAD) */}
+            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-5">
               <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-                <p className="text-xs text-slate-500">Convênios</p>
+                <p className="text-xs font-medium text-slate-600">Convênios e Outras Fontes</p>
                 <p className="text-base font-bold text-slate-900">
-                  {brl(totaisAno.convenio)}
+                  {brl(conveniosEOutrasAno)}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Convênios: <strong>{brl(totaisAno.convenio)}</strong>
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  Outras Fontes (Unidade): {brl(totaisAno.recursosExtra)}
                 </p>
               </div>
+
               <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-                <p className="text-xs text-slate-500">Outras Fontes (Unidade)</p>
+                <p className="text-xs font-medium text-slate-600">Fonte 500 — Cota Geral</p>
                 <p className="text-base font-bold text-slate-900">
-                  {brl(totaisAno.recursosExtra)}
+                  {brl(fonte500GeralAno)}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Teto Geral (s/ OP): {brl(tetoGeralSemOp)}
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  Saldo Cota Geral: {brl(tetoGeralSemOp - fonte500GeralAno)}
                 </p>
               </div>
+
               <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-                <p className="text-xs text-slate-500">Fonte 500 (Geral + OP)</p>
+                <p className="text-xs font-medium text-slate-600">Fonte 500 — Cota OP</p>
+                <p className="text-base font-bold text-slate-900">
+                  {brl(fonte500OpAno)}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Teto Cota OP: {brl(pca.cotaOP)}
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  {((fonte500OpAno / Math.max(1, Number(pca.cotaOP))) * 100).toFixed(1)}% da Cota OP cadastrada
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                <p className="text-xs font-semibold text-slate-700">
+                  Fonte 500 Consolidada (Geral + OP)
+                </p>
                 <p className="text-base font-bold text-slate-900">
                   {brl(totaisAno.fonte500)}
                 </p>
-                <p className="text-[11px] text-slate-400">
-                  Teto Cota Geral: {brl(pca.cotaGeral)} (OP: {brl(pca.cotaOP)})
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Teto Global Fonte 500: {brl(pca.cotaGeral)} (
+                  {((totaisAno.fonte500 / Math.max(1, Number(pca.cotaGeral))) * 100).toFixed(1)}%)
+                </p>
+                <p className="text-[11px] text-emerald-700 font-medium">
+                  Saldo Fonte 500: {brl(saldoFonte500Global)}
                 </p>
               </div>
+
               <div className="rounded-xl border border-[#003366]/20 bg-blue-50/50 p-3">
-                <p className="text-xs font-medium text-[#003366]">
+                <p className="text-xs font-semibold text-[#003366]">
                   TOTAL COMPILADO PCA {pca.ano}
                 </p>
                 <p className="text-base font-black text-[#003366]">
                   {brl(totaisAno.total)}
+                </p>
+                <p className="text-[11px] text-slate-600 mt-0.5">
+                  Fonte 500 + Convênios + Outras Fontes
                 </p>
                 <p className="text-[11px] text-slate-500">
                   Janela: {formatarData(pca.dataAbertura)} a{" "}

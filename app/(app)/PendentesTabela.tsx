@@ -14,6 +14,7 @@ interface PendenteResumo {
   descricaoSumaria: string;
   unidadeNome: string;
   setorTecnicoNome?: string;
+  setoresDetalhados?: { nome: string; qtdItens: number }[];
   processoSeiOrigem?: string | null;
   idSeiDfdOrigem?: string | null;
   prioridadeFrase: string;
@@ -141,7 +142,30 @@ export default function PendentesTabela({ pendentes }: { pendentes: PendenteResu
                   <div className="text-[11px] text-slate-500">Prioridade: {d.prioridadeFrase}</div>
                 </td>
                 <td className="px-3 py-2 font-medium text-slate-700">{d.unidadeNome}</td>
-                <td className="px-3 py-2 text-xs text-slate-600">{d.setorTecnicoNome ?? "—"}</td>
+                <td className="px-3 py-2 text-xs text-slate-600">
+                  {d.setoresDetalhados && d.setoresDetalhados.length > 1 ? (
+                    <div className="space-y-1">
+                      <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+                        Múltiplos Setores ({d.setoresDetalhados.length})
+                      </span>
+                      <div className="flex flex-col gap-0.5">
+                        {d.setoresDetalhados.map((s) => (
+                          <span
+                            key={s.nome}
+                            className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-700"
+                          >
+                            <span>{s.nome}</span>
+                            <span className="text-[10px] font-bold text-[#003366]">
+                              ({s.qtdItens} {s.qtdItens === 1 ? "item" : "itens"})
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <span>{d.setorTecnicoNome ?? "—"}</span>
+                  )}
+                </td>
                 <td className="px-3 py-2 font-mono text-xs text-slate-600">
                   <div className="flex items-start justify-between gap-1">
                     <div>

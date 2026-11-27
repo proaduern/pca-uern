@@ -25,7 +25,13 @@ export default async function DfdDetalhePage({
   const dfd = await prisma.dfd.findUnique({
     where: { id },
     include: {
-      itens: { include: { categoria: true, trocaOP: true }, orderBy: { createdAt: "asc" } },
+      itens: {
+        include: {
+          categoria: { include: { setorTecnico: { select: { nome: true } } } },
+          trocaOP: true,
+        },
+        orderBy: { createdAt: "asc" },
+      },
       unidade: true,
       setorInterno: true,
     },
@@ -140,8 +146,11 @@ export default async function DfdDetalhePage({
                   {it.itemCatalogoNome || it.itemNomeLivre}
                 </p>
                 <p className="text-xs text-slate-500">
-                  {it.categoria.nome} · {it.tipo === "MATERIAL" ? "Material" : "Serviço"} ·
-                  Enquadramento: {it.enquadramento}
+                  {it.categoria.nome} · {it.tipo === "MATERIAL" ? "Material" : "Serviço"}
+                  {it.categoria.setorTecnico?.nome
+                    ? ` · Setor Técnico: ${it.categoria.setorTecnico.nome}`
+                    : ""}
+                  {" · "}Enquadramento: {it.enquadramento}
                   {it.quantidade ? ` · Qtd: ${it.quantidade}` : ""}
                 </p>
                 {it.enquadramento === "RECURSOS_EXTRA" && (

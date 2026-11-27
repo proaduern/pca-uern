@@ -81,15 +81,33 @@ export default async function AdminAprovacaoPage() {
 
         <PendentesTabela
           pendentes={pendentes.map((d) => {
-            const primeiroItem = d.itens?.[0];
-            const cat = primeiroItem?.categoria;
+            const contagemPorSetor = new Map<string, number>();
+            for (const it of d.itens ?? []) {
+              const cat = it.categoria;
+              const nomeSetor =
+                cat?.setorTecnico?.nome ||
+                (cat?.fluxoContinuo ? "SDHP / PROAD (Fluxo Contínuo)" : "Sem setor");
+              contagemPorSetor.set(nomeSetor, (contagemPorSetor.get(nomeSetor) ?? 0) + 1);
+            }
+            const setoresDetalhados = [...contagemPorSetor.entries()].map(([nome, qtdItens]) => ({
+              nome,
+              qtdItens,
+            }));
+            const setorTecnicoNome =
+              setoresDetalhados.length === 0
+                ? "—"
+                : setoresDetalhados.length === 1
+                  ? setoresDetalhados[0].nome
+                  : setoresDetalhados.map((s) => `${s.nome} (${s.qtdItens})`).join(" + ");
+
             return {
               id: d.id,
               ano: d.ano,
               numero: d.numero,
               descricaoSumaria: d.descricaoSumaria || "DFD sem descrição",
               unidadeNome: d.unidade?.nome || "Unidade não identificada",
-              setorTecnicoNome: cat?.setorTecnico?.nome || (cat?.fluxoContinuo ? "SDHP / PROAD (Fluxo Contínuo)" : "—"),
+              setorTecnicoNome,
+              setoresDetalhados,
               processoSeiOrigem: d.processoSeiOrigem,
               idSeiDfdOrigem: d.idSeiDfdOrigem,
               prioridadeFrase: d.prioridade?.frase || "Prioridade não definida",
