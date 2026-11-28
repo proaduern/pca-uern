@@ -6,7 +6,9 @@ import {
   totaisConsolidado,
   type LinhaCompiladaPca,
 } from "@/lib/pca-consolidado";
+import { calcularAuditoriaCotaOP } from "@/lib/auditoria-cota-op";
 import FormularioSimples from "../FormularioSimples";
+import ModalAuditoriaCotaOP from "../ModalAuditoriaCotaOP";
 import PcaAcoes from "./PcaAcoes";
 import CodigoPcaInput from "./CodigoPcaInput";
 import CodigoPncpLinhaCompiladaInput from "./CodigoPncpLinhaCompiladaInput";
@@ -139,27 +141,57 @@ function TabelaBlocoCompilado({
 
 export default async function PcaPage() {
   await exigirAdminNaPagina();
-  const [pcas, unidades, consolidacoes, todosItensDfd, contagemDfdsPorAnoStatus] =
-    await Promise.all([
-      prisma.pca.findMany({ orderBy: { ano: "desc" }, include: { excecoes: true } }),
-      prisma.unidade.findMany({ orderBy: { nome: "asc" } }),
-      prisma.consolidacaoTecnica.findMany({ include: { categoria: true } }),
-      prisma.itemDfd.findMany({
-        where: {
-          dfd: { status: { in: ["APROVADO", "AGUARDANDO_APROVACAO"] } },
-          categoria: { ativa: true, ignoraPCA: false, fluxoContinuo: false },
+  const [
+    pcas,
+    unidades,
+    consolidacoes,
+    todosItensDfd,
+    contagemDfdsPorAnoStatus,
+    todosItensOpAuditoria,
+  ] = await Promise.all([
+    prisma.pca.findMany({ orderBy: { ano: "desc" }, include: { excecoes: true } }),
+    prisma.unidade.findMany({ orderBy: { nome: "asc" } }),
+    prisma.consolidacaoTecnica.findMany({ include: { categoria: true } }),
+    prisma.itemDfd.findMany({
+      where: {
+        dfd: { status: { in: ["APROVADO", "AGUARDANDO_APROVACAO"] } },
+        categoria: { ativa: true, ignoraPCA: false, fluxoContinuo: false },
+      },
+      include: {
+        categoria: { include: { setorTecnico: { select: { nome: true } } } },
+        dfd: { include: { unidade: { select: { nome: true } } } },
+        consolidacaoTecnica: { select: { codigoPca: true } },
+      },
+    }),
+    prisma.dfd.groupBy({
+      by: ["ano", "status"],
+      _count: { _all: true },
+    }),
+    prisma.itemDfd.findMany({
+      where: {
+        enquadramento: "OP",
+        dfd: { status: { in: ["APROVADO", "AGUARDANDO_APROVACAO"] } },
+      },
+      select: {
+        id: true,
+        dfdId: true,
+        valorTotal: true,
+        dfd: {
+          select: {
+            ano: true,
+            numero: true,
+            descricaoSumaria: true,
+            status: true,
+            unidadeId: true,
+            unidade: { select: { nome: true } },
+          },
         },
-        include: {
-          categoria: { include: { setorTecnico: { select: { nome: true } } } },
-          dfd: { include: { unidade: { select: { nome: true } } } },
-          consolidacaoTecnica: { select: { codigoPca: true } },
+        categoria: {
+          select: { nome: true, ignoraPCA: true, fluxoContinuo: true },
         },
-      }),
-      prisma.dfd.groupBy({
-        by: ["ano", "status"],
-        _count: { _all: true },
-      }),
-    ]);
+      },
+    }),
+  ]);
 
   const nomeUnidade = (id: string) => unidades.find((u) => u.id === id)?.nome ?? id;
 
@@ -220,18 +252,45 @@ export default async function PcaPage() {
 
         const totaisAno = totaisConsolidado(linhasCompiladas);
         let fonte500GeralAno = 0;
-        let fonte500OpAno = 0;
         for (const it of itensDoAno) {
           const val = Number(it.valorTotal);
-          if (it.enquadramento === "OP") {
-            fonte500OpAno += val;
-          } else if (it.enquadramento !== "CONVENIO" && it.enquadramento !== "RECURSOS_EXTRA") {
+          if (
+            it.enquadramento !== "OP" &&
+            it.enquadramento !== "CONVENIO" &&
+            it.enquadramento !== "RECURSOS_EXTRA"
+          ) {
             fonte500GeralAno += val;
           }
         }
         const conveniosEOutrasAno = totaisAno.convenio + totaisAno.recursosExtra;
         const tetoGeralSemOp = Number(pca.cotaGeral) - Number(pca.cotaOP);
         const saldoFonte500Global = Number(pca.cotaGeral) - totaisAno.fonte500;
+        const auditoriaOpAno = calcularAuditoriaCotaOP({
+          ano: pca.ano,
+          tetoGlobalCotaOP: Number(pca.cotaOP),
+          unidades: unidades.map((u) => ({
+            id: u.id,
+            nome: u.nome,
+            elegivelCotaOP: u.elegivelCotaOP,
+            cotaOP: Number(u.cotaOP),
+            ativa: u.ativa,
+          })),
+          itensOp: todosItensOpAuditoria
+            .filter((it) => it.dfd.ano === pca.ano)
+            .map((it) => ({
+              id: it.id,
+              dfdId: it.dfdId,
+              dfdNumero: it.dfd.numero,
+              dfdDescricaoSumaria: it.dfd.descricaoSumaria,
+              dfdStatus: it.dfd.status,
+              unidadeId: it.dfd.unidadeId,
+              unidadeNome: it.dfd.unidade.nome,
+              categoriaNome: it.categoria.nome,
+              ignoraPCA: it.categoria.ignoraPCA,
+              fluxoContinuo: it.categoria.fluxoContinuo,
+              valorTotal: Number(it.valorTotal),
+            })),
+        });
 
         const bloco1Materiais = linhasCompiladas.filter(
           (l) => l.bloco === "MATERIAIS_AGRUPADOS",
@@ -321,18 +380,7 @@ export default async function PcaPage() {
                 </p>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-                <p className="text-xs font-medium text-slate-600">Fonte 500 — Cota OP</p>
-                <p className="text-base font-bold text-slate-900">
-                  {brl(fonte500OpAno)}
-                </p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Teto Cota OP: {brl(pca.cotaOP)}
-                </p>
-                <p className="text-[11px] text-slate-400">
-                  {((fonte500OpAno / Math.max(1, Number(pca.cotaOP))) * 100).toFixed(1)}% da Cota OP cadastrada
-                </p>
-              </div>
+              <ModalAuditoriaCotaOP resumo={auditoriaOpAno} variant="card-pca" />
 
               <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
                 <p className="text-xs font-semibold text-slate-700">

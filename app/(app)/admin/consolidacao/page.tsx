@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { exigirAdminNaPagina } from "@/lib/auth";
 import { brl } from "@/lib/formato";
+import { calcularAuditoriaCotaOP } from "@/lib/auditoria-cota-op";
+import ModalAuditoriaCotaOP from "../ModalAuditoriaCotaOP";
 import ExportarCsvBotao from "./ExportarCsvBotao";
 
 const STATUS_COMPROMETEM_ORCAMENTO = ["AGUARDANDO_APROVACAO", "APROVADO"] as const;
@@ -22,9 +24,53 @@ export default async function ConsolidacaoGeralPage() {
     );
   }
 
-  const itens = await prisma.itemDfd.findMany({
-    where: { dfd: { ano: pca.ano, status: { in: [...STATUS_COMPROMETEM_ORCAMENTO] } } },
-    include: { categoria: true },
+  const [itens, unidades] = await Promise.all([
+    prisma.itemDfd.findMany({
+      where: { dfd: { ano: pca.ano, status: { in: [...STATUS_COMPROMETEM_ORCAMENTO] } } },
+      include: {
+        categoria: true,
+        dfd: {
+          select: {
+            id: true,
+            numero: true,
+            descricaoSumaria: true,
+            status: true,
+            unidadeId: true,
+            unidade: { select: { nome: true } },
+          },
+        },
+      },
+    }),
+    prisma.unidade.findMany({
+      select: { id: true, nome: true, elegivelCotaOP: true, cotaOP: true, ativa: true },
+    }),
+  ]);
+
+  const auditoriaOp = calcularAuditoriaCotaOP({
+    ano: pca.ano,
+    tetoGlobalCotaOP: Number(pca.cotaOP),
+    unidades: unidades.map((u) => ({
+      id: u.id,
+      nome: u.nome,
+      elegivelCotaOP: u.elegivelCotaOP,
+      cotaOP: Number(u.cotaOP),
+      ativa: u.ativa,
+    })),
+    itensOp: itens
+      .filter((it) => it.enquadramento === "OP")
+      .map((it) => ({
+        id: it.id,
+        dfdId: it.dfdId,
+        dfdNumero: it.dfd.numero,
+        dfdDescricaoSumaria: it.dfd.descricaoSumaria,
+        dfdStatus: it.dfd.status,
+        unidadeId: it.dfd.unidadeId,
+        unidadeNome: it.dfd.unidade.nome,
+        categoriaNome: it.categoria.nome,
+        ignoraPCA: it.categoria.ignoraPCA,
+        fluxoContinuo: it.categoria.fluxoContinuo,
+        valorTotal: Number(it.valorTotal),
+      })),
   });
 
   const itensDoPca = itens.filter((it) => !it.categoria.ignoraPCA);
@@ -175,6 +221,7 @@ export default async function ConsolidacaoGeralPage() {
           <p className="text-[11px] text-slate-400">
             {((totalFonte500 / Math.max(1, Number(pca.cotaGeral))) * 100).toFixed(1)}% da cota global da Fonte 500
           </p>
+          <ModalAuditoriaCotaOP resumo={auditoriaOp} variant="inline-consolidacao" />
         </div>
 
         <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
